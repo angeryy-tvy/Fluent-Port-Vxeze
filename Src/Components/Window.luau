@@ -43,7 +43,6 @@ return function(Config)
 	local Dragging, DragInput, MousePos, StartPos = false
 	local Resizing, ResizePos = false
 	local MinimizeNotif = false
-	local IsDraggingHideButton, DragInputHideButton, DragStart, DragStartPos = false
 
 	Window.AcrylicPaint = Acrylic.AcrylicPaint()
 	Window.TabWidth = Config.TabWidth
@@ -140,15 +139,40 @@ return function(Config)
 		ResizeStartFrame,
 	})
 
-	Window.HideButton = New("ImageButton", {
-		Visible = Library.Utilities:GetOS() == "Mobile",
-		Size = Config.Mobile.Size,
-		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -Config.Mobile.Size.X.Offset - 25, 0.5, -Config.Mobile.Size.Y.Offset / 2),
+	-- Dynamic Island Pill - appears when UI is minimized
+	Window.DynamicIsland = New("Frame", {
+		Size = UDim2.fromOffset(120, 40),
+		Position = UDim2.new(0.5, -60, 0, 20),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+		BackgroundTransparency = 1, -- Start hidden
 		Parent = Config.Parent,
-		Image = Config.Mobile.GetIcon(false).Image,
-		ImageRectOffset = Config.Mobile.GetIcon(false).ImageRectOffset,
-		ImageRectSize = Config.Mobile.GetIcon(false).ImageRectSize
+		ZIndex = 10,
+		Visible = false,
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0.5, 0), -- Pill shape
+		}),
+		New("UIStroke", {
+			Color = Color3.fromRGB(60, 60, 60),
+			Transparency = 0,
+			Thickness = 1,
+		}),
+		New("ImageButton", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Image = "",
+			ZIndex = 11,
+		}),
+		New("ImageLabel", {
+			Size = UDim2.fromOffset(20, 20),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://7733964640", -- Menu icon
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			ZIndex = 12,
+		}),
 	})
 
 	Window.TitleBar = require(script.Parent.TitleBar)({
@@ -176,6 +200,7 @@ return function(Config)
 	Window.SelectorSizeMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerBackMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerPosMotor = Flipper.SingleMotor.new(94)
+	Window.DynamicIslandMotor = Flipper.SingleMotor.new(1) -- Start hidden (transparency = 1)
 
 	SizeMotor:onStep(function(values)
 		Window.Root.Size = UDim2.new(0, values.X, 0, values.Y)
@@ -209,6 +234,19 @@ return function(Config)
 
 	Window.ContainerPosMotor:onStep(function(Value)
 		Window.ContainerAnim.Position = UDim2.fromOffset(0, Value)
+	end)
+
+	Window.DynamicIslandMotor:onStep(function(Value)
+		Window.DynamicIsland.BackgroundTransparency = Value
+		-- Also fade the stroke and icon
+		local Stroke = Window.DynamicIsland:FindFirstChildOfClass("UIStroke")
+		local Icon = Window.DynamicIsland:FindFirstChildOfClass("ImageLabel")
+		if Stroke then
+			Stroke.Transparency = Value
+		end
+		if Icon then
+			Icon.ImageTransparency = Value
+		end
 	end)
 
 	local OldSizeX
@@ -333,6 +371,19 @@ return function(Config)
 		Window.Minimized = not Window.Minimized
 		Window.Root.Visible = not Window.Minimized
 
+		-- Toggle Dynamic Island pill
+		if Window.Minimized then
+			-- UI is hidden, show the Dynamic Island pill
+			Window.DynamicIsland.Visible = true
+			Window.DynamicIslandMotor:setGoal(Spring(0.2, { frequency = 6 })) -- Fade in (semi-transparent)
+		else
+			-- UI is shown, hide the Dynamic Island pill
+			Window.DynamicIslandMotor:setGoal(Spring(1, { frequency = 6 })) -- Fade out
+			task.delay(0.2, function() -- Wait for animation to complete
+				Window.DynamicIsland.Visible = false
+			end)
+		end
+
 		Window.OnMinimized:Fire(tick(), Window.Root.Visible)
 
 		if not MinimizeNotif then
@@ -345,12 +396,6 @@ return function(Config)
 				Content = `Press {Library.Utilities:Prettify(Key)} to toggle the interface.`,
 				Duration = 6
 			})
-		end
-		if Library.Utilities:GetOS() == "Mobile" then
-			local Icon = Config.Mobile.GetIcon(Window.Minimized)
-			Window.HideButton.Image = Icon.Image
-			Window.HideButton.ImageRectOffset = Icon.ImageRectOffset
-			Window.HideButton.ImageRectSize = Icon.ImageRectSiz
 		end
 		Window.PostMinimized:Fire(tick(), Window.Root.Visible)
 	end
@@ -369,53 +414,16 @@ return function(Config)
 		end
 	end)
 
-	Creator.AddSignal(Window.HideButton.InputBegan, function(Input)
-		if
-			Input.UserInputType == Enum.UserInputType.MouseButton1
-			or Input.UserInputType == Enum.UserInputType.Touch
-		then
-			IsDraggingHideButton = true
-			DragStart = Input.Position
-			DragStartPos = Window.HideButton.Position
-
-			Input.Changed:Connect(function()
-				if Input.UserInputState == Enum.UserInputState.End then
-					IsDraggingHideButton = false
-				end
-			end)
-		end
-	end)
-
-	Creator.AddSignal(Window.HideButton.InputChanged, function(Input)
-		if
-			Input.UserInputType == Enum.UserInputType.MouseMovement
-			or Input.UserInputType == Enum.UserInputType.Touch
-		then
-			DragInputHideButton = Input
-		end
-	end)
-
-	Creator.AddSignal(UserInputService.InputChanged, function(Input)
-		if Input == DragInputHideButton and IsDraggingHideButton then
-		        local delta = Input.Position - DragStart
-			Window.HideButton.Position = UDim2.new(DragStartPos.X.Scale, DragStartPos.X.Offset + delta.X, DragStartPos.Y.Scale, DragStartPos.Y.Offset + delta.Y)
-		end
-	end)
-
-	if Library.Utilities:GetOS() == "Mobile" then
-		Creator.AddSignal(Window.HideButton.TouchTap, function()
-			Window.Minimized = not Window.Minimized
-       			Window.Root.Visible = not Window.Minimized
-			local Icon = Config.Mobile.GetIcon(Window.Minimized)
-			Window.HideButton.Image = Icon.Image
-			Window.HideButton.ImageRectOffset = Icon.ImageRectOffset
-			Window.HideButton.ImageRectSize = Icon.ImageRectSize
+	-- Dynamic Island pill click handler (works for all platforms)
+	local DynamicIslandButton = Window.DynamicIsland:FindFirstChildOfClass("ImageButton")
+	if DynamicIslandButton then
+		Creator.AddSignal(DynamicIslandButton.MouseButton1Click, function()
+			Window:Minimize()
 		end)
-	else
-		Creator.AddSignal(Window.HideButton.MouseButton1Click, function()
-			Window.Minimized = not Window.Minimized
-       			Window.Root.Visible = not Window.Minimized
-		end)	
+		
+		Creator.AddSignal(DynamicIslandButton.TouchTap, function()
+			Window:Minimize()
+		end)
 	end
 
 	function Window:Destroy()
