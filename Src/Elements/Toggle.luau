@@ -102,7 +102,54 @@ function Element:New(Idx, Config)
 		Library.Options[Idx] = nil
 	end
 
+	-- Lock Functionality
+	function Toggle:Lock(Reason)
+		if Toggle.Locked then return end
+		Toggle.Locked = true
+		Toggle.SetDesc(nil) -- Hide description to clean up space if needed, or just keep it
+		
+		if not Toggle.LockIcon then
+			Toggle.LockIcon = New("ImageLabel", {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Size = UDim2.fromOffset(14, 14),
+				Position = UDim2.new(0, 2, 0.5, 0), -- Position over the circle or next to it? 
+				-- Let's put it over the toggle slider area
+				Parent = ToggleSlider, 
+				Image = "rbxassetid://3926305904",
+				ImageColor3 = Color3.fromRGB(255, 255, 255),
+				BackgroundTransparency = 1,
+				ZIndex = 5, -- Ensure it's on top
+				ThemeTag = {
+					ImageColor3 = "Text",
+				},
+			})
+			-- Center the lock on the slider
+			Toggle.LockIcon.Position = UDim2.new(0.5, -7, 0.5, -7)
+			Toggle.LockIcon.AnchorPoint = Vector2.new(0,0)
+		end
+		Toggle.LockIcon.Visible = true
+		
+		ToggleSlider.BackgroundTransparency = 0.5
+		ToggleFrame.Frame.BackgroundTransparency = 0.5
+		ToggleFrame.TitleLabel.TextTransparency = 0.5
+	end
+
+	function Toggle:Unlock()
+		if not Toggle.Locked then return end
+		Toggle.Locked = false
+		
+		if Toggle.LockIcon then
+			Toggle.LockIcon.Visible = false
+		end
+		
+		ToggleFrame.SetDesc(Config.Description) 
+		ToggleSlider.BackgroundTransparency = Toggle.Value and 0 or 1 -- Restore correct transparency
+		ToggleFrame.Frame.BackgroundTransparency = 0
+		ToggleFrame.TitleLabel.TextTransparency = 0
+	end
+
 	Creator.AddSignal(ToggleFrame.Frame.MouseButton1Click, function()
+		if Toggle.Locked then return end
 		Toggle:SetValue(not Toggle.Value)
 	end)
 

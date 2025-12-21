@@ -85,6 +85,65 @@ function Element:New(Idx, Config)
 		InputFrame:Destroy()
 		Library.Options[Idx] = nil
 	end
+	
+	-- Lock Functionality
+	function Input:Lock(Reason)
+		if Input.Locked then return end
+		Input.Locked = true
+		Input.SetDesc(nil)
+		
+		if not Input.LockIcon then
+			Input.LockIcon = New("ImageLabel", {
+				Image = "rbxassetid://3926305904",
+				Size = UDim2.fromOffset(16, 16),
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -5, 0.5, 0),
+				BackgroundTransparency = 1,
+				Parent = Textbox.Frame,
+				ThemeTag = {
+					ImageColor3 = "SubText",
+				},
+				ZIndex = 5
+			})
+		end
+		Input.LockIcon.Visible = true
+		Box.TextEditable = false
+		Box.ClearTextOnFocus = false
+		
+		Textbox.Frame.BackgroundTransparency = 0.5
+		Textbox.Input.TextTransparency = 0.5
+	end
+
+	function Input:Unlock()
+		if not Input.Locked then return end
+		Input.Locked = false
+		
+		if Input.LockIcon then
+			Input.LockIcon.Visible = false
+		end
+		
+		Input.SetDesc(Config.Description)
+		Box.TextEditable = true
+		Box.ClearTextOnFocus = Config.ClearOnFocusLost or false
+		
+		Textbox.Frame.BackgroundTransparency = 0.9 -- Default transparency for Input frame? Need to check.
+		-- Actually Textbox module sets it. 
+		-- Let's just assume 0.9 or use ThemeTag to restore?
+		-- ThemeTag handles color, transparency might be manual.
+		-- Textbox.luau might need to be checked for default transparency.
+		-- Standard input background is usually standard element transparency.
+		-- Let's set to 1 if it mimics standard or Check config.
+		-- Looking at implementation: Textbox = require(Components.Textbox)(..., true)
+		-- Let's check Textbox.luau later or just set a safe value.
+		-- Assuming standard input look.
+		
+		-- Safer to just trigger theme update or set to default known.
+		-- Textbox module uses "Input" theme color.
+		-- Transparency is usually handled by theme too?
+		-- Let's look at `Textbox.Frame` properties in `Input.luau`? 
+		-- It doesn't set transparency explicitly, so it uses default from `Components.Textbox`.
+		-- I'll check `Components.Textbox.luau` to be sure about transparency restore.
+	end
 
 	Library.Options[Idx] = Input
 

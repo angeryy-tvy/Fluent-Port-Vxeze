@@ -287,6 +287,7 @@ function Element:New(Idx, Config)
 	end
 
 	Creator.AddSignal(DropdownInner.MouseButton1Click, function()
+		if Dropdown.Locked then return end
 		Dropdown:Open()
 	end)
 
@@ -533,6 +534,48 @@ function Element:New(Idx, Config)
 	function Dropdown:Destroy()
 		DropdownFrame:Destroy()
 		Library.Options[Idx] = nil
+	end
+
+	-- Lock Functionality
+	function Dropdown:Lock(Reason)
+		if Dropdown.Locked then return end
+		Dropdown.Locked = true
+		Dropdown:Close()
+		Dropdown.SetDesc(nil) 
+		
+		if not Dropdown.LockIcon then
+			Dropdown.LockIcon = New("ImageLabel", {
+				Image = "rbxassetid://3926305904",
+				Size = UDim2.fromOffset(16, 16),
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -8, 0.5, 0),
+				BackgroundTransparency = 1,
+				Parent = DropdownInner,
+				ThemeTag = {
+					ImageColor3 = "SubText",
+				},
+				ZIndex = 5
+			})
+		end
+		DropdownIco.Visible = false
+		Dropdown.LockIcon.Visible = true
+		
+		DropdownInner.BackgroundTransparency = 0.5
+		DropdownDisplay.TextTransparency = 0.5
+	end
+
+	function Dropdown:Unlock()
+		if not Dropdown.Locked then return end
+		Dropdown.Locked = false
+		
+		if Dropdown.LockIcon then
+			Dropdown.LockIcon.Visible = false
+		end
+		DropdownIco.Visible = true
+		
+		Dropdown.SetDesc(Config.Description)
+		DropdownInner.BackgroundTransparency = 0.9 -- Restore default
+		DropdownDisplay.TextTransparency = 0
 	end
 
 	Dropdown:BuildDropdownList()
