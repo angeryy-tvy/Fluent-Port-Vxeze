@@ -394,6 +394,7 @@ return function(Config)
 		end
 	end)
 
+	local MinimizeTimer
 	function Window:Minimize()
 		Window.Minimized = not Window.Minimized
 		Window.Root.Visible = not Window.Minimized
@@ -401,13 +402,18 @@ return function(Config)
 		-- Toggle Dynamic Island pill
 		if Window.Minimized then
 			-- UI is hidden, show the Dynamic Island pill
+			if MinimizeTimer then
+				task.cancel(MinimizeTimer)
+				MinimizeTimer = nil
+			end
 			Window.DynamicIsland.Visible = true
 			Window.DynamicIslandMotor:setGoal(Spring(0.2, { frequency = 6 })) -- Fade in (semi-transparent)
 		else
 			-- UI is shown, hide the Dynamic Island pill
 			Window.DynamicIslandMotor:setGoal(Spring(1, { frequency = 6 })) -- Fade out
-			task.delay(0.2, function() -- Wait for animation to complete
+			MinimizeTimer = task.delay(0.2, function() -- Wait for animation to complete
 				Window.DynamicIsland.Visible = false
+				MinimizeTimer = nil
 			end)
 		end
 
@@ -444,12 +450,13 @@ return function(Config)
 	-- Dynamic Island pill click handler (works for all platforms)
 	local DynamicIslandButton = Window.DynamicIsland:FindFirstChildOfClass("ImageButton")
 	if DynamicIslandButton then
-		Creator.AddSignal(DynamicIslandButton.MouseButton1Click, function()
-			Window:Minimize()
-		end)
-		
-		Creator.AddSignal(DynamicIslandButton.TouchTap, function()
-			Window:Minimize()
+		-- Use Activated with debounce to prevent double-firing on mobile (TouchTap + MouseButton1Click)
+		local LastClick = 0
+		Creator.AddSignal(DynamicIslandButton.Activated, function()
+			if tick() - LastClick > 0.3 then
+				LastClick = tick()
+				Window:Minimize()
+			end
 		end)
 	end
 
