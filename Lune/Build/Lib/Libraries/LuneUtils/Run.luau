@@ -2,7 +2,7 @@
 
 local process = require("@lune/process")
 
-local Log = require("Log")
+local Log = require("./Log")
 
 local function Run(
 	command: string,

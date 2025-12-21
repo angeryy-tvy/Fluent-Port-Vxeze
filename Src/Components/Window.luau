@@ -141,10 +141,10 @@ return function(Config)
 
 	-- Dynamic Island Pill - appears when UI is minimized
 	Window.DynamicIsland = New("Frame", {
-		Size = UDim2.fromOffset(120, 40),
-		Position = UDim2.new(0.5, -60, 0, 20),
+		Size = UDim2.fromOffset(125, 35),
+		Position = UDim2.new(0.5, 0, 0, 15), -- True center (AnchorPoint 0.5 handles centering)
 		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
 		BackgroundTransparency = 1, -- Start hidden
 		Parent = Config.Parent,
 		ZIndex = 10,
@@ -154,9 +154,23 @@ return function(Config)
 			CornerRadius = UDim.new(0.5, 0), -- Pill shape
 		}),
 		New("UIStroke", {
-			Color = Color3.fromRGB(60, 60, 60),
+			Color = Color3.fromRGB(255, 255, 255), -- White base, colored by gradient
 			Transparency = 0,
-			Thickness = 1,
+			Thickness = 2,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}, {
+			New("UIGradient", {
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(240, 240, 240)), -- White glow
+					ColorSequenceKeypoint.new(0.2, Color3.fromRGB(0, 255, 255)), -- Cyan
+					ColorSequenceKeypoint.new(0.4, Color3.fromRGB(0, 170, 255)), -- Blue
+					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 255)), -- Magenta
+					ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 170, 255)), -- Blue
+					ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 255, 255)), -- Cyan
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 240, 240)), -- White glow
+				}),
+				Rotation = 0,
+			})
 		}),
 		New("ImageButton", {
 			Size = UDim2.fromScale(1, 1),
@@ -164,16 +178,29 @@ return function(Config)
 			Image = "",
 			ZIndex = 11,
 		}),
-		New("ImageLabel", {
-			Size = UDim2.fromOffset(20, 20),
+		New("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Image = "rbxassetid://7733964640", -- Menu icon
-			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			Text = "Vxeze Hub",
+			TextColor3 = Color3.fromRGB(240, 240, 240),
+			TextSize = 14,
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			ZIndex = 12,
 		}),
 	})
+
+	-- Animate Neon Effect
+	task.spawn(function()
+		local Gradient = Window.DynamicIsland:FindFirstChild("UIStroke"):FindFirstChild("UIGradient")
+		while Window.DynamicIsland do
+			if Window.DynamicIsland.Visible then
+				Gradient.Rotation = (Gradient.Rotation + 3) % 360
+			end
+			task.wait(0.03)
+		end
+	end)
 
 	Window.TitleBar = require(script.Parent.TitleBar)({
 		Title = Config.Title,
@@ -238,14 +265,14 @@ return function(Config)
 
 	Window.DynamicIslandMotor:onStep(function(Value)
 		Window.DynamicIsland.BackgroundTransparency = Value
-		-- Also fade the stroke and icon
+		-- Also fade the stroke and text
 		local Stroke = Window.DynamicIsland:FindFirstChildOfClass("UIStroke")
-		local Icon = Window.DynamicIsland:FindFirstChildOfClass("ImageLabel")
+		local Text = Window.DynamicIsland:FindFirstChildOfClass("TextLabel")
 		if Stroke then
 			Stroke.Transparency = Value
 		end
-		if Icon then
-			Icon.ImageTransparency = Value
+		if Text then
+			Text.TextTransparency = Value
 		end
 	end)
 
