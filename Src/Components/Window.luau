@@ -147,34 +147,36 @@ return function(Config)
 			"rbxassetid://98249110364720"
 		}
 		
-		local snowContainer = New("Frame", {
+		-- Use CanvasGroup with very high ZIndex to render on top
+		local snowContainer = New("CanvasGroup", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
-			ZIndex = 100,
+			ZIndex = 999,
 			Parent = Window.Root,
 		})
 		
 		local function createSnowflake()
 			local assetId = snowAssets[math.random(1, #snowAssets)]
-			local size = math.random(12, 24)
-			local startX = math.random(0, 100) / 100
-			local duration = math.random(4, 8)
-			local rotationSpeed = math.random(2, 5)
+			local size = math.random(15, 30)
+			local startX = math.random(5, 95) / 100
+			local duration = math.random(5, 10)
+			local rotationSpeed = math.random(3, 6)
 			
 			local snowflake = New("ImageLabel", {
 				Size = UDim2.fromOffset(size, size),
 				Position = UDim2.new(startX, 0, 0, -size),
 				BackgroundTransparency = 1,
 				Image = assetId,
-				ImageTransparency = 0.3,
-				ZIndex = 101,
+				ImageTransparency = 0,
+				ImageColor3 = Color3.fromRGB(255, 255, 255),
+				ZIndex = 1000,
 				Parent = snowContainer,
 			})
 			
-			-- Fall animation
+			-- Fall animation with slight horizontal drift
 			local fallTween = TweenService:Create(snowflake, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-				Position = UDim2.new(startX + (math.random(-20, 20) / 100), 0, 1, size)
+				Position = UDim2.new(startX + (math.random(-15, 15) / 100), 0, 1, size)
 			})
 			
 			-- Rotation animation (360 degrees slowly)
@@ -190,7 +192,7 @@ return function(Config)
 			
 			fallTween:Play()
 			fallTween.Completed:Connect(function()
-				snowflake:Destroy()
+				if snowflake then snowflake:Destroy() end
 			end)
 		end
 		
@@ -198,7 +200,7 @@ return function(Config)
 		task.spawn(function()
 			while snowContainer and snowContainer.Parent do
 				createSnowflake()
-				task.wait(math.random(2, 5) / 10)
+				task.wait(math.random(3, 8) / 10)
 			end
 		end)
 	end
