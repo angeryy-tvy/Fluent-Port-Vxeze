@@ -166,46 +166,42 @@ function Element:New(Idx, Config)
 	function Slider:Lock(Reason)
 		if Slider.Locked then return end
 		Slider.Locked = true
-		Slider.SetDesc(nil) 
 		
-		if not Slider.LockIcon then
+		if not Slider.LockOverlay then
+			Slider.LockOverlay = New("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = 0.6,
+				ZIndex = 10,
+				Parent = SliderFrame.Frame,
+			}, {
+				New("UICorner", { CornerRadius = UDim.new(0, 8) })
+			})
+			
 			Slider.LockIcon = New("ImageLabel", {
-				AnchorPoint = Vector2.new(0, 0),
-				Size = UDim2.fromScale(1,1),
-				Position = UDim2.new(0, 0, 0, 0),
-				Parent = SliderDot,
-				Image = "rbxassetid://3926305904",
-				ImageColor3 = Color3.fromRGB(255, 255, 255),
+				Size = UDim2.fromOffset(20, 20),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
+				Parent = Slider.LockOverlay,
+				ZIndex = 11,
 				ThemeTag = {
 					ImageColor3 = "Text",
 				},
-				ZIndex = 5
 			})
+			Library.Utilities.Icons:SetIcon(Slider.LockIcon, "lock")
 		end
-		Slider.LockIcon.Visible = true
 		
-		SliderFrame.Frame.BackgroundTransparency = 0.5
-		SliderRail.BackgroundTransparency = 0.5
-		SliderFill.BackgroundTransparency = 0.5
-		SliderDisplay.TextTransparency = 0.5
-		SliderDot.ImageTransparency = 0.5
+		Slider.LockOverlay.Visible = true
 	end
 
 	function Slider:Unlock()
 		if not Slider.Locked then return end
 		Slider.Locked = false
 		
-		if Slider.LockIcon then
-			Slider.LockIcon.Visible = false
+		if Slider.LockOverlay then
+			Slider.LockOverlay.Visible = false
 		end
-		
-		Slider.SetDesc(Config.Description)
-		SliderFrame.Frame.BackgroundTransparency = 0 
-		SliderRail.BackgroundTransparency = 1
-		SliderFill.BackgroundTransparency = 0
-		SliderDisplay.TextTransparency = 0
-		SliderDot.ImageTransparency = 0
 	end
 
 	Slider:SetValue(typeof(Config.Default) == "number" and Config.Default or Slider.Min)

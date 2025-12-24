@@ -617,6 +617,48 @@ function Element:New(Idx, Config)
 		Dropdown:Display()
 	end
 
+	-- Lock Functionality
+	function Dropdown:Lock(Reason)
+		if Dropdown.Locked then return end
+		Dropdown.Locked = true
+		
+		if not Dropdown.LockOverlay then
+			Dropdown.LockOverlay = New("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = 0.6,
+				ZIndex = 10,
+				Parent = DropdownFrame.Frame,
+			}, {
+				New("UICorner", { CornerRadius = UDim.new(0, 8) })
+			})
+			
+			Dropdown.LockIcon = New("ImageLabel", {
+				Size = UDim2.fromOffset(20, 20),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Parent = Dropdown.LockOverlay,
+				ZIndex = 11,
+				ThemeTag = {
+					ImageColor3 = "Text",
+				},
+			})
+			Library.Utilities.Icons:SetIcon(Dropdown.LockIcon, "lock")
+		end
+		
+		Dropdown.LockOverlay.Visible = true
+	end
+
+	function Dropdown:Unlock()
+		if not Dropdown.Locked then return end
+		Dropdown.Locked = false
+		
+		if Dropdown.LockOverlay then
+			Dropdown.LockOverlay.Visible = false
+		end
+	end
+
 	Library.Options[Idx] = Dropdown
 
 	Dropdown.Instance = DropdownFrame

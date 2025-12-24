@@ -31,41 +31,46 @@ function Element:New(Config)
 	function ButtonFrame:Lock(Reason)
 		if self.Locked then return end
 		self.Locked = true
-		self.DescLabel.Visible = false
+		if self.DescLabel then self.DescLabel.Visible = false end
 		
-		if not self.LockIcon then
-			self.LockIcon = New("ImageLabel", {
-				Size = UDim2.fromOffset(16, 16),
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -30, 0.5, 0), -- Position to the left of chevron
-				BackgroundTransparency = 1,
+		if not self.LockOverlay then
+			self.LockOverlay = New("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = 0.6,
+				ZIndex = 10,
 				Parent = ButtonFrame.Frame,
-				Image = "rbxassetid://3926305904", -- Lock icon
-				ImageColor3 = Color3.fromRGB(255, 255, 255),
-				ImageTransparency = 0,
+			}, {
+				New("UICorner", { CornerRadius = UDim.new(0, 8) })
+			})
+			
+			self.LockIcon = New("ImageLabel", {
+				Size = UDim2.fromOffset(20, 20),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Parent = self.LockOverlay,
+				ZIndex = 11,
 				ThemeTag = {
 					ImageColor3 = "Text",
-				}
+				},
 			})
+			self.Library.Utilities.Icons:SetIcon(self.LockIcon, "lock")
 		end
-		self.LockIcon.Visible = true
 		
-		ButtonFrame.Frame.BackgroundTransparency = 0.5 -- Dim the button
-		ButtonFrame.TitleLabel.TextTransparency = 0.5
+		self.LockOverlay.Visible = true
 	end
 
 	function ButtonFrame:Unlock()
 		if not self.Locked then return end
 		self.Locked = false
 		
-		if self.LockIcon then
-			self.LockIcon.Visible = false
+		if self.LockOverlay then
+			self.LockOverlay.Visible = false
 		end
 		
-		ButtonFrame.Frame.BackgroundTransparency = 0 -- Restore visuals
-		ButtonFrame.TitleLabel.TextTransparency = 0
-		if Config.Description then
-			ButtonFrame.DescLabel.Visible = true
+		if Config.Description and self.DescLabel then
+			self.DescLabel.Visible = true
 		end
 	end
 
