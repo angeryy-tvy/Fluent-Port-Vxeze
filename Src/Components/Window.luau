@@ -139,6 +139,70 @@ return function(Config)
 		ResizeStartFrame,
 	})
 
+	-- Christmas Snow Effect
+	if Config.Christmas then
+		local TweenService = game:GetService("TweenService")
+		local snowAssets = {
+			"rbxassetid://117623940238807",
+			"rbxassetid://98249110364720"
+		}
+		
+		local snowContainer = New("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = 100,
+			Parent = Window.Root,
+		})
+		
+		local function createSnowflake()
+			local assetId = snowAssets[math.random(1, #snowAssets)]
+			local size = math.random(12, 24)
+			local startX = math.random(0, 100) / 100
+			local duration = math.random(4, 8)
+			local rotationSpeed = math.random(2, 5)
+			
+			local snowflake = New("ImageLabel", {
+				Size = UDim2.fromOffset(size, size),
+				Position = UDim2.new(startX, 0, 0, -size),
+				BackgroundTransparency = 1,
+				Image = assetId,
+				ImageTransparency = 0.3,
+				ZIndex = 101,
+				Parent = snowContainer,
+			})
+			
+			-- Fall animation
+			local fallTween = TweenService:Create(snowflake, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+				Position = UDim2.new(startX + (math.random(-20, 20) / 100), 0, 1, size)
+			})
+			
+			-- Rotation animation (360 degrees slowly)
+			task.spawn(function()
+				while snowflake and snowflake.Parent do
+					local rotateTween = TweenService:Create(snowflake, TweenInfo.new(rotationSpeed, Enum.EasingStyle.Linear), {
+						Rotation = snowflake.Rotation + 360
+					})
+					rotateTween:Play()
+					rotateTween.Completed:Wait()
+				end
+			end)
+			
+			fallTween:Play()
+			fallTween.Completed:Connect(function()
+				snowflake:Destroy()
+			end)
+		end
+		
+		-- Spawn snowflakes continuously
+		task.spawn(function()
+			while snowContainer and snowContainer.Parent do
+				createSnowflake()
+				task.wait(math.random(2, 5) / 10)
+			end
+		end)
+	end
+
 	-- Dynamic Island Pill - appears when UI is minimized
 	Window.DynamicIsland = New("Frame", {
 		Size = UDim2.fromOffset(125, 35),
