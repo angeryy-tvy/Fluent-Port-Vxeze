@@ -157,12 +157,15 @@ function TabModule:New(Title, Icon, Parent)
 			Type = "Section" 
 		}
 
-		local SectionFrame = require(Components.Section)(SectionTitle, Tab.Container, Library)
+		local SectionFrame = require(Components.Section)(SectionTitle, Tab.ContainerFrame, Library)
 		Section.Container = SectionFrame.Container
-		Section.ScrollFrame = Tab.Container
+		Section.ScrollFrame = Tab.ContainerFrame
 		Section.Toggle = function() SectionFrame:Toggle() end
 		Section.Expand = function() SectionFrame:Expand() end
 		Section.Collapse = function() SectionFrame:Collapse() end
+		
+		-- Auto-redirect subsequent elements to this Section
+		Tab.Container = SectionFrame.Container
 
 		setmetatable(Section, Elements)
 		return Section
