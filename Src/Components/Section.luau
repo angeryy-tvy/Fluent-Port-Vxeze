@@ -24,13 +24,13 @@ return function(Title, Parent, Library)
 	})
 
 	local ChevronIcon = New("ImageLabel", {
-		Size = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(20, 20),
 		Position = UDim2.new(1, -5, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		Rotation = 0,
 		ThemeTag = {
-			ImageColor3 = "SubText",
+			ImageColor3 = "Text",
 		},
 	})
 
