@@ -189,6 +189,19 @@ function Element:New(Idx, Config)
 		}
 	}) :: TextLabel
 
+	local ButtonCheck_BuildList = New("ImageLabel", {
+		Size = UDim2.fromOffset(16, 16),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://6031094667",
+		ImageTransparency = 1,
+		Name = "ButtonCheck",
+		ThemeTag = {
+			ImageColor3 = "Text"
+		}
+	})
+
 	local Button_BuildList = New("TextButton", {
 		Size = UDim2.new(1, -5, 0, 32),
 		BackgroundTransparency = 1,
@@ -200,6 +213,7 @@ function Element:New(Idx, Config)
 	}, {
 		ButtonSelector_BuildList,
 		ButtonLabel_BuildList,
+		ButtonCheck_BuildList,
 		New("UICorner", {
 			CornerRadius = UDim.new(0, 6),
 		})
@@ -367,7 +381,7 @@ function Element:New(Idx, Config)
 			local Selected
 
 			local Button = Button_BuildList:Clone()
-			local ButtonSelector, ButtonLabel = Button.Frame, Button.ButtonLabel
+			local ButtonSelector, ButtonLabel, ButtonCheck = Button.Frame, Button.ButtonLabel, Button.ButtonCheck
 
 			-- AddThemeObject causes some small stuttering, the reason for that is because of 'Creator.UpdateTheme'
 			-- which is called every single time a dropdown is (re)built.
@@ -385,6 +399,10 @@ function Element:New(Idx, Config)
 				TextColor3 = "Text"
 			})
 
+			Creator.AddThemeObject(ButtonCheck, {
+				ImageColor3 = "Text"
+			})
+
 			if Config.Multi then
 				Selected = Dropdown.Value[Value]
 			else
@@ -393,6 +411,7 @@ function Element:New(Idx, Config)
 
 			local BackMotor, SetBackTransparency = Creator.SpringMotor(1, Button, "BackgroundTransparency")
 			local SelMotor, SetSelTransparency = Creator.SpringMotor(1, ButtonSelector, "BackgroundTransparency")
+			local CheckMotor, SetCheckTransparency = Creator.SpringMotor(1, ButtonCheck, "ImageTransparency")
 			local SelectorSizeMotor = Flipper.SingleMotor.new(6)
 
 			SelectorSizeMotor:onStep(function(value)
@@ -428,6 +447,7 @@ function Element:New(Idx, Config)
 
 				SelectorSizeMotor:setGoal(Flipper.Spring.new(Selected and 14 or 6, { frequency = 6 }))
 				SetSelTransparency(Selected and 0 or 1)
+				SetCheckTransparency(Selected and 0 or 1)
 			end
 
 			ButtonLabel.InputBegan:Connect(function(Input)
