@@ -139,68 +139,107 @@ return function(Config)
 		ResizeStartFrame,
 	})
 
-	-- Dynamic Island Pill - appears when UI is minimized
-	Window.DynamicIsland = New("Frame", {
-		Size = UDim2.fromOffset(125, 35),
-		Position = UDim2.new(0.5, 0, 0, 15), -- True center (AnchorPoint 0.5 handles centering)
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
-		BackgroundTransparency = 1, -- Start hidden
-		Parent = Config.Parent,
-		ZIndex = 10,
-		Visible = false,
-	}, {
-		New("UICorner", {
-			CornerRadius = UDim.new(0.5, 0), -- Pill shape
-		}),
-		New("UIStroke", {
-			Color = Color3.fromRGB(255, 255, 255), -- White base, colored by gradient
-			Transparency = 0,
-			Thickness = 2,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		}, {
-			New("UIGradient", {
-				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(240, 240, 240)), -- White glow
-					ColorSequenceKeypoint.new(0.2, Color3.fromRGB(0, 255, 255)), -- Cyan
-					ColorSequenceKeypoint.new(0.4, Color3.fromRGB(0, 170, 255)), -- Blue
-					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 255)), -- Magenta
-					ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 170, 255)), -- Blue
-					ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 255, 255)), -- Cyan
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 240, 240)), -- White glow
-				}),
-				Rotation = 0,
-			})
-		}),
-		New("ImageButton", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Image = "",
-			ZIndex = 11,
-		}),
-		New("TextLabel", {
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Text = "Vxeze Hub",
-			TextColor3 = Color3.fromRGB(240, 240, 240),
-			TextSize = 14,
-			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-			ZIndex = 12,
-		}),
-	})
+	-- CustomButton Toggle - appears as a draggable circular button to toggle UI
+	local TweenService = game:GetService("TweenService")
+	local ContentProvider = game:GetService("ContentProvider")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
+	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-	-- Animate Neon Effect
-	task.spawn(function()
-		local Gradient = Window.DynamicIsland:FindFirstChild("UIStroke"):FindFirstChild("UIGradient")
-		while Window.DynamicIsland do
-			if Window.DynamicIsland.Visible then
-				Gradient.Rotation = (Gradient.Rotation + 3) % 360
-			end
-			task.wait(0.03)
+	local existingGui = playerGui:FindFirstChild("FluentToggleGui")
+	if existingGui then existingGui:Destroy() end
+
+	Window.ToggleScreenGui = Instance.new("ScreenGui")
+	Window.ToggleScreenGui.Name = "FluentToggleGui"
+	Window.ToggleScreenGui.ResetOnSpawn = false
+	Window.ToggleScreenGui.Parent = playerGui
+
+	local BorderFrame = Instance.new("Frame")
+	BorderFrame.Name = "BorderFrame"
+	BorderFrame.Parent = Window.ToggleScreenGui
+	BorderFrame.Size = UDim2.new(0, 52, 0, 52)
+	BorderFrame.Position = UDim2.new(0, 50, 0, 50)
+	BorderFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+	BorderFrame.BackgroundTransparency = 0
+	BorderFrame.BorderSizePixel = 2
+	BorderFrame.BorderColor3 = Color3.fromRGB(0, 255, 255)
+
+	local BorderUICorner = Instance.new("UICorner")
+	BorderUICorner.CornerRadius = UDim.new(1, 0)
+	BorderUICorner.Parent = BorderFrame
+
+	local ToggleButton = Instance.new("ImageButton")
+	ToggleButton.Name = "CustomButton"
+	ToggleButton.Parent = BorderFrame
+	ToggleButton.Size = UDim2.new(1, -4, 1, -4)
+	ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+	ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	ToggleButton.BackgroundTransparency = 1
+	ToggleButton.Image = "rbxassetid://87167480222237"
+
+	local ToggleUICorner = Instance.new("UICorner")
+	ToggleUICorner.CornerRadius = UDim.new(1, 0)
+	ToggleUICorner.Parent = ToggleButton
+
+	local ToggleGlow = Instance.new("UIStroke")
+	ToggleGlow.Thickness = 2
+	ToggleGlow.Color = Color3.fromRGB(0, 255, 255)
+	ToggleGlow.Parent = BorderFrame
+	ToggleGlow.Enabled = false
+
+	local toggleImageLoaded = false
+	ContentProvider:PreloadAsync({ ToggleButton.Image }, function()
+		toggleImageLoaded = true
+	end)
+
+	local toggleDragging = false
+	local toggleDragStart = nil
+	local toggleStartPos = nil
+	local toggleOriginalSize = ToggleButton.Size
+	local toggleGlowEnabled = false
+
+	ToggleButton.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			toggleDragging = true
+			toggleDragStart = input.Position
+			toggleStartPos = BorderFrame.Position
+			TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Size = UDim2.new(toggleOriginalSize.X.Scale, toggleOriginalSize.X.Offset * 0.9, toggleOriginalSize.Y.Scale, toggleOriginalSize.Y.Offset * 0.9)
+			}):Play()
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					toggleDragging = false
+					TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = toggleOriginalSize }):Play()
+				end
+			end)
 		end
 	end)
+
+	ToggleButton.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			if toggleDragging then
+				local delta = input.Position - toggleDragStart
+				local targetPos = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
+				TweenService:Create(BorderFrame, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+					Position = targetPos
+				}):Play()
+			end
+		end
+	end)
+
+	ToggleButton.MouseEnter:Connect(function()
+		TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(toggleOriginalSize.X.Scale, toggleOriginalSize.X.Offset * 1.1, toggleOriginalSize.Y.Scale, toggleOriginalSize.Y.Offset * 1.1)
+		}):Play()
+	end)
+
+	ToggleButton.MouseLeave:Connect(function()
+		TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = toggleOriginalSize }):Play()
+	end)
+
+	Window.ToggleButton = ToggleButton
+	Window.ToggleGlow = ToggleGlow
+	Window.ToggleBorderFrame = BorderFrame
 
 	Window.TitleBar = require(script.Parent.TitleBar)({
 		Title = Config.Title,
@@ -227,7 +266,6 @@ return function(Config)
 	Window.SelectorSizeMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerBackMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerPosMotor = Flipper.SingleMotor.new(94)
-	Window.DynamicIslandMotor = Flipper.SingleMotor.new(1) -- Start hidden (transparency = 1)
 
 	SizeMotor:onStep(function(values)
 		Window.Root.Size = UDim2.new(0, values.X, 0, values.Y)
@@ -263,18 +301,6 @@ return function(Config)
 		Window.ContainerAnim.Position = UDim2.fromOffset(0, Value)
 	end)
 
-	Window.DynamicIslandMotor:onStep(function(Value)
-		Window.DynamicIsland.BackgroundTransparency = Value
-		-- Also fade the stroke and text
-		local Stroke = Window.DynamicIsland:FindFirstChildOfClass("UIStroke")
-		local Text = Window.DynamicIsland:FindFirstChildOfClass("TextLabel")
-		if Stroke then
-			Stroke.Transparency = Value
-		end
-		if Text then
-			Text.TextTransparency = Value
-		end
-	end)
 
 	local OldSizeX
 	local OldSizeY
@@ -394,28 +420,13 @@ return function(Config)
 		end
 	end)
 
-	local MinimizeTimer
 	function Window:Minimize()
 		Window.Minimized = not Window.Minimized
 		Window.Root.Visible = not Window.Minimized
 
-		-- Toggle Dynamic Island pill
-		if Window.Minimized then
-			-- UI is hidden, show the Dynamic Island pill
-			if MinimizeTimer then
-				task.cancel(MinimizeTimer)
-				MinimizeTimer = nil
-			end
-			Window.DynamicIsland.Visible = true
-			Window.DynamicIslandMotor:setGoal(Spring(0.2, { frequency = 6 })) -- Fade in (semi-transparent)
-		else
-			-- UI is shown, hide the Dynamic Island pill
-			Window.DynamicIslandMotor:setGoal(Spring(1, { frequency = 6 })) -- Fade out
-			MinimizeTimer = task.delay(0.2, function() -- Wait for animation to complete
-				Window.DynamicIsland.Visible = false
-				MinimizeTimer = nil
-			end)
-		end
+		-- Toggle CustomButton glow to indicate state
+		toggleGlowEnabled = Window.Minimized
+		Window.ToggleGlow.Enabled = toggleGlowEnabled
 
 		Window.OnMinimized:Fire(tick(), Window.Root.Visible)
 
@@ -447,14 +458,13 @@ return function(Config)
 		end
 	end)
 
-	-- Dynamic Island pill click handler (works for all platforms)
-	local DynamicIslandButton = Window.DynamicIsland:FindFirstChildOfClass("ImageButton")
-	if DynamicIslandButton then
-		-- Use Activated with debounce to prevent double-firing on mobile (TouchTap + MouseButton1Click)
+	-- CustomButton click handler to toggle UI
+	do
 		local LastClick = 0
-		Creator.AddSignal(DynamicIslandButton.Activated, function()
+		ToggleButton.MouseButton1Click:Connect(function()
 			if tick() - LastClick > 0.3 then
 				LastClick = tick()
+				if not toggleImageLoaded then return end
 				Window:Minimize()
 			end
 		end)
@@ -463,6 +473,9 @@ return function(Config)
 	function Window:Destroy()
 		if Library.UseAcrylic then
 			Window.AcrylicPaint.Model:Destroy()
+		end
+		if Window.ToggleScreenGui then
+			Window.ToggleScreenGui:Destroy()
 		end
 		Window.Root:Destroy()
 	end
