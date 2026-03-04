@@ -46,6 +46,8 @@ return function(Config)
 
 	Window.AcrylicPaint = Acrylic.AcrylicPaint()
 	Window.TabWidth = Config.TabWidth
+	local SearchBarHeight = 32
+	local SearchBarPadding = 8
 
 	local Selector = New("Frame", {
 		Size = UDim2.fromOffset(4, 0),
@@ -68,7 +70,8 @@ return function(Config)
 	})
 
 	Window.TabHolder = New("ScrollingFrame", {
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding)),
+		Position = UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding),
 		BackgroundTransparency = 1,
 		ScrollBarImageTransparency = 1,
 		ScrollBarThickness = 0,
@@ -90,6 +93,27 @@ return function(Config)
 		Window.TabHolder,
 		Selector,
 	})
+
+	local SearchBox = require(Components.Textbox)(TabFrame, true)
+	SearchBox.Frame.Size = UDim2.new(1, 0, 0, SearchBarHeight)
+	SearchBox.Frame.Position = UDim2.fromOffset(0, 0)
+	SearchBox.Input.PlaceholderText = "Find a setting"
+	SearchBox.Input.Text = ""
+	SearchBox.Input.Position = UDim2.fromOffset(24, 0)
+
+	local SearchIcon = New("ImageLabel", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		Size = UDim2.fromOffset(14, 14),
+		BackgroundTransparency = 1,
+		ThemeTag = {
+			ImageColor3 = "SubText",
+		},
+	})
+
+	Library.Utilities.Icons:SetIcon(SearchIcon, "search")
+	SearchIcon.Parent = SearchBox.Frame
+	Window.SearchBox = SearchBox
 
 	Window.TabDisplay = New("TextLabel", {
 		RichText = true,
@@ -529,6 +553,10 @@ return function(Config)
 	end
 
 	local TabModule = require(Components.Tab):Init(Window)
+
+	Creator.AddSignal(Window.SearchBox.Input:GetPropertyChangedSignal("Text"), function()
+		TabModule:ApplySearch(Window.SearchBox.Input.Text)
+	end)
 
 	function Window:Tab(TabConfig)
 		return TabModule:New(TabConfig.Title, TabConfig.Icon, Window.TabHolder)

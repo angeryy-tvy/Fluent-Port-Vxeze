@@ -13,7 +13,63 @@ local TabModule = {
 	Containers = {},
 	SelectedTab = 0,
 	TabCount = 0,
+	SearchQuery = "",
+	SearchVisibility = {},
 }
+
+local function NormalizeQuery(Query)
+	if typeof(Query) ~= "string" then
+		return ""
+	end
+
+	return (Query:lower():gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function IsLayoutObject(Object)
+	return Object:IsA("UIListLayout")
+		or Object:IsA("UIPadding")
+		or Object:IsA("UIGridLayout")
+		or Object:IsA("UITableLayout")
+		or Object:IsA("UIPageLayout")
+		or Object:IsA("UIAspectRatioConstraint")
+		or Object:IsA("UISizeConstraint")
+end
+
+local function TextMatches(Text, Query)
+	return typeof(Text) == "string" and Text ~= "" and string.find(string.lower(Text), Query, 1, true) ~= nil
+end
+
+local function ObjectMatchesQuery(Object, Query)
+	if Object:IsA("TextLabel") or Object:IsA("TextButton") or Object:IsA("TextBox") then
+		if TextMatches(Object.Text, Query) then
+			return true
+		end
+	end
+
+	if Object:IsA("TextBox") and TextMatches(Object.PlaceholderText, Query) then
+		return true
+	end
+
+	for _, Descendant in next, Object:GetDescendants() do
+		if Descendant:IsA("TextLabel") or Descendant:IsA("TextButton") or Descendant:IsA("TextBox") then
+			if TextMatches(Descendant.Text, Query) then
+				return true
+			end
+		end
+
+		if Descendant:IsA("TextBox") and TextMatches(Descendant.PlaceholderText, Query) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function CacheVisibility(Cache, Object)
+	if Cache[Object] == nil then
+		Cache[Object] = Object.Visible
+	end
+end
 
 function TabModule:Init(Window)
 	TabModule.Window = Window
@@ -21,10 +77,24 @@ function TabModule:Init(Window)
 end
 
 function TabModule:GetCurrentTabPos()
+	if not TabModule.Tabs[TabModule.SelectedTab] then
+		return 0
+	end
+
 	local TabHolderPos = TabModule.Window.TabHolder.AbsolutePosition.Y
 	local TabPos = TabModule.Tabs[TabModule.SelectedTab].Frame.AbsolutePosition.Y
 
 	return TabPos - TabHolderPos
+end
+
+function TabModule:RestoreSearch()
+	for Object, State in next, TabModule.SearchVisibility do
+		if typeof(Object) == "Instance" and Object.Parent and Object:IsA("GuiObject") then
+			Object.Visible = State
+		end
+	end
+
+	table.clear(TabModule.SearchVisibility)
 end
 
 function TabModule:New(Title, Icon, Parent)
@@ -175,11 +245,21 @@ function TabModule:New(Title, Icon, Parent)
 	Tab.AddSection = Tab.Section
 
 	setmetatable(Tab, Elements)
+
+	if TabModule.SearchQuery ~= "" then
+		TabModule:ApplySearch(TabModule.SearchQuery)
+	end
+
 	return Tab
 end
 
 function TabModule:SelectTab(Tab)
 	local Window = TabModule.Window
+	local Selected = TabModule.Tabs[Tab]
+
+	if not Selected or (Selected.Frame and Selected.Frame.Visible == false) then
+		return
+	end
 
 	TabModule.SelectedTab = Tab
 
@@ -214,6 +294,70 @@ function TabModule:SelectTab(Tab)
 
 		Window.ContainerHolder.Parent = Window.ContainerCanvas
 	end)
+end
+
+function TabModule:ApplySearch(Query)
+	Query = NormalizeQuery(Query)
+	TabModule.SearchQuery = Query
+
+	if Query == "" then
+		TabModule:RestoreSearch()
+
+		if TabModule.SelectedTab > 0 and TabModule.Tabs[TabModule.SelectedTab] then
+			TabModule.Window.TabDisplay.Text = TabModule.Tabs[TabModule.SelectedTab].Name
+		elseif TabModule.Tabs[1] then
+			TabModule:SelectTab(1)
+		end
+
+		return
+	end
+
+	local FirstVisibleTab = nil
+	local CurrentTabVisible = false
+
+	for TabIndex = 1, TabModule.TabCount do
+		local Tab = TabModule.Tabs[TabIndex]
+		local Container = TabModule.Containers[TabIndex]
+
+		if Tab and Container then
+			local HasElementMatch = false
+
+			for _, Child in next, Container:GetChildren() do
+				if Child:IsA("GuiObject") and not IsLayoutObject(Child) then
+					local Match = ObjectMatchesQuery(Child, Query)
+					CacheVisibility(TabModule.SearchVisibility, Child)
+					Child.Visible = Match
+					HasElementMatch = HasElementMatch or Match
+				end
+			end
+
+			local TabMatch = TextMatches(Tab.Name, Query)
+			local TabVisible = TabMatch or HasElementMatch
+			CacheVisibility(TabModule.SearchVisibility, Tab.Frame)
+			Tab.Frame.Visible = TabVisible
+
+			if TabVisible and not FirstVisibleTab then
+				FirstVisibleTab = TabIndex
+			end
+
+			if TabModule.SelectedTab == TabIndex then
+				CurrentTabVisible = TabVisible
+			end
+		end
+	end
+
+	if not FirstVisibleTab then
+		for _, Container in next, TabModule.Containers do
+			Container.Visible = false
+		end
+
+		TabModule.Window.TabDisplay.Text = "No results"
+		return
+	end
+
+	if TabModule.SelectedTab == 0 or not CurrentTabVisible then
+		TabModule:SelectTab(FirstVisibleTab)
+	end
 end
 
 return TabModule
