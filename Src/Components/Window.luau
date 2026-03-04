@@ -99,11 +99,12 @@ return function(Config)
 	SearchBox.Frame.Position = UDim2.fromOffset(0, 0)
 	SearchBox.Input.PlaceholderText = "Find a setting"
 	SearchBox.Input.Text = ""
-	SearchBox.Input.Position = UDim2.fromOffset(24, 0)
+	SearchBox.Container.Position = UDim2.fromOffset(22, 0)
+	SearchBox.Container.Size = UDim2.new(1, -28, 1, 0)
 
 	local SearchIcon = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 8, 0.5, 0),
+		Position = UDim2.new(0, 7, 0.5, 0),
 		Size = UDim2.fromOffset(14, 14),
 		BackgroundTransparency = 1,
 		ThemeTag = {
