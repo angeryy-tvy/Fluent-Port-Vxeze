@@ -48,6 +48,7 @@ return function(Config)
 	Window.TabWidth = Config.TabWidth
 	local SearchBarHeight = 32
 	local SearchBarPadding = 8
+	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 17
 
 	local Selector = New("Frame", {
 		Size = UDim2.fromOffset(4, 0),
@@ -287,7 +288,7 @@ return function(Config)
 		Y = Window.Position.Y.Offset,
 	})
 
-	Window.SelectorPosMotor = Flipper.SingleMotor.new(17)
+	Window.SelectorPosMotor = Flipper.SingleMotor.new(0)
 	Window.SelectorSizeMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerBackMotor = Flipper.SingleMotor.new(0)
 	Window.ContainerPosMotor = Flipper.SingleMotor.new(94)
@@ -303,7 +304,7 @@ return function(Config)
 	local LastValue = 0
 	local LastTime = 0
 	Window.SelectorPosMotor:onStep(function(Value)
-		Selector.Position = UDim2.new(0, 0, 0, Value + 17)
+		Selector.Position = UDim2.new(0, 0, 0, Value + SelectorOffsetY)
 		local Now = tick()
 		local DeltaTime = Now - LastTime
 
