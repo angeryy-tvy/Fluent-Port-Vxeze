@@ -71,8 +71,7 @@ MainSubTabs.Advanced:CreateButton{
         print("Advanced subtab button clicked.")
     end
 }
-
-MainSubTabs.Advanced:Collapse()
+Tabs.Main:ExpandSubTabs()
 
 Library:Notify{
     Title = "Notification",

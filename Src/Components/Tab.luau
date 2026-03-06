@@ -5,13 +5,12 @@ local Creator = require(Root.Modules.Creator)
 local New = Creator.New
 local Spring = Flipper.Spring.new
 local Instant = Flipper.Instant.new
-local Components = Root.Components
 
 local TabModule = {
 	Window = nil,
 	Tabs = {},
-	Containers = {},
 	SelectedTab = 0,
+	SelectedItem = nil,
 	TabCount = 0,
 	SearchQuery = "",
 	SearchVisibility = {},
@@ -79,17 +78,56 @@ local function NormalizeIcon(Icon, Library)
 	return Icon:find("^rbxasset[://|id://]") == nil and Library.Utilities:GetIcon(Icon) or {
 		Image = Icon,
 		ImageRectOffset = Vector2.zero,
-		ImageRectSize = Vector2.zero
+		ImageRectSize = Vector2.zero,
 	}
+end
+
+local function CreatePageContainer(Window)
+	return New("ScrollingFrame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = Window.ContainerHolder,
+		Visible = false,
+		BottomImage = "rbxassetid://6889812791",
+		MidImage = "rbxassetid://6889812721",
+		TopImage = "rbxassetid://6276641225",
+		ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
+		ScrollBarImageTransparency = 0.95,
+		ScrollBarThickness = 3,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromScale(0, 0),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+	}, {
+		New("UIListLayout", {
+			Padding = UDim.new(0, 5),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		New("UIPadding", {
+			PaddingRight = UDim.new(0, 10),
+			PaddingLeft = UDim.new(0, 1),
+			PaddingTop = UDim.new(0, 1),
+			PaddingBottom = UDim.new(0, 1),
+		}),
+	})
+end
+
+local function BindCanvasSize(ContainerFrame)
+	local Layout = ContainerFrame.UIListLayout
+	Creator.AddSignal(Layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+		local TargetCanvas = UDim2.fromOffset(0, Layout.AbsoluteContentSize.Y + 2)
+		if ContainerFrame.CanvasSize ~= TargetCanvas then
+			ContainerFrame.CanvasSize = TargetCanvas
+		end
+	end)
 end
 
 local function AddSectionAPI(Target, Elements, Library, SectionParent, ScrollFrame)
 	function Target:Section(SectionTitle)
 		local Section = {
-			Type = "Section"
+			Type = "Section",
 		}
 
-		local SectionFrame = require(Components.Section)(SectionTitle, SectionParent, Library)
+		local SectionFrame = require(Root.Components.Section)(SectionTitle, SectionParent, Library)
 		Section.Container = SectionFrame.Container
 		Section.ScrollFrame = ScrollFrame
 		Section.Toggle = function()
@@ -112,18 +150,53 @@ local function AddSectionAPI(Target, Elements, Library, SectionParent, ScrollFra
 	Target.AddSection = Target.Section
 end
 
+local function HideAllContainers()
+	for _, Tab in next, TabModule.Tabs do
+		Tab.ContainerFrame.Visible = false
+		for _, SubTab in next, Tab.SubTabs do
+			SubTab.ContainerFrame.Visible = false
+		end
+	end
+end
+
+local function RefreshTabDropdown(Tab)
+	local ShouldShowChildren = Tab.Expanded or Tab.SearchExpanded
+	Tab.Chevron.Visible = Tab.SubTabCount > 0
+	Tab.DropdownHitbox.Visible = Tab.SubTabCount > 0
+	Tab.Chevron.Rotation = ShouldShowChildren and 0 or -90
+
+	for _, SubTab in next, Tab.SubTabs do
+		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
+		SubTab.Frame.Visible = Tab.Frame.Visible and ShouldShowChildren and SearchAllows
+	end
+end
+
+local function GetFirstMatchingItem(Tab)
+	if Tab.Frame.Visible and TextMatches(Tab.Name, TabModule.SearchQuery) then
+		return Tab
+	end
+
+	for _, SubTab in next, Tab.SubTabs do
+		if SubTab.Frame.Visible and SubTab.SearchVisible then
+			return SubTab
+		end
+	end
+
+	return Tab.Frame.Visible and Tab or nil
+end
+
 function TabModule:Init(Window)
 	TabModule.Window = Window
 	return TabModule
 end
 
 function TabModule:GetCurrentTabPos()
-	if not TabModule.Tabs[TabModule.SelectedTab] then
+	if not TabModule.SelectedItem or not TabModule.SelectedItem.Frame then
 		return 0
 	end
 
 	local TabHolderPos = TabModule.Window.TabHolder.AbsolutePosition.Y
-	local TabPos = TabModule.Tabs[TabModule.SelectedTab].Frame.AbsolutePosition.Y
+	local TabPos = TabModule.SelectedItem.Frame.AbsolutePosition.Y
 
 	return TabPos - TabHolderPos
 end
@@ -135,7 +208,171 @@ function TabModule:RestoreSearch()
 		end
 	end
 
+	for _, Tab in next, TabModule.Tabs do
+		Tab.SearchExpanded = false
+		for _, SubTab in next, Tab.SubTabs do
+			SubTab.SearchVisible = nil
+		end
+		RefreshTabDropdown(Tab)
+	end
+
 	table.clear(TabModule.SearchVisibility)
+end
+
+function TabModule:SelectItem(TabIndex, Item)
+	local Window = TabModule.Window
+	local Tab = TabModule.Tabs[TabIndex]
+
+	if not Tab or not Item or not Item.Frame or Item.Frame.Visible == false then
+		return
+	end
+
+	TabModule.SelectedTab = TabIndex
+	TabModule.SelectedItem = Item
+
+	for _, ExistingTab in next, TabModule.Tabs do
+		ExistingTab.SetTransparency(1)
+		ExistingTab.Selected = false
+		for _, SubTab in next, ExistingTab.SubTabs do
+			SubTab.SetTransparency(1)
+			SubTab.Selected = false
+		end
+	end
+
+	if Item.Type == "SubTab" then
+		Tab.SetTransparency(0.94)
+		Tab.Selected = true
+		Item.SetTransparency(0.89)
+		Item.Selected = true
+		Tab.Expanded = true
+		RefreshTabDropdown(Tab)
+	else
+		Tab.SetTransparency(0.89)
+		Tab.Selected = true
+	end
+
+	Window.TabDisplay.Text = Item.Name
+	Window.SelectorPosMotor:setGoal(Spring(TabModule:GetCurrentTabPos(), { frequency = 6 }))
+
+	task.spawn(function()
+		Window.ContainerHolder.Parent = Window.ContainerAnim
+
+		Window.ContainerPosMotor:setGoal(Spring(15, { frequency = 10 }))
+		Window.ContainerBackMotor:setGoal(Spring(1, { frequency = 10 }))
+
+		task.wait(0.12)
+
+		HideAllContainers()
+
+		Item.ContainerFrame.Visible = true
+		Window.ContainerPosMotor:setGoal(Spring(0, { frequency = 5 }))
+		Window.ContainerBackMotor:setGoal(Spring(0, { frequency = 8 }))
+
+		task.wait(0.12)
+
+		Window.ContainerHolder.Parent = Window.ContainerCanvas
+	end)
+end
+
+function TabModule:SelectTab(TabIndex)
+	local Tab = TabModule.Tabs[TabIndex]
+	if Tab then
+		TabModule:SelectItem(TabIndex, Tab)
+	end
+end
+
+function TabModule:ApplySearch(Query)
+	Query = NormalizeQuery(Query)
+	TabModule.SearchQuery = Query
+
+	if Query == "" then
+		TabModule:RestoreSearch()
+
+		if TabModule.SelectedItem and TabModule.SelectedItem.Frame and TabModule.SelectedItem.Frame.Visible then
+			TabModule.Window.TabDisplay.Text = TabModule.SelectedItem.Name
+		elseif TabModule.Tabs[1] then
+			TabModule:SelectTab(1)
+		end
+
+		return
+	end
+
+	local FirstVisibleItem = nil
+	local CurrentSelectionVisible = false
+
+	for TabIndex = 1, TabModule.TabCount do
+		local Tab = TabModule.Tabs[TabIndex]
+		local HasTabContentMatch = false
+		local HasSubTabMatch = false
+
+		for _, Child in next, Tab.ContainerFrame:GetChildren() do
+			if Child:IsA("GuiObject") and not IsLayoutObject(Child) then
+				local Match = ObjectMatchesQuery(Child, Query)
+				CacheVisibility(TabModule.SearchVisibility, Child)
+				Child.Visible = Match
+				HasTabContentMatch = HasTabContentMatch or Match
+			end
+		end
+
+		for _, SubTab in next, Tab.SubTabs do
+			local HasSubTabContentMatch = false
+
+			for _, Child in next, SubTab.ContainerFrame:GetChildren() do
+				if Child:IsA("GuiObject") and not IsLayoutObject(Child) then
+					local Match = ObjectMatchesQuery(Child, Query)
+					CacheVisibility(TabModule.SearchVisibility, Child)
+					Child.Visible = Match
+					HasSubTabContentMatch = HasSubTabContentMatch or Match
+				end
+			end
+
+			SubTab.SearchVisible = TextMatches(SubTab.Name, Query) or HasSubTabContentMatch
+			HasSubTabMatch = HasSubTabMatch or SubTab.SearchVisible
+			CacheVisibility(TabModule.SearchVisibility, SubTab.Frame)
+		end
+
+		local TabVisible = TextMatches(Tab.Name, Query) or HasTabContentMatch or HasSubTabMatch
+		CacheVisibility(TabModule.SearchVisibility, Tab.Frame)
+		Tab.Frame.Visible = TabVisible
+		Tab.SearchExpanded = HasSubTabMatch
+		RefreshTabDropdown(Tab)
+
+		if not FirstVisibleItem then
+			FirstVisibleItem = GetFirstMatchingItem(Tab)
+		end
+
+		if TabModule.SelectedItem == Tab and Tab.Frame.Visible then
+			CurrentSelectionVisible = true
+		else
+			for _, SubTab in next, Tab.SubTabs do
+				if TabModule.SelectedItem == SubTab and SubTab.Frame.Visible then
+					CurrentSelectionVisible = true
+				end
+			end
+		end
+	end
+
+	if not FirstVisibleItem then
+		HideAllContainers()
+		TabModule.Window.TabDisplay.Text = "No results"
+		return
+	end
+
+	if not CurrentSelectionVisible then
+		for TabIndex, Tab in next, TabModule.Tabs do
+			if FirstVisibleItem == Tab then
+				TabModule:SelectItem(TabIndex, Tab)
+				return
+			end
+
+			for _, SubTab in next, Tab.SubTabs do
+				if FirstVisibleItem == SubTab then
+					TabModule:SelectItem(TabIndex, SubTab)
+					return
+				end
+			end
+		end
+	end
 end
 
 function TabModule:New(Title, Icon, Parent)
@@ -145,19 +382,24 @@ function TabModule:New(Title, Icon, Parent)
 
 	TabModule.TabCount = TabModule.TabCount + 1
 	local TabIndex = TabModule.TabCount
+	local TabOrderBase = TabIndex * 100
+	local TabIcon = NormalizeIcon(Icon, Library)
 
 	local Tab = {
 		Selected = false,
+		Expanded = false,
+		SearchExpanded = false,
 		Name = Title,
 		Type = "Tab",
+		SubTabs = {},
+		SubTabCount = 0,
 	}
-
-	Icon = NormalizeIcon(Icon, Library)
 
 	Tab.Frame = New("TextButton", {
 		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundTransparency = 1,
 		Parent = Parent,
+		LayoutOrder = TabOrderBase,
 		ThemeTag = {
 			BackgroundColor3 = "Tab",
 		},
@@ -167,7 +409,7 @@ function TabModule:New(Title, Icon, Parent)
 		}),
 		New("TextLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = Icon ~= nil and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
+			Position = TabIcon ~= nil and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
 			Text = Title,
 			RichText = true,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -178,9 +420,9 @@ function TabModule:New(Title, Icon, Parent)
 				Enum.FontStyle.Normal
 			),
 			TextSize = 12,
-			TextXAlignment = "Left",
-			TextYAlignment = "Center",
-			Size = UDim2.new(1, -12, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			Size = UDim2.new(1, -36, 1, 0),
 			BackgroundTransparency = 1,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -191,51 +433,78 @@ function TabModule:New(Title, Icon, Parent)
 			Size = UDim2.fromOffset(16, 16),
 			Position = UDim2.new(0, 8, 0.5, 0),
 			BackgroundTransparency = 1,
-			ImageRectOffset = Icon and Icon.ImageRectOffset or Vector2.zero,
-			ImageRectSize = Icon and Icon.ImageRectSize or Vector2.zero,
-			Image = Icon and Icon.Image or nil,
+			ImageRectOffset = TabIcon and TabIcon.ImageRectOffset or Vector2.zero,
+			ImageRectSize = TabIcon and TabIcon.ImageRectSize or Vector2.zero,
+			Image = TabIcon and TabIcon.Image or nil,
 			ThemeTag = {
 				ImageColor3 = "Text",
 			},
 		}),
 	})
 
-	local ContainerLayout = New("UIListLayout", {
-		Padding = UDim.new(0, 5),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
-
-	Tab.ContainerFrame = New("ScrollingFrame", {
-		Size = UDim2.fromScale(1, 1),
+	Tab.Chevron = New("ImageLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -8, 0.5, 0),
+		Size = UDim2.fromOffset(14, 14),
 		BackgroundTransparency = 1,
-		Parent = Window.ContainerHolder,
 		Visible = false,
-		BottomImage = "rbxassetid://6889812791",
-		MidImage = "rbxassetid://6889812721",
-		TopImage = "rbxassetid://6276641225",
-		ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
-		ScrollBarImageTransparency = 0.95,
-		ScrollBarThickness = 3,
-		BorderSizePixel = 0,
-		CanvasSize = UDim2.fromScale(0, 0),
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-	}, {
-		ContainerLayout,
-		New("UIPadding", {
-			PaddingRight = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 1),
-			PaddingTop = UDim.new(0, 1),
-			PaddingBottom = UDim.new(0, 1),
-		}),
+		Rotation = -90,
+		Parent = Tab.Frame,
+		ThemeTag = {
+			ImageColor3 = "SubText",
+		},
+	})
+	Library.Utilities.Icons:SetIcon(Tab.Chevron, "chevron-down")
+
+	Tab.DropdownHitbox = New("TextButton", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28),
+		BackgroundTransparency = 1,
+		Text = "",
+		Visible = false,
+		Parent = Tab.Frame,
 	})
 
-	Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-		if Tab.ContainerFrame.CanvasSize ~= UDim2.fromOffset(0, ContainerLayout.AbsoluteContentSize.Y + 2) then
-			Tab.ContainerFrame.CanvasSize = UDim2.fromOffset(0, ContainerLayout.AbsoluteContentSize.Y + 2)
-		end
-	end)
+	Tab.ContainerFrame = CreatePageContainer(Window)
+	BindCanvasSize(Tab.ContainerFrame)
 
 	Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
+
+	function Tab:ToggleSubTabs()
+		if Tab.SubTabCount == 0 then
+			return
+		end
+
+		if Tab.Expanded and TabModule.SelectedItem and TabModule.SelectedItem.ParentTab == Tab then
+			TabModule:SelectItem(TabIndex, Tab)
+		end
+
+		Tab.Expanded = not Tab.Expanded
+		RefreshTabDropdown(Tab)
+	end
+
+	function Tab:ExpandSubTabs()
+		if Tab.SubTabCount == 0 or Tab.Expanded then
+			return
+		end
+
+		Tab.Expanded = true
+		RefreshTabDropdown(Tab)
+	end
+
+	function Tab:CollapseSubTabs()
+		if not Tab.Expanded then
+			return
+		end
+
+		if TabModule.SelectedItem and TabModule.SelectedItem.ParentTab == Tab then
+			TabModule:SelectItem(TabIndex, Tab)
+		end
+
+		Tab.Expanded = false
+		RefreshTabDropdown(Tab)
+	end
 
 	Creator.AddSignal(Tab.Frame.MouseEnter, function()
 		Tab.SetTransparency(Tab.Selected and 0.85 or 0.89)
@@ -247,43 +516,130 @@ function TabModule:New(Title, Icon, Parent)
 		Tab.SetTransparency(0.92)
 	end)
 	Creator.AddSignal(Tab.Frame.MouseButton1Up, function()
-		Tab.SetTransparency(Tab.Selected and 0.85 or 0.89)
+		if Tab.Selected and TabModule.SelectedItem ~= Tab then
+			Tab.SetTransparency(0.94)
+		else
+			Tab.SetTransparency(Tab.Selected and 0.85 or 0.89)
+		end
 	end)
 	Creator.AddSignal(Tab.Frame.MouseButton1Click, function()
-		TabModule:SelectTab(TabIndex)
+		TabModule:SelectItem(TabIndex, Tab)
+	end)
+	Creator.AddSignal(Tab.DropdownHitbox.MouseButton1Click, function()
+		Tab:ToggleSubTabs()
 	end)
 
-	TabModule.Containers[TabIndex] = Tab.ContainerFrame
 	TabModule.Tabs[TabIndex] = Tab
 
 	Tab.Container = Tab.ContainerFrame
 	Tab.ScrollFrame = Tab.ContainerFrame
-
 	AddSectionAPI(Tab, Elements, Library, Tab.ContainerFrame, Tab.ContainerFrame)
 
 	function Tab:SubTab(SubTabConfig)
 		assert(typeof(SubTabConfig) == "table", "SubTab - Missing config table")
 		assert(SubTabConfig.Title, "SubTab - Missing Title")
 
-		local SubTabFrame = require(Components.SubTab)(SubTabConfig, Tab.ContainerFrame, Library)
+		Tab.SubTabCount = Tab.SubTabCount + 1
+		local SubTabIndex = Tab.SubTabCount
+		local SubIcon = NormalizeIcon(SubTabConfig.Icon, Library)
+
 		local SubTab = {
 			Name = SubTabConfig.Title,
 			Type = "SubTab",
-			Container = SubTabFrame.Container,
-			ScrollFrame = Tab.ContainerFrame,
-			Toggle = function()
-				SubTabFrame:Toggle()
-			end,
-			Expand = function()
-				SubTabFrame:Expand()
-			end,
-			Collapse = function()
-				SubTabFrame:Collapse()
-			end,
+			ParentTab = Tab,
+			SearchVisible = nil,
 		}
 
-		AddSectionAPI(SubTab, Elements, Library, SubTabFrame.Container, Tab.ContainerFrame)
+		SubTab.Frame = New("TextButton", {
+			Size = UDim2.new(1, 0, 0, 28),
+			BackgroundTransparency = 1,
+			Parent = Parent,
+			Visible = false,
+			LayoutOrder = TabOrderBase + SubTabIndex,
+			ThemeTag = {
+				BackgroundColor3 = "Tab",
+			},
+			Text = "",
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 6),
+			}),
+			New("TextLabel", {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = SubIcon ~= nil and UDim2.new(0, 42, 0.5, 0) or UDim2.new(0, 24, 0.5, 0),
+				Text = SubTabConfig.Title,
+				RichText = true,
+				TextColor3 = Color3.fromRGB(220, 220, 220),
+				TextTransparency = 0,
+				FontFace = Font.new(
+					"rbxasset://fonts/families/GothamSSm.json",
+					Enum.FontWeight.Regular,
+					Enum.FontStyle.Normal
+				),
+				TextSize = 12,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				Size = UDim2.new(1, -18, 1, 0),
+				BackgroundTransparency = 1,
+				ThemeTag = {
+					TextColor3 = "SubText",
+				},
+			}),
+			New("ImageLabel", {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Size = UDim2.fromOffset(14, 14),
+				Position = UDim2.new(0, 24, 0.5, 0),
+				BackgroundTransparency = 1,
+				ImageRectOffset = SubIcon and SubIcon.ImageRectOffset or Vector2.zero,
+				ImageRectSize = SubIcon and SubIcon.ImageRectSize or Vector2.zero,
+				Image = SubIcon and SubIcon.Image or nil,
+				Visible = SubIcon ~= nil,
+				ThemeTag = {
+					ImageColor3 = "SubText",
+				},
+			}),
+		})
+
+		SubTab.ContainerFrame = CreatePageContainer(Window)
+		BindCanvasSize(SubTab.ContainerFrame)
+
+		SubTab.Motor, SubTab.SetTransparency = Creator.SpringMotor(1, SubTab.Frame, "BackgroundTransparency")
+
+		Creator.AddSignal(SubTab.Frame.MouseEnter, function()
+			SubTab.SetTransparency(SubTab.Selected and 0.85 or 0.89)
+		end)
+		Creator.AddSignal(SubTab.Frame.MouseLeave, function()
+			SubTab.SetTransparency(SubTab.Selected and 0.89 or 1)
+		end)
+		Creator.AddSignal(SubTab.Frame.MouseButton1Down, function()
+			SubTab.SetTransparency(0.92)
+		end)
+		Creator.AddSignal(SubTab.Frame.MouseButton1Up, function()
+			SubTab.SetTransparency(SubTab.Selected and 0.85 or 0.89)
+		end)
+		Creator.AddSignal(SubTab.Frame.MouseButton1Click, function()
+			Tab.Expanded = true
+			RefreshTabDropdown(Tab)
+			TabModule:SelectItem(TabIndex, SubTab)
+		end)
+
+		function SubTab:Select()
+			Tab.Expanded = true
+			RefreshTabDropdown(Tab)
+			TabModule:SelectItem(TabIndex, SubTab)
+		end
+
+		SubTab.Container = SubTab.ContainerFrame
+		SubTab.ScrollFrame = SubTab.ContainerFrame
+
+		AddSectionAPI(SubTab, Elements, Library, SubTab.ContainerFrame, SubTab.ContainerFrame)
 		setmetatable(SubTab, Elements)
+
+		Tab.SubTabs[SubTabIndex] = SubTab
+		Tab.Chevron.Visible = true
+		Tab.DropdownHitbox.Visible = true
+		Tab.Expanded = true
+		RefreshTabDropdown(Tab)
 
 		if TabModule.SearchQuery ~= "" then
 			TabModule:ApplySearch(TabModule.SearchQuery)
@@ -302,113 +658,6 @@ function TabModule:New(Title, Icon, Parent)
 	end
 
 	return Tab
-end
-
-function TabModule:SelectTab(Tab)
-	local Window = TabModule.Window
-	local Selected = TabModule.Tabs[Tab]
-
-	if not Selected or (Selected.Frame and Selected.Frame.Visible == false) then
-		return
-	end
-
-	TabModule.SelectedTab = Tab
-
-	for _, TabObject in next, TabModule.Tabs do
-		TabObject.SetTransparency(1)
-		TabObject.Selected = false
-	end
-
-	TabModule.Tabs[Tab].SetTransparency(0.89)
-	TabModule.Tabs[Tab].Selected = true
-
-	Window.TabDisplay.Text = TabModule.Tabs[Tab].Name
-	Window.SelectorPosMotor:setGoal(Spring(TabModule:GetCurrentTabPos(), { frequency = 6 }))
-
-	task.spawn(function()
-		Window.ContainerHolder.Parent = Window.ContainerAnim
-
-		Window.ContainerPosMotor:setGoal(Spring(15, { frequency = 10 }))
-		Window.ContainerBackMotor:setGoal(Spring(1, { frequency = 10 }))
-
-		task.wait(0.12)
-
-		for _, Container in next, TabModule.Containers do
-			Container.Visible = false
-		end
-
-		TabModule.Containers[Tab].Visible = true
-		Window.ContainerPosMotor:setGoal(Spring(0, { frequency = 5 }))
-		Window.ContainerBackMotor:setGoal(Spring(0, { frequency = 8 }))
-
-		task.wait(0.12)
-
-		Window.ContainerHolder.Parent = Window.ContainerCanvas
-	end)
-end
-
-function TabModule:ApplySearch(Query)
-	Query = NormalizeQuery(Query)
-	TabModule.SearchQuery = Query
-
-	if Query == "" then
-		TabModule:RestoreSearch()
-
-		if TabModule.SelectedTab > 0 and TabModule.Tabs[TabModule.SelectedTab] then
-			TabModule.Window.TabDisplay.Text = TabModule.Tabs[TabModule.SelectedTab].Name
-		elseif TabModule.Tabs[1] then
-			TabModule:SelectTab(1)
-		end
-
-		return
-	end
-
-	local FirstVisibleTab = nil
-	local CurrentTabVisible = false
-
-	for TabIndex = 1, TabModule.TabCount do
-		local Tab = TabModule.Tabs[TabIndex]
-		local Container = TabModule.Containers[TabIndex]
-
-		if Tab and Container then
-			local HasElementMatch = false
-
-			for _, Child in next, Container:GetChildren() do
-				if Child:IsA("GuiObject") and not IsLayoutObject(Child) then
-					local Match = ObjectMatchesQuery(Child, Query)
-					CacheVisibility(TabModule.SearchVisibility, Child)
-					Child.Visible = Match
-					HasElementMatch = HasElementMatch or Match
-				end
-			end
-
-			local TabMatch = TextMatches(Tab.Name, Query)
-			local TabVisible = TabMatch or HasElementMatch
-			CacheVisibility(TabModule.SearchVisibility, Tab.Frame)
-			Tab.Frame.Visible = TabVisible
-
-			if TabVisible and not FirstVisibleTab then
-				FirstVisibleTab = TabIndex
-			end
-
-			if TabModule.SelectedTab == TabIndex then
-				CurrentTabVisible = TabVisible
-			end
-		end
-	end
-
-	if not FirstVisibleTab then
-		for _, Container in next, TabModule.Containers do
-			Container.Visible = false
-		end
-
-		TabModule.Window.TabDisplay.Text = "No results"
-		return
-	end
-
-	if TabModule.SelectedTab == 0 or not CurrentTabVisible then
-		TabModule:SelectTab(FirstVisibleTab)
-	end
 end
 
 return TabModule
