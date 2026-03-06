@@ -17,7 +17,7 @@ function Element:New(Config)
 	local ButtonIco = New("ImageLabel", {
 		Size = UDim2.fromOffset(16, 16),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -16, 0.5, 0),
 		BackgroundTransparency = 1,
 		Parent = ButtonFrame.Frame,
 		ThemeTag = {

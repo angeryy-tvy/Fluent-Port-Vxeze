@@ -103,7 +103,7 @@ local function CreatePageContainer(Window)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		New("UIPadding", {
-			PaddingRight = UDim.new(0, 14),
+			PaddingRight = UDim.new(0, 18),
 			PaddingLeft = UDim.new(0, 2),
 			PaddingTop = UDim.new(0, 2),
 			PaddingBottom = UDim.new(0, 2),
