@@ -1,10 +1,10 @@
-local Library = loadstring(game:HttpGetAsync("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau"))()
-local SaveManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/SaveManager.luau"))()
-local InterfaceManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/InterfaceManager.luau"))()
+local Library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Fluent.luau"))()
+local SaveManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Addons/SaveManager.luau"))()
+local InterfaceManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Addons/InterfaceManager.luau"))()
  
 local Window = Library:CreateWindow{
     Title = `Fluent {Library.Version}`,
-    SubTitle = "by Actual Master Oogway",
+    SubTitle = "by Angeryy05",
     TabWidth = 160,
     Size = UDim2.fromOffset(830, 525),
     Resize = true, -- Resize this ^ Size according to a 1920x1080 screen, good for mobile users but may look weird on some devices
@@ -28,6 +28,50 @@ local Tabs = {
 
 local Options = Library.Options
 
+local QuickSection = Tabs.Main:CreateSection("Quick Actions")
+QuickSection:CreateParagraph("SectionIntro", {
+    Title = "Section",
+    Content = "This paragraph is inside a collapsible section."
+})
+
+QuickSection:CreateButton{
+    Title = "Section Button",
+    Description = "Example button inside a section",
+    Callback = function()
+        print("Section button clicked.")
+    end
+}
+
+local MainSubTabs = {
+    Overview = Tabs.Main:CreateSubTab{
+        Title = "Overview",
+        Icon = "layout-grid"
+    },
+    Advanced = Tabs.Main:CreateSubTab{
+        Title = "Advanced",
+        Icon = "sliders-horizontal"
+    }
+}
+
+MainSubTabs.Overview:CreateParagraph("OverviewParagraph", {
+    Title = "SubTab",
+    Content = "This paragraph lives inside the Overview subtab."
+})
+
+local OverviewSection = MainSubTabs.Overview:CreateSection("Overview Section")
+OverviewSection:CreateToggle("SubTabSectionToggle", {
+    Title = "SubTab Section Toggle",
+    Default = true
+})
+
+MainSubTabs.Advanced:CreateButton{
+    Title = "Advanced Action",
+    Description = "Example button inside a subtab",
+    Callback = function()
+        print("Advanced subtab button clicked.")
+    end
+}
+
 Library:Notify{
     Title = "Notification",
     Content = "This is a notification",
@@ -37,7 +81,7 @@ Library:Notify{
 
 local Paragraph = Tabs.Main:CreateParagraph("Paragraph", {
     Title = "Paragraph",
-    Content = "This is a paragraph.\nSecond line!"
+    Content = "This is a top-level paragraph outside section and subtab.\nSecond line!"
 })
 
 print(Paragraph.Value)
