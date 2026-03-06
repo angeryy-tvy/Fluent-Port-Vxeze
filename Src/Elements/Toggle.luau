@@ -45,13 +45,15 @@ function Element:New(Idx, Config)
 	})
 
 	local ParticleHolder = New("Frame", {
-		Size = UDim2.new(1, -4, 1, -4),
-		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
+		ZIndex = 0,
+		Parent = ToggleFrame.Frame,
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 7),
+			CornerRadius = UDim.new(0, 8),
 		}),
 	}) :: Frame
 
@@ -69,7 +71,6 @@ function Element:New(Idx, Config)
 			CornerRadius = UDim.new(0, 9),
 		}),
 		ToggleBorder,
-		ParticleHolder,
 		ToggleCircle,
 	}) :: Frame
 
@@ -88,12 +89,15 @@ function Element:New(Idx, Config)
 	local function RunParticle(Particle, Token)
 		task.spawn(function()
 			while Toggle.ParticleToken == Token and Toggle.Value and Particle.Parent do
-				local StartX = math.random(-4, 10)
-				local EndX = StartX + math.random(10, 18)
-				local StartY = math.random(2, 10)
-				local EndY = math.clamp(StartY + math.random(-2, 2), 2, 10)
+				local HolderSize = ParticleHolder.AbsoluteSize
+				local MaxX = math.max(18, math.floor(HolderSize.X) - 10)
+				local MaxY = math.max(18, math.floor(HolderSize.Y) - 10)
+				local StartX = math.random(8, MaxX)
+				local EndX = math.clamp(StartX + math.random(18, 34), 8, MaxX)
+				local StartY = math.random(8, MaxY)
+				local EndY = math.clamp(StartY + math.random(-6, 6), 8, MaxY)
 				local PeakTransparency = math.random(45, 68) / 100
-				local TravelTime = math.random(14, 24) / 10
+				local TravelTime = math.random(18, 30) / 10
 
 				Particle.Visible = true
 				Particle.Position = UDim2.fromOffset(StartX, StartY)
@@ -133,11 +137,12 @@ function Element:New(Idx, Config)
 		local Size = math.random(1, 2) + (ParticleIndex % 3 == 0 and 1 or 0)
 		local Particle = New("Frame", {
 			Size = UDim2.fromOffset(Size, Size),
-			Position = UDim2.fromOffset(math.random(0, 24), math.random(2, 10)),
+			Position = UDim2.fromOffset(math.random(8, 36), math.random(8, 24)),
 			BackgroundColor3 = Color3.fromRGB(234, 247, 255),
 			BackgroundTransparency = 1,
 			Visible = true,
 			Parent = ParticleHolder,
+			ZIndex = 0,
 		}, {
 			New("UICorner", {
 				CornerRadius = UDim.new(1, 0),
