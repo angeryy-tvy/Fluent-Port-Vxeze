@@ -87,8 +87,8 @@ return function(Config)
 	})
 
 	local TabFrame = New("Frame", {
-		Size = UDim2.new(1, -24, 1, -24),
-		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.new(1, -28, 1, -28),
+		Position = UDim2.fromOffset(14, 14),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, {
@@ -186,8 +186,8 @@ return function(Config)
 	})
 
 	Window.ContainerCanvas = New("Frame", {
-		Size = UDim2.new(1, -44, 1, -84),
-		Position = UDim2.fromOffset(22, 68),
+		Size = UDim2.new(1, -48, 1, -88),
+		Position = UDim2.fromOffset(24, 70),
 		BackgroundTransparency = 1,
 	}, {
 		Window.ContainerAnim,
