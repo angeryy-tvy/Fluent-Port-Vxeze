@@ -58,19 +58,6 @@ return function(Title, Desc, Parent, Hover, Config)
 		Element.DescLabel,
 	}) :: Frame
 
-	Element.Accent = New("Frame", {
-		Size = UDim2.new(0, 3, 1, -18),
-		Position = UDim2.fromOffset(8, 9),
-		BackgroundTransparency = 0.25,
-		ThemeTag = {
-			BackgroundColor3 = "Accent",
-		},
-	}, {
-		New("UICorner", {
-			CornerRadius = UDim.new(1, 0),
-		}),
-	}) :: Frame
-
 	Element.Border = New("UIStroke", {
 		Transparency = 0.3,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -97,7 +84,6 @@ return function(Title, Desc, Parent, Hover, Config)
 			CornerRadius = UDim.new(0, 8),
 		}),
 		Element.Border,
-		Element.Accent,
 		Element.LabelHolder,
 	}) :: TextButton
 

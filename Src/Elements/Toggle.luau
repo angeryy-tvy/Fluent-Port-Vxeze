@@ -17,6 +17,7 @@ function Element:New(Idx, Config)
 		Value = Config.Default or Config.Value or false,
 		Callback = Config.Callback or function(Value) end,
 		Type = "Toggle",
+		ParticleToken = 0,
 	}
 
 	local ToggleFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true)
@@ -43,6 +44,17 @@ function Element:New(Idx, Config)
 		},
 	})
 
+	local ParticleHolder = New("Frame", {
+		Size = UDim2.new(1, -4, 1, -4),
+		Position = UDim2.fromOffset(2, 2),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0, 7),
+		}),
+	}) :: Frame
+
 	local ToggleSlider = New("Frame", {
 		Size = UDim2.fromOffset(36, 18),
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -57,8 +69,97 @@ function Element:New(Idx, Config)
 			CornerRadius = UDim.new(0, 9),
 		}),
 		ToggleBorder,
+		ParticleHolder,
 		ToggleCircle,
 	}) :: Frame
+
+	local Particles = {}
+
+	local function FadeParticles(Transparency, Duration)
+		for _, Particle in next, Particles do
+			TweenService:Create(
+				Particle,
+				TweenInfo.new(Duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ BackgroundTransparency = Transparency }
+			):Play()
+		end
+	end
+
+	local function RunParticle(Particle, Token)
+		task.spawn(function()
+			while Toggle.ParticleToken == Token and Toggle.Value and Particle.Parent do
+				local StartX = math.random(-4, 10)
+				local EndX = StartX + math.random(10, 18)
+				local StartY = math.random(2, 10)
+				local EndY = math.clamp(StartY + math.random(-2, 2), 2, 10)
+				local PeakTransparency = math.random(45, 68) / 100
+				local TravelTime = math.random(14, 24) / 10
+
+				Particle.Visible = true
+				Particle.Position = UDim2.fromOffset(StartX, StartY)
+				Particle.BackgroundTransparency = 1
+
+				TweenService:Create(
+					Particle,
+					TweenInfo.new(TravelTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+					{
+						Position = UDim2.fromOffset(EndX, EndY),
+						BackgroundTransparency = PeakTransparency,
+					}
+				):Play()
+
+				task.wait(TravelTime * 0.6)
+
+				if Toggle.ParticleToken ~= Token or not Toggle.Value or not Particle.Parent then
+					break
+				end
+
+				TweenService:Create(
+					Particle,
+					TweenInfo.new(TravelTime * 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ BackgroundTransparency = 1 }
+				):Play()
+
+				task.wait(math.random(10, 24) / 100)
+			end
+
+			if Particle.Parent then
+				Particle.BackgroundTransparency = 1
+			end
+		end)
+	end
+
+	for ParticleIndex = 1, 6 do
+		local Size = math.random(1, 2) + (ParticleIndex % 3 == 0 and 1 or 0)
+		local Particle = New("Frame", {
+			Size = UDim2.fromOffset(Size, Size),
+			Position = UDim2.fromOffset(math.random(0, 24), math.random(2, 10)),
+			BackgroundColor3 = Color3.fromRGB(234, 247, 255),
+			BackgroundTransparency = 1,
+			Visible = true,
+			Parent = ParticleHolder,
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		}) :: Frame
+
+		Particles[#Particles + 1] = Particle
+	end
+
+	local function UpdateParticles(IsEnabled)
+		Toggle.ParticleToken += 1
+		local Token = Toggle.ParticleToken
+
+		if not IsEnabled then
+			FadeParticles(1, 0.15)
+			return
+		end
+
+		for _, Particle in next, Particles do
+			RunParticle(Particle, Token)
+		end
+	end
 
 	function Toggle:OnChanged(Func)
 		Toggle.Changed = Func
@@ -84,10 +185,11 @@ function Element:New(Idx, Config)
 		TweenService:Create(
 			ToggleSlider,
 			TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-			{ BackgroundTransparency = Toggle.Value and 0 or 1 }
+			{ BackgroundTransparency = Toggle.Value and 0.08 or 1 }
 		):Play()
 
 		ToggleCircle.ImageTransparency = Toggle.Value and 0 or 0.5
+		UpdateParticles(Toggle.Value)
 
 		if typeof(Toggle.Callback) == "function" then
 			Library:SafeCallback(Toggle.Callback, Toggle.Value)
@@ -98,6 +200,7 @@ function Element:New(Idx, Config)
 	end
 
 	function Toggle:Destroy()
+		Toggle.ParticleToken += 1
 		ToggleFrame:Destroy()
 		Library.Options[Idx] = nil
 	end

@@ -1,6 +1,7 @@
 local Root = script.Parent.Parent
 local Flipper = require(Root.Packages.Flipper)
 local Creator = require(Root.Modules.Creator)
+local TweenService = game:GetService("TweenService")
 
 local New = Creator.New
 local Spring = Flipper.Spring.new
@@ -178,6 +179,42 @@ local function RefreshTabDropdown(Tab)
 	Tab.SubTabHolder.Visible = ShowChildren
 	Tab.SubTabHolder.Size = UDim2.new(1, 0, 0, TargetHeight)
 	Tab.Root.Size = UDim2.new(1, 0, 0, 38 + TargetHeight)
+end
+
+local function AnimateTabDropdown(Tab)
+	local ShowChildren = Tab.SubTabCount > 0 and (Tab.Expanded or Tab.SearchExpanded)
+	local TargetHeight = ShowChildren and Tab.SubTabLayout.AbsoluteContentSize.Y or 0
+	local TweenInfoData = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+	Tab.Chevron.Visible = Tab.SubTabCount > 0
+	Tab.DropdownHitbox.Visible = Tab.SubTabCount > 0
+
+	for _, SubTab in next, Tab.SubTabs do
+		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
+		SubTab.Frame.Visible = ShowChildren and SearchAllows
+	end
+
+	if ShowChildren then
+		Tab.SubTabHolder.Visible = true
+	end
+
+	TweenService:Create(Tab.Chevron, TweenInfoData, {
+		Rotation = ShowChildren and 0 or -90,
+	}):Play()
+	TweenService:Create(Tab.SubTabHolder, TweenInfoData, {
+		Size = UDim2.new(1, 0, 0, TargetHeight),
+	}):Play()
+	TweenService:Create(Tab.Root, TweenInfoData, {
+		Size = UDim2.new(1, 0, 0, 38 + TargetHeight),
+	}):Play()
+
+	if not ShowChildren then
+		task.delay(TweenInfoData.Time, function()
+			if not Tab.Expanded and not Tab.SearchExpanded then
+				Tab.SubTabHolder.Visible = false
+			end
+		end)
+	end
 end
 
 local function GetFirstMatchingItem(Tab, Query, HasTabContentMatch)
@@ -526,7 +563,7 @@ function TabModule:New(Title, Icon, Parent)
 		end
 
 		Tab.Expanded = not Tab.Expanded
-		RefreshTabDropdown(Tab)
+		AnimateTabDropdown(Tab)
 	end
 
 	function Tab:ExpandSubTabs()
@@ -535,7 +572,7 @@ function TabModule:New(Title, Icon, Parent)
 		end
 
 		Tab.Expanded = true
-		RefreshTabDropdown(Tab)
+		AnimateTabDropdown(Tab)
 	end
 
 	function Tab:CollapseSubTabs()
@@ -548,7 +585,7 @@ function TabModule:New(Title, Icon, Parent)
 		end
 
 		Tab.Expanded = false
-		RefreshTabDropdown(Tab)
+		AnimateTabDropdown(Tab)
 	end
 
 	Creator.AddSignal(Tab.Frame.MouseEnter, function()
@@ -669,13 +706,13 @@ function TabModule:New(Title, Icon, Parent)
 		end)
 		Creator.AddSignal(SubTab.Frame.MouseButton1Click, function()
 			Tab.Expanded = true
-			RefreshTabDropdown(Tab)
+			AnimateTabDropdown(Tab)
 			TabModule:SelectItem(TabIndex, SubTab)
 		end)
 
 		function SubTab:Select()
 			Tab.Expanded = true
-			RefreshTabDropdown(Tab)
+			AnimateTabDropdown(Tab)
 			TabModule:SelectItem(TabIndex, SubTab)
 		end
 
