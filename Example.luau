@@ -42,6 +42,26 @@ QuickSection:CreateButton{
     end
 }
 
+Tabs.Main:CreateDiscordInvite("CommunityInvite", {
+    Invite = "discord.gg/vxezehub",
+    ServerName = "Vxeze Hub | True v2",
+    Online = "367",
+    Members = "5,376",
+    Created = "Founded in Nov 2024",
+    ButtonText = "Join Server",
+    Initials = "V",
+    BannerColor = Color3.fromRGB(22, 164, 255),
+    BannerColor2 = Color3.fromRGB(106, 231, 241),
+    Tags = { "Roblox", "Scripts", "Community" },
+    Callback = function(Invite)
+        if setclipboard then
+            setclipboard(Invite)
+        end
+
+        print("Discord invite copied:", Invite)
+    end
+})
+
 local MainSubTabs = {
     Overview = Tabs.Main:CreateSubTab{
         Title = "Overview",
