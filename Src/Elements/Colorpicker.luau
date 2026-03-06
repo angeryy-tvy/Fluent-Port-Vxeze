@@ -53,7 +53,7 @@ function Element:New(Idx, Config)
 
 	local DisplayFrame = New("ImageLabel", {
 		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -16, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		Parent = ColorpickerFrame.Frame,
 		Image = "http://www.roblox.com/asset/?id=14204231522",

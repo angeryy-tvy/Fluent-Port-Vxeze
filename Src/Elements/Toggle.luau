@@ -21,7 +21,8 @@ function Element:New(Idx, Config)
 	}
 
 	local ToggleFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true)
-	ToggleFrame.DescLabel.Size = UDim2.new(1, -54, 0, 14)
+	ToggleFrame.LabelHolder.Size = UDim2.new(1, -76, 0, 0)
+	ToggleFrame.DescLabel.Size = UDim2.new(1, 0, 0, 14)
 
 	Toggle.SetTitle = ToggleFrame.SetTitle
 	Toggle.SetDesc = ToggleFrame.SetDesc
@@ -45,22 +46,22 @@ function Element:New(Idx, Config)
 	})
 
 	local ParticleHolder = New("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(1, -6, 1, -6),
+		Position = UDim2.fromOffset(3, 3),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 0,
 		Parent = ToggleFrame.Frame,
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, 6),
 		}),
 	}) :: Frame
 
 	local ToggleSlider = New("Frame", {
 		Size = UDim2.fromOffset(36, 18),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -16, 0.5, 0),
 		Parent = ToggleFrame.Frame,
 		BackgroundTransparency = 1,
 		ThemeTag = {
@@ -290,7 +291,7 @@ function Element:New(Idx, Config)
 		
 			local KeybindDisplayFrame: TextButton = New("TextButton", {
 				Size = UDim2.fromOffset(0, 30),
-				Position = UDim2.new(1, -10, 0.5, 0),
+				Position = UDim2.new(1, -16, 0.5, 0),
 				AnchorPoint = Vector2.new(1, 0.5),
 				BackgroundTransparency = 0.9,
 				Parent = ToggleFrame.Frame,
@@ -329,7 +330,7 @@ function Element:New(Idx, Config)
 			})
 	
 			local function UpdateTogglePosition()
-				ToggleSlider.Position = UDim2.new(1, KeybindDisplayFrame.Position.X.Offset - KeybindDisplayFrame.AbsoluteSize.X - 10, 0.5, 0)
+				ToggleSlider.Position = UDim2.new(1, KeybindDisplayFrame.Position.X.Offset - KeybindDisplayFrame.AbsoluteSize.X - 12, 0.5, 0)
 			end
 	
 			function Keybind:GetState()

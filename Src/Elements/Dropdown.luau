@@ -70,7 +70,7 @@ function Element:New(Idx, Config)
 		Image = "rbxassetid://10709790948",
 		Size = UDim2.fromOffset(16, 16),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -8, 0.5, 0),
+		Position = UDim2.new(1, -12, 0.5, 0),
 		BackgroundTransparency = 1,
 		ThemeTag = {
 			ImageColor3 = "SubText",
@@ -79,7 +79,7 @@ function Element:New(Idx, Config)
 
 	local DropdownInner = New("TextButton", {
 		Size = UDim2.fromOffset(160, 30),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -16, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 0.9,
 		Parent = DropdownFrame.Frame,
@@ -191,7 +191,7 @@ function Element:New(Idx, Config)
 
 	local ButtonCheck_BuildList = New("ImageLabel", {
 		Size = UDim2.fromOffset(16, 16),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -16, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://6031094667",
@@ -568,7 +568,7 @@ function Element:New(Idx, Config)
 				Image = "rbxassetid://3926305904",
 				Size = UDim2.fromOffset(16, 16),
 				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -8, 0.5, 0),
+				Position = UDim2.new(1, -12, 0.5, 0),
 				BackgroundTransparency = 1,
 				Parent = DropdownInner,
 				ThemeTag = {
