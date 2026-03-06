@@ -1,6 +1,7 @@
 local TweenService, UserInputService = game:GetService("TweenService"), game:GetService("UserInputService")
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
  
 local New = Creator.New
 local Components = Root.Components
@@ -20,9 +21,9 @@ function Element:New(Idx, Config)
 		ParticleToken = 0,
 	}
 
-	local ToggleFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true)
-	ToggleFrame.LabelHolder.Size = UDim2.new(1, -76, 0, 0)
-	ToggleFrame.DescLabel.Size = UDim2.new(1, 0, 0, 14)
+	local ToggleFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true, {
+		LabelRightReserve = Layout.Card.ToggleLabelRightReserve,
+	})
 
 	Toggle.SetTitle = ToggleFrame.SetTitle
 	Toggle.SetDesc = ToggleFrame.SetDesc
@@ -46,22 +47,22 @@ function Element:New(Idx, Config)
 	})
 
 	local ParticleHolder = New("Frame", {
-		Size = UDim2.new(1, -6, 1, -6),
-		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -(Layout.Card.ParticleInset * 2), 1, -(Layout.Card.ParticleInset * 2)),
+		Position = UDim2.fromOffset(Layout.Card.ParticleInset, Layout.Card.ParticleInset),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 0,
 		Parent = ToggleFrame.Frame,
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, Layout.Card.Radius - 2),
 		}),
 	}) :: Frame
 
 	local ToggleSlider = New("Frame", {
 		Size = UDim2.fromOffset(36, 18),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		Parent = ToggleFrame.Frame,
 		BackgroundTransparency = 1,
 		ThemeTag = {
@@ -291,7 +292,7 @@ function Element:New(Idx, Config)
 		
 			local KeybindDisplayFrame: TextButton = New("TextButton", {
 				Size = UDim2.fromOffset(0, 30),
-				Position = UDim2.new(1, -16, 0.5, 0),
+				Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 				AnchorPoint = Vector2.new(1, 0.5),
 				BackgroundTransparency = 0.9,
 				Parent = ToggleFrame.Frame,
@@ -330,7 +331,12 @@ function Element:New(Idx, Config)
 			})
 	
 			local function UpdateTogglePosition()
-				ToggleSlider.Position = UDim2.new(1, KeybindDisplayFrame.Position.X.Offset - KeybindDisplayFrame.AbsoluteSize.X - 12, 0.5, 0)
+				ToggleSlider.Position = UDim2.new(
+					1,
+					KeybindDisplayFrame.Position.X.Offset - KeybindDisplayFrame.AbsoluteSize.X - Layout.Card.ControlGap,
+					0.5,
+					0
+				)
 			end
 	
 			function Keybind:GetState()

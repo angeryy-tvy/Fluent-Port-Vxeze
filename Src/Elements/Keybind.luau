@@ -2,6 +2,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 
 local New = Creator.New
 local Components = Root.Components
@@ -24,7 +25,9 @@ function Element:New(Idx, Config)
 
 	local Picking = false
 
-	local KeybindFrame = require(Components.Element)(Config.Title or "Keybind", Config.Description, self.Container, true)
+	local KeybindFrame = require(Components.Element)(Config.Title or "Keybind", Config.Description, self.Container, true, {
+		LabelRightReserve = Layout.Card.ControlLabelRightReserve,
+	})
 
 	Keybind.SetTitle = KeybindFrame.SetTitle
 	Keybind.SetDesc = KeybindFrame.SetDesc
@@ -48,7 +51,7 @@ function Element:New(Idx, Config)
 
 	local KeybindDisplayFrame = New("TextButton", {
 		Size = UDim2.fromOffset(0, 30),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 0.9,
 		Parent = KeybindFrame.Frame,

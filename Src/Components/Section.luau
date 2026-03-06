@@ -1,6 +1,7 @@
 local TweenService = game:GetService("TweenService")
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 
 local New = Creator.New
 
@@ -28,7 +29,7 @@ return function(Title, Parent, Library)
 
 	local ChevronIcon = New("ImageLabel", {
 		Size = UDim2.fromOffset(16, 16),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		Rotation = 0,

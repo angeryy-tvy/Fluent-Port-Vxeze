@@ -1,6 +1,7 @@
 local UserInputService = game:GetService("UserInputService")
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 
 local New = Creator.New
 local Components = Root.Components
@@ -25,8 +26,9 @@ function Element:New(Idx, Config)
 
 	local Dragging = false
 
-	local SliderFrame = require(Components.Element)(Config.Title or "Slider", Config.Description, self.Container, false)
-	SliderFrame.DescLabel.Size = UDim2.new(1, -170, 0, 14)
+	local SliderFrame = require(Components.Element)(Config.Title or "Slider", Config.Description, self.Container, false, {
+		LabelRightReserve = Layout.Card.ControlLabelRightReserve,
+	})
 
 	Slider.SetTitle = SliderFrame.SetTitle
 	Slider.SetDesc = SliderFrame.SetDesc
@@ -80,7 +82,7 @@ function Element:New(Idx, Config)
 	local SliderInner = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 4),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		BackgroundTransparency = 0.4,
 		Parent = SliderFrame.Frame,
 		ThemeTag = {

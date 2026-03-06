@@ -1,5 +1,6 @@
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 
 local AddSignal = Creator.AddSignal
 local Components = Root.Components
@@ -22,13 +23,15 @@ function Element:New(Idx, Config)
 		Type = "Input",
 	}
 
-	local InputFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, false)
+	local InputFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, false, {
+		LabelRightReserve = Layout.Card.ControlLabelRightReserve,
+	})
 
 	Input.SetTitle = InputFrame.SetTitle
 	Input.SetDesc = InputFrame.SetDesc
 
 	local Textbox = require(Components.Textbox)(InputFrame.Frame, true)
-	Textbox.Frame.Position = UDim2.new(1, -16, 0.5, 0)
+	Textbox.Frame.Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0)
 	Textbox.Frame.AnchorPoint = Vector2.new(1, 0.5)
 	Textbox.Frame.Size = UDim2.fromOffset(160, 30)
 	Textbox.Input.Text = Config.Default or ""

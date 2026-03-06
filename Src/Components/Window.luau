@@ -4,6 +4,7 @@ local Root = script.Parent.Parent
 local Flipper = require(Root.Packages.Flipper)
 local Creator = require(Root.Modules.Creator)
 local Acrylic = require(Root.Modules.Acrylic)
+local Layout = require(Root.Modules.Layout)
 local Signal = require(Root.Packages.Signal)
 local Assets = require(script.Parent.Assets)
 local Components = script.Parent
@@ -87,8 +88,8 @@ return function(Config)
 	})
 
 	local TabFrame = New("Frame", {
-		Size = UDim2.new(1, -28, 1, -28),
-		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.new(1, -(Layout.Window.SidebarInset * 2), 1, -(Layout.Window.SidebarInset * 2)),
+		Position = UDim2.fromOffset(Layout.Window.SidebarInset, Layout.Window.SidebarInset),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, {
@@ -186,8 +187,13 @@ return function(Config)
 	})
 
 	Window.ContainerCanvas = New("Frame", {
-		Size = UDim2.new(1, -48, 1, -88),
-		Position = UDim2.fromOffset(24, 70),
+		Size = UDim2.new(
+			1,
+			-(Layout.Window.ContentInsetX * 2),
+			1,
+			-(Layout.Window.ContentInsetTop + Layout.Window.ContentInsetBottom)
+		),
+		Position = UDim2.fromOffset(Layout.Window.ContentInsetX, Layout.Window.ContentInsetTop),
 		BackgroundTransparency = 1,
 	}, {
 		Window.ContainerAnim,

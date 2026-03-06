@@ -5,6 +5,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 
 local New = Creator.New
 local Components = Root.Components
@@ -36,7 +37,9 @@ function Element:New(Idx, Config)
 
 	Colorpicker:SetHSVFromRGB(Colorpicker.Value)
 
-	local ColorpickerFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true)
+	local ColorpickerFrame = require(Components.Element)(Config.Title, Config.Description, self.Container, true, {
+		LabelRightReserve = Layout.Card.SwatchLabelRightReserve,
+	})
 
 	Colorpicker.SetTitle = ColorpickerFrame.SetTitle
 	Colorpicker.SetDesc = ColorpickerFrame.SetDesc
@@ -53,7 +56,7 @@ function Element:New(Idx, Config)
 
 	local DisplayFrame = New("ImageLabel", {
 		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		Parent = ColorpickerFrame.Frame,
 		Image = "http://www.roblox.com/asset/?id=14204231522",

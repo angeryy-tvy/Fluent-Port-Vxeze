@@ -1,6 +1,7 @@
 local Root = script.Parent.Parent
 local Flipper = require(Root.Packages.Flipper)
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 local TweenService = game:GetService("TweenService")
 
 local New = Creator.New
@@ -99,14 +100,14 @@ local function CreatePageContainer(Window)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, {
 		New("UIListLayout", {
-			Padding = UDim.new(0, 5),
+			Padding = UDim.new(0, Layout.Page.ItemGap),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		New("UIPadding", {
-			PaddingRight = UDim.new(0, 18),
-			PaddingLeft = UDim.new(0, 2),
-			PaddingTop = UDim.new(0, 2),
-			PaddingBottom = UDim.new(0, 2),
+			PaddingRight = UDim.new(0, Layout.Page.PaddingRight),
+			PaddingLeft = UDim.new(0, Layout.Page.PaddingLeft),
+			PaddingTop = UDim.new(0, Layout.Page.PaddingTop),
+			PaddingBottom = UDim.new(0, Layout.Page.PaddingBottom),
 		}),
 	})
 end

@@ -1,5 +1,6 @@
 local Root = script.Parent.Parent
 local Creator = require(Root.Modules.Creator)
+local Layout = require(Root.Modules.Layout)
 local New = Creator.New
 
 return function(Title, Desc, Parent, Hover, Config)
@@ -8,6 +9,7 @@ return function(Title, Desc, Parent, Hover, Config)
 	}
 
 	Config = typeof(Config) == "table" and Config or {}
+	local LabelRightReserve = Config.LabelRightReserve or Layout.Card.DefaultLabelRightReserve
 
 	Element.TitleLabel = New("TextLabel", {
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
@@ -43,16 +45,16 @@ return function(Title, Desc, Parent, Hover, Config)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(16, 0),
-		Size = UDim2.new(1, -42, 0, 0),
+		Position = UDim2.fromOffset(Layout.Card.LeftInset, 0),
+		Size = UDim2.new(1, -(Layout.Card.LeftInset + LabelRightReserve), 0, 0),
 	}, {
 		New("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
 		New("UIPadding", {
-			PaddingBottom = UDim.new(0, 14),
-			PaddingTop = UDim.new(0, 12),
+			PaddingBottom = UDim.new(0, Layout.Card.BottomInset),
+			PaddingTop = UDim.new(0, Layout.Card.TopInset),
 		}),
 		Element.TitleLabel,
 		Element.DescLabel,
@@ -81,7 +83,7 @@ return function(Title, Desc, Parent, Hover, Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, Layout.Card.Radius),
 		}),
 		Element.Border,
 		Element.LabelHolder,
