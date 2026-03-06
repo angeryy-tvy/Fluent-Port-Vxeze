@@ -27,18 +27,24 @@ local function NormalizeImage(Value)
 	return nil
 end
 
-local function NormalizeInvite(Value)
-	local Invite = NormalizeText(Value, "")
+local function ParseInvite(Value)
+	local Invite = NormalizeText(Value, ""):gsub("%s+", "")
 
 	if Invite == "" then
-		return ""
+		return "", ""
 	end
 
-	if Invite:find("^https?://") then
-		return Invite
+	local Code = Invite
+	local DiscordMatch = Invite:match("discord%.gg/([%w-_]+)")
+	local DiscordComMatch = Invite:match("discord%.com/invite/([%w-_]+)")
+
+	if DiscordMatch then
+		Code = DiscordMatch
+	elseif DiscordComMatch then
+		Code = DiscordComMatch
 	end
 
-	return "https://" .. Invite
+	return "https://discord.gg/" .. Code, Code
 end
 
 function Element:New(Idx, Config)
@@ -50,12 +56,17 @@ function Element:New(Idx, Config)
 	end
 
 	assert(typeof(Config) == "table", "DiscordInvite - Missing config table")
-	assert(Config.Title or Config.ServerName, "DiscordInvite - Missing Title or ServerName")
+	assert(Config.Invite or Config.InviteUrl, "DiscordInvite - Missing Invite")
+
+	local InviteUrl, InviteCode = ParseInvite(Config.Invite or Config.InviteUrl)
 
 	local InviteCard = {
 		Type = "DiscordInvite",
-		Invite = NormalizeText(Config.Invite or Config.InviteUrl, ""),
+		Invite = InviteUrl,
+		InviteCode = InviteCode,
 		Callback = Config.Callback or function() end,
+		Resolver = Config.Resolver,
+		Data = nil,
 	}
 
 	local RootFrame = New("Frame", {
@@ -89,7 +100,7 @@ function Element:New(Idx, Config)
 	}) :: TextLabel
 
 	local CardFrame = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 260),
+		Size = UDim2.new(1, 0, 0, 244),
 		BackgroundColor3 = Color3.fromRGB(27, 30, 35),
 		Parent = RootFrame,
 		ClipsDescendants = true,
@@ -105,13 +116,13 @@ function Element:New(Idx, Config)
 
 	local BannerFrame = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 82),
-		BackgroundColor3 = Config.BannerColor or Color3.fromRGB(31, 170, 255),
+		BackgroundColor3 = Color3.fromRGB(22, 164, 255),
 		Parent = CardFrame,
 	}, {
 		New("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Config.BannerColor or Color3.fromRGB(23, 153, 255)),
-				ColorSequenceKeypoint.new(1, Config.BannerColor2 or Color3.fromRGB(112, 237, 244)),
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 164, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(106, 231, 241)),
 			}),
 			Rotation = 90,
 		}),
@@ -160,7 +171,7 @@ function Element:New(Idx, Config)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-		Text = "",
+		Text = "D",
 		TextSize = 28,
 		TextColor3 = Color3.fromRGB(24, 28, 34),
 		Parent = AvatarFrame,
@@ -170,7 +181,7 @@ function Element:New(Idx, Config)
 		Position = UDim2.fromOffset(16, 122),
 		Size = UDim2.new(1, -32, 0, 24),
 		BackgroundTransparency = 1,
-		Text = "",
+		Text = "Discord Invite",
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 		TextSize = 20,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -179,45 +190,22 @@ function Element:New(Idx, Config)
 		Parent = CardFrame,
 	}) :: TextLabel
 
-	local StatsHolder = New("Frame", {
+	local DescriptionLabel = New("TextLabel", {
 		Position = UDim2.fromOffset(16, 151),
-		Size = UDim2.new(1, -32, 0, 18),
-		BackgroundTransparency = 1,
-		Parent = CardFrame,
-	}, {
-		New("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 6),
-		}),
-	}) :: Frame
-
-	local OnlineDot = New("Frame", {
-		Size = UDim2.fromOffset(8, 8),
-		BackgroundColor3 = Config.OnlineColor or Color3.fromRGB(35, 165, 90),
-		Parent = StatsHolder,
-	}, {
-		New("UICorner", {
-			CornerRadius = UDim.new(1, 0),
-		}),
-	}) :: Frame
-
-	local StatsLabel = New("TextLabel", {
-		AutomaticSize = Enum.AutomaticSize.XY,
-		Size = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(1, -32, 0, 40),
 		BackgroundTransparency = 1,
 		Text = "",
+		TextWrapped = true,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Top,
 		TextColor3 = Color3.fromRGB(188, 193, 201),
-		Parent = StatsHolder,
+		Parent = CardFrame,
 	}) :: TextLabel
 
-	local CreatedLabel = New("TextLabel", {
-		Position = UDim2.fromOffset(16, 172),
+	local StatsLabel = New("TextLabel", {
+		Position = UDim2.fromOffset(16, 190),
 		Size = UDim2.new(1, -32, 0, 18),
 		BackgroundTransparency = 1,
 		Text = "",
@@ -227,25 +215,13 @@ function Element:New(Idx, Config)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextColor3 = Color3.fromRGB(148, 154, 164),
 		Parent = CardFrame,
+		Visible = false,
 	}) :: TextLabel
 
-	local TagsHolder = New("Frame", {
-		Position = UDim2.fromOffset(16, 196),
-		Size = UDim2.new(1, -32, 0, 20),
-		BackgroundTransparency = 1,
-		Parent = CardFrame,
-	}, {
-		New("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 6),
-		}),
-	}) :: Frame
-
 	local JoinButton = New("TextButton", {
-		Position = UDim2.fromOffset(16, 220),
+		Position = UDim2.fromOffset(16, 210),
 		Size = UDim2.new(1, -32, 0, 28),
-		BackgroundColor3 = Config.AccentColor or Color3.fromRGB(35, 165, 90),
+		BackgroundColor3 = Color3.fromRGB(35, 165, 90),
 		Text = "",
 		AutoButtonColor = false,
 		Parent = CardFrame,
@@ -256,7 +232,7 @@ function Element:New(Idx, Config)
 		New("TextLabel", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Text = "",
+			Text = NormalizeText(Config.ButtonText, "Copy Invite"),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			TextSize = 14,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -265,108 +241,92 @@ function Element:New(Idx, Config)
 
 	local JoinLabel = JoinButton.TextLabel
 
-	local function ClearTags()
-		for _, Child in next, TagsHolder:GetChildren() do
-			if not Child:IsA("UIListLayout") then
-				Child:Destroy()
-			end
-		end
+	local function SetLoadingState(Text)
+		NameLabel.Text = "Discord Invite"
+		DescriptionLabel.Text = Text
+		StatsLabel.Visible = false
+		BannerImage.Visible = false
+		BannerImage.Image = ""
+		AvatarImage.Visible = false
+		AvatarImage.Image = ""
+		AvatarInitial.Visible = true
+		AvatarInitial.Text = InviteCode ~= "" and InviteCode:sub(1, 1):upper() or "D"
 	end
 
-	local function SetTags(Tags)
-		ClearTags()
-
-		if typeof(Tags) ~= "table" or #Tags == 0 then
-			TagsHolder.Visible = false
+	local function ApplyData(Data)
+		if typeof(Data) ~= "table" then
+			InviteCard.Data = nil
+			SetLoadingState("Preview unavailable. Provide `Data` or `Resolver` to resolve invite metadata.")
 			return
 		end
 
-		TagsHolder.Visible = true
+		InviteCard.Data = Data
 
-		for _, Tag in next, Tags do
-			local TagText = NormalizeText(Tag, "")
-			if TagText ~= "" then
-				New("Frame", {
-					AutomaticSize = Enum.AutomaticSize.X,
-					Size = UDim2.fromOffset(0, 20),
-					BackgroundColor3 = Color3.fromRGB(43, 47, 54),
-					Parent = TagsHolder,
-				}, {
-					New("UICorner", {
-						CornerRadius = UDim.new(0, 6),
-					}),
-					New("UIPadding", {
-						PaddingLeft = UDim.new(0, 8),
-						PaddingRight = UDim.new(0, 8),
-					}),
-					New("TextLabel", {
-						AutomaticSize = Enum.AutomaticSize.XY,
-						Size = UDim2.fromOffset(0, 0),
-						BackgroundTransparency = 1,
-						Text = TagText,
-						FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
-						TextSize = 11,
-						TextColor3 = Color3.fromRGB(220, 223, 228),
-						TextXAlignment = Enum.TextXAlignment.Center,
-						TextYAlignment = Enum.TextYAlignment.Center,
-					}),
-				})
-			end
+		local Name = NormalizeText(Data.Name or Data.Title, "Discord Invite")
+		local Description = NormalizeText(
+			Data.Description,
+			(Data.Created and ("Created: " .. tostring(Data.Created))) or "Invite metadata resolved from your backend."
+		)
+		local Online = NormalizeText(Data.Online or Data.PresenceCount, "")
+		local Members = NormalizeText(Data.Members or Data.MemberCount, "")
+		local Stats = {}
+
+		if Online ~= "" then
+			Stats[#Stats + 1] = Online .. " online"
+		end
+
+		if Members ~= "" then
+			Stats[#Stats + 1] = Members .. " members"
+		end
+
+		NameLabel.Text = Name
+		DescriptionLabel.Text = Description
+		StatsLabel.Text = table.concat(Stats, "  •  ")
+		StatsLabel.Visible = StatsLabel.Text ~= ""
+
+		local Banner = NormalizeImage(Data.Banner or Data.BannerImage)
+		BannerImage.Visible = Banner ~= nil
+		BannerImage.Image = Banner or ""
+
+		local Icon = NormalizeImage(Data.Icon or Data.IconImage)
+		AvatarImage.Visible = Icon ~= nil
+		AvatarImage.Image = Icon or ""
+		AvatarInitial.Visible = Icon == nil
+		AvatarInitial.Text = Name:sub(1, 1):upper()
+
+		if typeof(Data.ButtonText) == "string" and Data.ButtonText ~= "" then
+			JoinLabel.Text = Data.ButtonText
 		end
 	end
 
 	function InviteCard:SetInvite(Value)
-		InviteCard.Invite = NormalizeText(Value, "")
+		InviteCard.Invite, InviteCard.InviteCode = ParseInvite(Value)
 		InviteLabel.Text = InviteCard.Invite
-		InviteLabel.Visible = InviteCard.Invite ~= ""
+		AvatarInitial.Text = InviteCard.InviteCode ~= "" and InviteCard.InviteCode:sub(1, 1):upper() or "D"
 	end
 
-	function InviteCard:SetTitle(Value)
-		NameLabel.Text = NormalizeText(Value, "Discord Server")
+	function InviteCard:SetData(Data)
+		ApplyData(Data)
 	end
 
-	function InviteCard:SetCreated(Value)
-		CreatedLabel.Text = NormalizeText(Value, "")
-		CreatedLabel.Visible = CreatedLabel.Text ~= ""
-	end
-
-	function InviteCard:SetStats(Online, Members)
-		local Parts = {}
-		local OnlineText = NormalizeText(Online, "")
-		local MemberText = NormalizeText(Members, "")
-
-		if OnlineText ~= "" then
-			Parts[#Parts + 1] = OnlineText .. " online"
+	function InviteCard:Resolve()
+		if typeof(InviteCard.Resolver) ~= "function" then
+			SetLoadingState("Preview unavailable. Add a `Resolver` function that fetches invite metadata from your API.")
+			return
 		end
 
-		if MemberText ~= "" then
-			Parts[#Parts + 1] = MemberText .. " members"
-		end
+		SetLoadingState("Resolving invite preview...")
 
-		StatsLabel.Text = table.concat(Parts, "  •  ")
-		StatsHolder.Visible = StatsLabel.Text ~= ""
-	end
+		task.spawn(function()
+			local Success, Result = pcall(InviteCard.Resolver, InviteCard.Invite, InviteCard.InviteCode, InviteCard)
 
-	function InviteCard:SetButtonText(Value)
-		JoinLabel.Text = NormalizeText(Value, "Join Server")
-	end
+			if not Success then
+				SetLoadingState("Resolver failed. Check your API/proxy response and return shape.")
+				return
+			end
 
-	function InviteCard:SetBanner(Image)
-		local BannerSource = NormalizeImage(Image)
-		BannerImage.Visible = BannerSource ~= nil
-		BannerImage.Image = BannerSource or ""
-	end
-
-	function InviteCard:SetIcon(Image, Initials)
-		local IconSource = NormalizeImage(Image)
-		AvatarImage.Visible = IconSource ~= nil
-		AvatarImage.Image = IconSource or ""
-		AvatarInitial.Visible = IconSource == nil
-		AvatarInitial.Text = NormalizeText(Initials, NameLabel.Text:sub(1, 1)):upper()
-	end
-
-	function InviteCard:SetTags(Tags)
-		SetTags(Tags)
+			ApplyData(Result)
+		end)
 	end
 
 	function InviteCard:Destroy()
@@ -390,20 +350,18 @@ function Element:New(Idx, Config)
 	end)
 	Creator.AddSignal(JoinButton.MouseButton1Click, function()
 		if typeof(InviteCard.Callback) == "function" then
-			Library:SafeCallback(InviteCard.Callback, NormalizeInvite(InviteCard.Invite), InviteCard)
+			Library:SafeCallback(InviteCard.Callback, InviteCard.Invite, InviteCard.Data, InviteCard)
 		end
 	end)
 
-	InviteCard:SetInvite(InviteCard.Invite)
-	InviteCard:SetTitle(Config.Title or Config.ServerName)
-	InviteCard:SetStats(Config.Online or Config.OnlineCount, Config.Members or Config.MemberCount)
-	InviteCard:SetCreated(Config.Created or Config.Footer or "")
-	InviteCard:SetButtonText(Config.ButtonText)
-	InviteCard:SetBanner(Config.BannerImage)
-	InviteCard:SetIcon(Config.IconImage, Config.Initials or Config.ServerName or Config.Title)
-	InviteCard:SetTags(Config.Tags)
-
+	InviteCard:SetInvite(Config.Invite or Config.InviteUrl)
 	JoinButton.BackgroundTransparency = 0
+
+	if Config.Data ~= nil then
+		InviteCard:SetData(Config.Data)
+	else
+		InviteCard:Resolve()
+	end
 
 	if Idx ~= nil then
 		Library.Options[Idx] = InviteCard
