@@ -54,8 +54,8 @@ local MainSubTabs = {
 }
 
 MainSubTabs.Overview:CreateParagraph("OverviewParagraph", {
-    Title = "SubTab",
-    Content = "This paragraph lives inside the Overview subtab."
+    Title = "Inline SubTab",
+    Content = "This paragraph lives inside a collapsible subtab in the Main tab."
 })
 
 local OverviewSection = MainSubTabs.Overview:CreateSection("Overview Section")
@@ -71,6 +71,8 @@ MainSubTabs.Advanced:CreateButton{
         print("Advanced subtab button clicked.")
     end
 }
+
+MainSubTabs.Advanced:Collapse()
 
 Library:Notify{
     Title = "Notification",
