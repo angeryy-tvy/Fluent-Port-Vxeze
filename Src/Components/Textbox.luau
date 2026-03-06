@@ -12,14 +12,14 @@ return function(Parent, Acrylic)
 	Textbox.Input = New("TextBox", {
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 		TextColor3 = Color3.fromRGB(200, 200, 200),
-		TextSize = 14,
+		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromOffset(10, 0),
+		Position = UDim2.fromOffset(4, 0),
 		ThemeTag = {
 			TextColor3 = "Text",
 			PlaceholderColor3 = "SubText",
@@ -29,17 +29,17 @@ return function(Parent, Acrylic)
 	Textbox.Container = New("Frame", {
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
-		Position = UDim2.new(0, 6, 0, 0),
-		Size = UDim2.new(1, -12, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		Size = UDim2.new(1, -20, 1, 0),
 	}, {
 		Textbox.Input,
 	})
 
 	Textbox.Indicator = New("Frame", {
-		Size = UDim2.new(1, -4, 0, 1),
-		Position = UDim2.new(0, 2, 1, 0),
+		Size = UDim2.new(1, -20, 0, 2),
+		Position = UDim2.new(0, 10, 1, -5),
 		AnchorPoint = Vector2.new(0, 1),
-		BackgroundTransparency = Acrylic and 0.5 or 0,
+		BackgroundTransparency = Acrylic and 1 or 0.4,
 		ThemeTag = {
 			BackgroundColor3 = Acrylic and "InputIndicator" or "DialogInputLine",
 		},
@@ -47,18 +47,18 @@ return function(Parent, Acrylic)
 
 	Textbox.Frame = New("Frame", {
 		Size = UDim2.new(0, 0, 0, 30),
-		BackgroundTransparency = Acrylic and 0.9 or 0,
+		BackgroundTransparency = Acrylic and 0.8 or 0.08,
 		Parent = Parent,
 		ThemeTag = {
 			BackgroundColor3 = Acrylic and "Input" or "DialogInput",
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 4),
+			CornerRadius = UDim.new(0, 8),
 		}),
 		New("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Transparency = Acrylic and 0.5 or 0.65,
+			Transparency = Acrylic and 0.35 or 0.45,
 			ThemeTag = {
 				Color = Acrylic and "InElementBorder" or "DialogButtonBorder",
 			},
@@ -101,8 +101,8 @@ return function(Parent, Acrylic)
 
 	Creator.AddSignal(Textbox.Input.Focused, function()
 		Update()
-		Textbox.Indicator.Size = UDim2.new(1, -2, 0, 2)
-		Textbox.Indicator.Position = UDim2.new(0, 1, 1, 0)
+		Textbox.Indicator.Size = UDim2.new(1, -20, 0, 2)
+		Textbox.Indicator.Position = UDim2.new(0, 10, 1, -5)
 		Textbox.Indicator.BackgroundTransparency = 0
 		Creator.OverrideTag(Textbox.Frame, { BackgroundColor3 = Acrylic and "InputFocused" or "DialogHolder" })
 		Creator.OverrideTag(Textbox.Indicator, { BackgroundColor3 = "Accent" })
@@ -110,9 +110,9 @@ return function(Parent, Acrylic)
 
 	Creator.AddSignal(Textbox.Input.FocusLost, function()
 		Update()
-		Textbox.Indicator.Size = UDim2.new(1, -4, 0, 1)
-		Textbox.Indicator.Position = UDim2.new(0, 2, 1, 0)
-		Textbox.Indicator.BackgroundTransparency = 0.5
+		Textbox.Indicator.Size = UDim2.new(1, -20, 0, 2)
+		Textbox.Indicator.Position = UDim2.new(0, 10, 1, -5)
+		Textbox.Indicator.BackgroundTransparency = Acrylic and 1 or 0.4
 		Creator.OverrideTag(Textbox.Frame, { BackgroundColor3 = Acrylic and "Input" or "DialogInput" })
 		Creator.OverrideTag(Textbox.Indicator, { BackgroundColor3 = Acrylic and "InputIndicator" or "DialogInputLine" })
 	end)

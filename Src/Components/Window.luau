@@ -46,14 +46,14 @@ return function(Config)
 
 	Window.AcrylicPaint = Acrylic.AcrylicPaint()
 	Window.TabWidth = Config.TabWidth
-	local SearchBarHeight = 32
-	local SearchBarPadding = 8
-	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 17
+	local SearchBarHeight = 36
+	local SearchBarPadding = 10
+	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
 
 	local Selector = New("Frame", {
-		Size = UDim2.fromOffset(4, 0),
+		Size = UDim2.fromOffset(3, 0),
 		BackgroundColor3 = Color3.fromRGB(76, 194, 255),
-		Position = UDim2.fromOffset(0, 17),
+		Position = UDim2.fromOffset(6, 19),
 		AnchorPoint = Vector2.new(0, 0.5),
 		ThemeTag = {
 			BackgroundColor3 = "Accent",
@@ -74,8 +74,8 @@ return function(Config)
 		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding)),
 		Position = UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding),
 		BackgroundTransparency = 1,
-		ScrollBarImageTransparency = 1,
-		ScrollBarThickness = 0,
+		ScrollBarImageTransparency = 0.9,
+		ScrollBarThickness = 2,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.fromScale(0, 0),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
@@ -87,13 +87,34 @@ return function(Config)
 	})
 
 	local TabFrame = New("Frame", {
-		Size = UDim2.new(0, Window.TabWidth, 1, -66),
-		Position = UDim2.new(0, 12, 0, 54),
+		Size = UDim2.new(1, -24, 1, -24),
+		Position = UDim2.fromOffset(12, 12),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, {
 		Window.TabHolder,
 		Selector,
+	})
+
+	local SidebarShell = New("Frame", {
+		Size = UDim2.new(0, Window.TabWidth + 24, 1, -66),
+		Position = UDim2.new(0, 12, 0, 54),
+		BackgroundTransparency = 0.16,
+		ClipsDescendants = true,
+		ThemeTag = {
+			BackgroundColor3 = "DialogHolder",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0, 12),
+		}),
+		New("UIStroke", {
+			Transparency = 0.28,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
+		}),
+		TabFrame,
 	})
 
 	local SearchBox = require(Components.Textbox)(TabFrame, true)
@@ -122,16 +143,36 @@ return function(Config)
 		RichText = true,
 		Text = "Tab",
 		TextTransparency = 0,
-		FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
-		TextSize = 28,
-		TextXAlignment = "Left",
-		TextYAlignment = "Center",
-		Size = UDim2.new(1, -16, 0, 28),
-		Position = UDim2.fromOffset(Window.TabWidth + 26, 56),
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+		TextSize = 31,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Size = UDim2.new(1, -44, 0, 34),
+		Position = UDim2.fromOffset(22, 24),
 		BackgroundTransparency = 1,
 		ThemeTag = {
 			TextColor3 = "Text",
 		},
+	})
+
+	Window.TabMeta = New("TextLabel", {
+		RichText = true,
+		Text = "WORKSPACE",
+		TextTransparency = 0.1,
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Size = UDim2.new(1, -44, 0, 14),
+		Position = UDim2.fromOffset(22, 12),
+		BackgroundTransparency = 1,
+		ThemeTag = {
+			TextColor3 = "SubText",
+		},
+	}, {
+		New("UITextSizeConstraint", {
+			MaxTextSize = 11,
+		}),
 	})
 
 	Window.ContainerHolder = New("Frame", {
@@ -145,12 +186,35 @@ return function(Config)
 	})
 
 	Window.ContainerCanvas = New("Frame", {
-		Size = UDim2.new(1, -Window.TabWidth - 32, 1, -102),
-		Position = UDim2.fromOffset(Window.TabWidth + 26, 90),
+		Size = UDim2.new(1, -44, 1, -84),
+		Position = UDim2.fromOffset(22, 68),
 		BackgroundTransparency = 1,
 	}, {
 		Window.ContainerAnim,
 		Window.ContainerHolder
+	})
+
+	local ContentShell = New("Frame", {
+		Size = UDim2.new(1, -Window.TabWidth - 48, 1, -66),
+		Position = UDim2.fromOffset(Window.TabWidth + 36, 54),
+		BackgroundTransparency = 0.08,
+		ClipsDescendants = true,
+		ThemeTag = {
+			BackgroundColor3 = "Dialog",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0, 14),
+		}),
+		New("UIStroke", {
+			Transparency = 0.26,
+			ThemeTag = {
+				Color = "DialogBorder",
+			},
+		}),
+		Window.TabMeta,
+		Window.TabDisplay,
+		Window.ContainerCanvas,
 	})
 
 	Window.Root = New("Frame", {
@@ -160,9 +224,8 @@ return function(Config)
 		Parent = Config.Parent,
 	}, {
 		Window.AcrylicPaint.Frame,
-		Window.TabDisplay,
-		Window.ContainerCanvas,
-		TabFrame,
+		SidebarShell,
+		ContentShell,
 		ResizeStartFrame,
 	})
 
@@ -305,19 +368,19 @@ return function(Config)
 	local LastValue = 0
 	local LastTime = 0
 	Window.SelectorPosMotor:onStep(function(Value)
-		Selector.Position = UDim2.new(0, 0, 0, Value + SelectorOffsetY)
+		Selector.Position = UDim2.new(0, 6, 0, Value + SelectorOffsetY)
 		local Now = tick()
 		local DeltaTime = Now - LastTime
 
 		if LastValue ~= nil then
-			Window.SelectorSizeMotor:setGoal(Spring((math.abs(Value - LastValue) / (DeltaTime * 60)) + 16))
+			Window.SelectorSizeMotor:setGoal(Spring((math.abs(Value - LastValue) / (DeltaTime * 60)) + 18))
 			LastValue = Value
 		end
 		LastTime = Now
 	end)
 
 	Window.SelectorSizeMotor:onStep(function(Value)
-		Selector.Size = UDim2.new(0, 4, 0, Value)
+		Selector.Size = UDim2.new(0, 3, 0, Value)
 	end)
 
 	Window.ContainerBackMotor:onStep(function(Value)
@@ -578,7 +641,7 @@ return function(Config)
 	end
 
 	Creator.AddSignal(Window.TabHolder:GetPropertyChangedSignal("CanvasPosition"), function()
-		LastValue = TabModule:GetCurrentTabPos() + 16
+		LastValue = TabModule:GetCurrentTabPos() + 19
 		LastTime = 0
 		Window.SelectorPosMotor:setGoal(Instant(TabModule:GetCurrentTabPos()))
 	end)

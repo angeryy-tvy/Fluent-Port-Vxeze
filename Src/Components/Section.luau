@@ -11,21 +11,24 @@ return function(Title, Parent, Library)
 	}
 
 	Section.Layout = New("UIListLayout", {
-		Padding = UDim.new(0, 5),
+		Padding = UDim.new(0, 6),
 	})
 
 	Section.Container = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
-		Position = UDim2.fromOffset(0, 28),
+		Position = UDim2.fromOffset(0, 36),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, {
+		New("UIPadding", {
+			PaddingLeft = UDim.new(0, 6),
+		}),
 		Section.Layout,
 	})
 
 	local ChevronIcon = New("ImageLabel", {
-		Size = UDim2.fromOffset(20, 20),
-		Position = UDim2.new(1, -5, 0.5, 0),
+		Size = UDim2.fromOffset(16, 16),
+		Position = UDim2.new(1, -12, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		Rotation = 0,
@@ -41,20 +44,32 @@ return function(Title, Parent, Library)
 	end
 
 	local HeaderButton = New("TextButton", {
-		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundTransparency = 0.88,
 		Text = "",
+		ThemeTag = {
+			BackgroundColor3 = "Tab",
+		},
 	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0, 8),
+		}),
+		New("UIStroke", {
+			Transparency = 0.35,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
+		}),
 		New("TextLabel", {
 			RichText = true,
 			Text = Title,
 			TextTransparency = 0,
-			FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
-			TextSize = 18,
-			TextXAlignment = "Left",
-			TextYAlignment = "Center",
-			Size = UDim2.new(1, -24, 1, 0),
-			Position = UDim2.fromOffset(0, 0),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			Size = UDim2.new(1, -40, 1, 0),
+			Position = UDim2.fromOffset(12, 0),
 			BackgroundTransparency = 1,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -65,7 +80,7 @@ return function(Title, Parent, Library)
 
 	Section.Root = New("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 28),
+		Size = UDim2.new(1, 0, 0, 36),
 		LayoutOrder = 7,
 		Parent = Parent,
 		ClipsDescendants = true,
@@ -78,7 +93,7 @@ return function(Title, Parent, Library)
 		Section.TargetHeight = Section.Layout.AbsoluteContentSize.Y
 		if not Section.Collapsed then
 			Section.Container.Size = UDim2.new(1, 0, 0, Section.TargetHeight)
-			Section.Root.Size = UDim2.new(1, 0, 0, Section.TargetHeight + 28)
+			Section.Root.Size = UDim2.new(1, 0, 0, Section.TargetHeight + 36)
 		end
 	end
 
@@ -92,11 +107,11 @@ return function(Title, Parent, Library)
 		if Section.Collapsed then
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = -90}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, 0)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, 28)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, 36)}):Play()
 		else
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = 0}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight + 28)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight + 36)}):Play()
 		end
 	end
 

@@ -42,52 +42,6 @@ QuickSection:CreateButton{
     end
 }
 
--- Discord invite preview is only partially feasible on-client.
--- You still need your own API/proxy or a custom resolver function to turn the invite link
--- into metadata such as name, online count, member count, icon, and banner.
---[[
-local HttpService = game:GetService("HttpService")
-
-Tabs.Main:CreateDiscordInvite("CommunityInvite", {
-    Invite = "discord.gg/vxezehub",
-    ButtonText = "Copy Invite",
-    Resolver = function(InviteUrl, InviteCode)
-        local Request = http_request or request or (syn and syn.request)
-        if not Request then
-            return nil
-        end
-
-        local Response = Request({
-            Url = "https://your-api.example/discord-invite?code=" .. InviteCode,
-            Method = "GET"
-        })
-
-        if not Response or Response.StatusCode ~= 200 then
-            return nil
-        end
-
-        local Data = HttpService:JSONDecode(Response.Body)
-
-        return {
-            Name = Data.name,
-            Description = Data.description,
-            Online = Data.presence_count,
-            Members = Data.member_count,
-            Icon = Data.icon_url,
-            Banner = Data.banner_url,
-            ButtonText = "Join Server"
-        }
-    end,
-    Callback = function(InviteUrl, Data)
-        if setclipboard then
-            setclipboard(InviteUrl)
-        end
-
-        print("Discord invite copied:", InviteUrl, Data and Data.Name)
-    end
-})
-]]
-
 local MainSubTabs = {
     Overview = Tabs.Main:CreateSubTab{
         Title = "Overview",

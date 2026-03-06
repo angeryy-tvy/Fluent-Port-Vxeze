@@ -27,7 +27,7 @@ return function(Title, Desc, Parent, Hover, Config)
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 		Text = Desc,
 		TextColor3 = Color3.fromRGB(200, 200, 200),
-		TextSize = 12,
+		TextSize = 11,
 		TextWrapped = true,
 		TextXAlignment = Config.DescriptionAlignment or Enum.TextXAlignment.Left,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -43,23 +43,36 @@ return function(Title, Desc, Parent, Hover, Config)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(10, 0),
-		Size = UDim2.new(1, -28, 0, 0),
+		Position = UDim2.fromOffset(16, 0),
+		Size = UDim2.new(1, -42, 0, 0),
 	}, {
 		New("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
 		New("UIPadding", {
-			PaddingBottom = UDim.new(0, 13),
-			PaddingTop = UDim.new(0, 13),
+			PaddingBottom = UDim.new(0, 14),
+			PaddingTop = UDim.new(0, 12),
 		}),
 		Element.TitleLabel,
 		Element.DescLabel,
 	}) :: Frame
 
+	Element.Accent = New("Frame", {
+		Size = UDim2.new(0, 3, 1, -18),
+		Position = UDim2.fromOffset(8, 9),
+		BackgroundTransparency = 0.25,
+		ThemeTag = {
+			BackgroundColor3 = "Accent",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(1, 0),
+		}),
+	}) :: Frame
+
 	Element.Border = New("UIStroke", {
-		Transparency = 0.5,
+		Transparency = 0.3,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		Color = Color3.fromRGB(0, 0, 0),
 		ThemeTag = {
@@ -69,7 +82,7 @@ return function(Title, Desc, Parent, Hover, Config)
 
 	Element.Frame = New("TextButton", {
 		Size = UDim2.new(1, 0, 0, 0),
-		BackgroundTransparency = 0.89,
+		BackgroundTransparency = 0.82,
 		BackgroundColor3 = Color3.fromRGB(130, 130, 130),
 		Parent = Parent,
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -81,9 +94,10 @@ return function(Title, Desc, Parent, Hover, Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 4),
+			CornerRadius = UDim.new(0, 8),
 		}),
 		Element.Border,
+		Element.Accent,
 		Element.LabelHolder,
 	}) :: TextButton
 

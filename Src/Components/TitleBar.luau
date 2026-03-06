@@ -16,22 +16,28 @@ return function(Config)
 		}
 
 		Button.Frame = New("TextButton", {
-			Size = UDim2.new(0, 34, 1, -8),
+			Size = UDim2.fromOffset(28, 28),
 			AnchorPoint = Vector2.new(1, 0),
-			BackgroundTransparency = 1,
+			BackgroundTransparency = 0.9,
 			Parent = Parent,
 			Position = Pos,
 			Text = "",
 			ThemeTag = {
-				BackgroundColor3 = "Text",
+				BackgroundColor3 = "Tab",
 			},
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 7),
+				CornerRadius = UDim.new(0, 8),
+			}),
+			New("UIStroke", {
+				Transparency = 0.4,
+				ThemeTag = {
+					Color = "InElementBorder",
+				},
 			}),
 			New("ImageLabel", {
 				Image = Icon,
-				Size = UDim2.fromOffset(16, 16),
+				Size = UDim2.fromOffset(14, 14),
 				Position = UDim2.fromScale(0.5, 0.5),
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
@@ -42,22 +48,22 @@ return function(Config)
 			}),
 		})
 
-		local Motor, SetTransparency = Creator.SpringMotor(1, Button.Frame, "BackgroundTransparency")
+		local Motor, SetTransparency = Creator.SpringMotor(0.9, Button.Frame, "BackgroundTransparency")
 
 		AddSignal(Button.Frame.MouseEnter, function()
-			SetTransparency(0.94)
+			SetTransparency(0.82)
 		end)
 
 		AddSignal(Button.Frame.MouseLeave, function()
-			SetTransparency(1, true)
+			SetTransparency(0.9, true)
 		end)
 
 		AddSignal(Button.Frame.MouseButton1Down, function()
-			SetTransparency(0.96)
+			SetTransparency(0.72)
 		end)
 
 		AddSignal(Button.Frame.MouseButton1Up, function()
-			SetTransparency(0.94)
+			SetTransparency(0.82)
 		end)
 
 		AddSignal(Button.Frame.MouseButton1Click, function(...)
@@ -72,12 +78,12 @@ return function(Config)
 	end
 
 	TitleBar.Frame = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 42),
+		Size = UDim2.new(1, 0, 0, 44),
 		BackgroundTransparency = 1,
 		Parent = Config.Parent
 	}, {
 		New("Frame", {
-			BackgroundTransparency = 0.5,
+			BackgroundTransparency = 0.2,
 			Size = UDim2.new(1, 0, 0, 1),
 			Position = UDim2.new(0, 0, 1, 0),
 			ThemeTag = {
@@ -87,9 +93,9 @@ return function(Config)
 	})
 
 	TitleBar.TitleHolder = New("Frame", {
-		Size = UDim2.new(1, -16, 1, 0),
+		Size = UDim2.new(1, -124, 1, 0),
 		Parent = TitleBar.Frame,
-		Position = UDim2.new(0, 16, 0, 0),
+		Position = UDim2.new(0, 18, 0, 0),
 		BackgroundTransparency = 1,
 	}, {
 		New("UIListLayout", {
@@ -105,10 +111,10 @@ return function(Config)
 		Parent = TitleBar.TitleHolder,
 		FontFace = Font.new(
 			"rbxasset://fonts/families/GothamSSm.json",
-			Enum.FontWeight.Regular,
+			Enum.FontWeight.SemiBold,
 			Enum.FontStyle.Normal
 		),
-		TextSize = 12,
+		TextSize = 13,
 		TextXAlignment = "Left",
 		TextYAlignment = "Center",
 		Size = UDim2.fromScale(0, 1),
@@ -123,13 +129,13 @@ return function(Config)
 		RichText = true,
 		Text = Config.SubTitle,
 		Parent = TitleBar.TitleHolder,
-		TextTransparency = 0.4,
+		TextTransparency = 0.18,
 		FontFace = Font.new(
 			"rbxasset://fonts/families/GothamSSm.json",
 			Enum.FontWeight.Regular,
 			Enum.FontStyle.Normal
 		),
-		TextSize = 12,
+		TextSize = 11,
 		TextXAlignment = "Left",
 		TextYAlignment = "Center",
 		Size = UDim2.fromScale(0, 1),
@@ -140,7 +146,7 @@ return function(Config)
 		}
 	})
 
-	TitleBar.CloseButton = BarButton(Library.Utilities:GetIcon("Close"), UDim2.new(1, -4, 0, 4), TitleBar.Frame, 0, function()
+	TitleBar.CloseButton = BarButton(Library.Utilities:GetIcon("Close"), UDim2.new(1, -12, 0, 8), TitleBar.Frame, 0, function()
 		Library.CreatedWindow:Dialog{
 			Title = "Close",
 			Content = "Are you sure you want to unload the interface?",
@@ -156,11 +162,11 @@ return function(Config)
 		}
 	end)
 
-	TitleBar.MaxButton = BarButton(Library.Utilities:GetIcon("Max"), UDim2.new(1, -40, 0, 4), TitleBar.Frame, 0, function()
+	TitleBar.MaxButton = BarButton(Library.Utilities:GetIcon("Max"), UDim2.new(1, -46, 0, 8), TitleBar.Frame, 0, function()
 		Config.Window.Maximize(not Config.Window.Maximized)
 	end)
 
-	TitleBar.MinButton = BarButton(Library.Utilities:GetIcon("Min"), UDim2.new(1, -80, 0, 4), TitleBar.Frame, 0, function()
+	TitleBar.MinButton = BarButton(Library.Utilities:GetIcon("Min"), UDim2.new(1, -80, 0, 8), TitleBar.Frame, 0, function()
 		Config.Window:Minimize()
 	end)
 

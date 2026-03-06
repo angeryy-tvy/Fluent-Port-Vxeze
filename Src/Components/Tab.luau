@@ -177,7 +177,7 @@ local function RefreshTabDropdown(Tab)
 
 	Tab.SubTabHolder.Visible = ShowChildren
 	Tab.SubTabHolder.Size = UDim2.new(1, 0, 0, TargetHeight)
-	Tab.Root.Size = UDim2.new(1, 0, 0, 34 + TargetHeight)
+	Tab.Root.Size = UDim2.new(1, 0, 0, 38 + TargetHeight)
 end
 
 local function GetFirstMatchingItem(Tab, Query, HasTabContentMatch)
@@ -241,23 +241,23 @@ function TabModule:SelectItem(TabIndex, Item)
 	TabModule.SelectedItem = Item
 
 	for _, ExistingTab in next, TabModule.Tabs do
-		ExistingTab.SetTransparency(1)
+		ExistingTab.SetTransparency(0.97)
 		ExistingTab.Selected = false
 		for _, SubTab in next, ExistingTab.SubTabs do
-			SubTab.SetTransparency(1)
+			SubTab.SetTransparency(0.99)
 			SubTab.Selected = false
 		end
 	end
 
 	if Item.Type == "SubTab" then
-		Tab.SetTransparency(0.94)
+		Tab.SetTransparency(0.84)
 		Tab.Selected = true
-		Item.SetTransparency(0.89)
+		Item.SetTransparency(0.72)
 		Item.Selected = true
 		Tab.Expanded = true
 		RefreshTabDropdown(Tab)
 	else
-		Tab.SetTransparency(0.89)
+		Tab.SetTransparency(0.8)
 		Tab.Selected = true
 	end
 
@@ -406,7 +406,7 @@ function TabModule:New(Title, Icon, Parent)
 	}
 
 	Tab.Root = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 34),
+		Size = UDim2.new(1, 0, 0, 38),
 		BackgroundTransparency = 1,
 		Parent = Parent,
 		LayoutOrder = TabIndex,
@@ -414,32 +414,38 @@ function TabModule:New(Title, Icon, Parent)
 	})
 
 	Tab.Frame = New("TextButton", {
-		Size = UDim2.new(1, 0, 0, 34),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 38),
+		BackgroundTransparency = 0.97,
 		Parent = Tab.Root,
 		ThemeTag = {
 			BackgroundColor3 = "Tab",
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, 9),
+		}),
+		New("UIStroke", {
+			Transparency = 0.4,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
 		}),
 		New("TextLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = TabIcon ~= nil and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
+			Position = TabIcon ~= nil and UDim2.new(0, 38, 0.5, 0) or UDim2.new(0, 14, 0.5, 0),
 			Text = Title,
 			RichText = true,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
 			TextTransparency = 0,
 			FontFace = Font.new(
 				"rbxasset://fonts/families/GothamSSm.json",
-				Enum.FontWeight.Regular,
+				Enum.FontWeight.SemiBold,
 				Enum.FontStyle.Normal
 			),
-			TextSize = 12,
+			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			Size = UDim2.new(1, -36, 1, 0),
+			Size = UDim2.new(1, -54, 1, 0),
 			BackgroundTransparency = 1,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -447,8 +453,8 @@ function TabModule:New(Title, Icon, Parent)
 		}),
 		New("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Size = UDim2.fromOffset(16, 16),
-			Position = UDim2.new(0, 8, 0.5, 0),
+			Size = UDim2.fromOffset(18, 18),
+			Position = UDim2.new(0, 12, 0.5, 0),
 			BackgroundTransparency = 1,
 			ImageRectOffset = TabIcon and TabIcon.ImageRectOffset or Vector2.zero,
 			ImageRectSize = TabIcon and TabIcon.ImageRectSize or Vector2.zero,
@@ -461,7 +467,7 @@ function TabModule:New(Title, Icon, Parent)
 
 	Tab.Chevron = New("ImageLabel", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -8, 0.5, 0),
+		Position = UDim2.new(1, -12, 0.5, 0),
 		Size = UDim2.fromOffset(14, 14),
 		BackgroundTransparency = 1,
 		Visible = false,
@@ -476,7 +482,7 @@ function TabModule:New(Title, Icon, Parent)
 	Tab.DropdownHitbox = New("TextButton", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(28, 28),
+		Size = UDim2.fromOffset(32, 32),
 		BackgroundTransparency = 1,
 		Text = "",
 		Visible = false,
@@ -484,20 +490,20 @@ function TabModule:New(Title, Icon, Parent)
 	})
 
 	Tab.SubTabLayout = New("UIListLayout", {
-		Padding = UDim.new(0, 2),
+		Padding = UDim.new(0, 4),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
 
 	Tab.SubTabHolder = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
-		Position = UDim2.fromOffset(0, 34),
+		Position = UDim2.fromOffset(0, 38),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = Tab.Root,
 		ClipsDescendants = true,
 	}, {
 		New("UIPadding", {
-			PaddingLeft = UDim.new(0, 12),
+			PaddingLeft = UDim.new(0, 16),
 		}),
 		Tab.SubTabLayout,
 	})
@@ -508,7 +514,7 @@ function TabModule:New(Title, Icon, Parent)
 
 	Tab.ContainerFrame = CreatePageContainer(Window)
 	BindCanvasSize(Tab.ContainerFrame)
-	Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
+	Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(0.97, Tab.Frame, "BackgroundTransparency")
 
 	function Tab:ToggleSubTabs()
 		if Tab.SubTabCount == 0 then
@@ -546,19 +552,19 @@ function TabModule:New(Title, Icon, Parent)
 	end
 
 	Creator.AddSignal(Tab.Frame.MouseEnter, function()
-		Tab.SetTransparency(Tab.Selected and 0.85 or 0.89)
+		Tab.SetTransparency(Tab.Selected and 0.72 or 0.9)
 	end)
 	Creator.AddSignal(Tab.Frame.MouseLeave, function()
-		Tab.SetTransparency(Tab.Selected and 0.89 or 1)
+		Tab.SetTransparency(Tab.Selected and 0.8 or 0.97)
 	end)
 	Creator.AddSignal(Tab.Frame.MouseButton1Down, function()
-		Tab.SetTransparency(0.92)
+		Tab.SetTransparency(0.66)
 	end)
 	Creator.AddSignal(Tab.Frame.MouseButton1Up, function()
 		if Tab.Selected and TabModule.SelectedItem ~= Tab then
-			Tab.SetTransparency(0.94)
+			Tab.SetTransparency(0.86)
 		else
-			Tab.SetTransparency(Tab.Selected and 0.85 or 0.89)
+			Tab.SetTransparency(Tab.Selected and 0.72 or 0.9)
 		end
 	end)
 	Creator.AddSignal(Tab.Frame.MouseButton1Click, function()
@@ -590,8 +596,8 @@ function TabModule:New(Title, Icon, Parent)
 		}
 
 		SubTab.Frame = New("TextButton", {
-			Size = UDim2.new(1, 0, 0, 28),
-			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 0.99,
 			Parent = Tab.SubTabHolder,
 			Visible = false,
 			LayoutOrder = SubTabIndex,
@@ -601,24 +607,30 @@ function TabModule:New(Title, Icon, Parent)
 			Text = "",
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 6),
+				CornerRadius = UDim.new(0, 8),
+			}),
+			New("UIStroke", {
+				Transparency = 0.55,
+				ThemeTag = {
+					Color = "InElementBorder",
+				},
 			}),
 			New("TextLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = SubIcon ~= nil and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
+				Position = SubIcon ~= nil and UDim2.new(0, 34, 0.5, 0) or UDim2.new(0, 14, 0.5, 0),
 				Text = SubTabConfig.Title,
 				RichText = true,
 				TextColor3 = Color3.fromRGB(220, 220, 220),
 				TextTransparency = 0,
 				FontFace = Font.new(
 					"rbxasset://fonts/families/GothamSSm.json",
-					Enum.FontWeight.Regular,
+					Enum.FontWeight.Medium,
 					Enum.FontStyle.Normal
 				),
 				TextSize = 12,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Center,
-				Size = UDim2.new(1, -18, 1, 0),
+				Size = UDim2.new(1, -34, 1, 0),
 				BackgroundTransparency = 1,
 				ThemeTag = {
 					TextColor3 = "SubText",
@@ -627,7 +639,7 @@ function TabModule:New(Title, Icon, Parent)
 			New("ImageLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
 				Size = UDim2.fromOffset(14, 14),
-				Position = UDim2.new(0, 12, 0.5, 0),
+				Position = UDim2.new(0, 14, 0.5, 0),
 				BackgroundTransparency = 1,
 				ImageRectOffset = SubIcon and SubIcon.ImageRectOffset or Vector2.zero,
 				ImageRectSize = SubIcon and SubIcon.ImageRectSize or Vector2.zero,
@@ -641,19 +653,19 @@ function TabModule:New(Title, Icon, Parent)
 
 		SubTab.ContainerFrame = CreatePageContainer(Window)
 		BindCanvasSize(SubTab.ContainerFrame)
-		SubTab.Motor, SubTab.SetTransparency = Creator.SpringMotor(1, SubTab.Frame, "BackgroundTransparency")
+		SubTab.Motor, SubTab.SetTransparency = Creator.SpringMotor(0.99, SubTab.Frame, "BackgroundTransparency")
 
 		Creator.AddSignal(SubTab.Frame.MouseEnter, function()
-			SubTab.SetTransparency(SubTab.Selected and 0.85 or 0.89)
+			SubTab.SetTransparency(SubTab.Selected and 0.72 or 0.9)
 		end)
 		Creator.AddSignal(SubTab.Frame.MouseLeave, function()
-			SubTab.SetTransparency(SubTab.Selected and 0.89 or 1)
+			SubTab.SetTransparency(SubTab.Selected and 0.8 or 0.99)
 		end)
 		Creator.AddSignal(SubTab.Frame.MouseButton1Down, function()
-			SubTab.SetTransparency(0.92)
+			SubTab.SetTransparency(0.68)
 		end)
 		Creator.AddSignal(SubTab.Frame.MouseButton1Up, function()
-			SubTab.SetTransparency(SubTab.Selected and 0.85 or 0.89)
+			SubTab.SetTransparency(SubTab.Selected and 0.72 or 0.9)
 		end)
 		Creator.AddSignal(SubTab.Frame.MouseButton1Click, function()
 			Tab.Expanded = true
