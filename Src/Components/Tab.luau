@@ -4,7 +4,6 @@ local Creator = require(Root.Modules.Creator)
 
 local New = Creator.New
 local Spring = Flipper.Spring.new
-local Instant = Flipper.Instant.new
 
 local TabModule = {
 	Window = nil,
@@ -160,29 +159,39 @@ local function HideAllContainers()
 end
 
 local function RefreshTabDropdown(Tab)
-	local ShouldShowChildren = Tab.Expanded or Tab.SearchExpanded
+	local ShowChildren = Tab.SubTabCount > 0 and (Tab.Expanded or Tab.SearchExpanded)
+	local TargetHeight = 0
+
 	Tab.Chevron.Visible = Tab.SubTabCount > 0
 	Tab.DropdownHitbox.Visible = Tab.SubTabCount > 0
-	Tab.Chevron.Rotation = ShouldShowChildren and 0 or -90
+	Tab.Chevron.Rotation = ShowChildren and 0 or -90
 
 	for _, SubTab in next, Tab.SubTabs do
 		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
-		SubTab.Frame.Visible = Tab.Frame.Visible and ShouldShowChildren and SearchAllows
+		SubTab.Frame.Visible = ShowChildren and SearchAllows
 	end
+
+	if ShowChildren then
+		TargetHeight = Tab.SubTabLayout.AbsoluteContentSize.Y
+	end
+
+	Tab.SubTabHolder.Visible = ShowChildren
+	Tab.SubTabHolder.Size = UDim2.new(1, 0, 0, TargetHeight)
+	Tab.Root.Size = UDim2.new(1, 0, 0, 34 + TargetHeight)
 end
 
-local function GetFirstMatchingItem(Tab)
-	if Tab.Frame.Visible and TextMatches(Tab.Name, TabModule.SearchQuery) then
+local function GetFirstMatchingItem(Tab, Query, HasTabContentMatch)
+	if TextMatches(Tab.Name, Query) or HasTabContentMatch then
 		return Tab
 	end
 
 	for _, SubTab in next, Tab.SubTabs do
-		if SubTab.Frame.Visible and SubTab.SearchVisible then
+		if SubTab.SearchVisible then
 			return SubTab
 		end
 	end
 
-	return Tab.Frame.Visible and Tab or nil
+	return nil
 end
 
 function TabModule:Init(Window)
@@ -210,6 +219,7 @@ function TabModule:RestoreSearch()
 
 	for _, Tab in next, TabModule.Tabs do
 		Tab.SearchExpanded = false
+		Tab.Root.Visible = true
 		for _, SubTab in next, Tab.SubTabs do
 			SubTab.SearchVisible = nil
 		end
@@ -334,11 +344,12 @@ function TabModule:ApplySearch(Query)
 		local TabVisible = TextMatches(Tab.Name, Query) or HasTabContentMatch or HasSubTabMatch
 		CacheVisibility(TabModule.SearchVisibility, Tab.Frame)
 		Tab.Frame.Visible = TabVisible
+		Tab.Root.Visible = TabVisible
 		Tab.SearchExpanded = HasSubTabMatch
 		RefreshTabDropdown(Tab)
 
 		if not FirstVisibleItem then
-			FirstVisibleItem = GetFirstMatchingItem(Tab)
+			FirstVisibleItem = GetFirstMatchingItem(Tab, Query, HasTabContentMatch)
 		end
 
 		if TabModule.SelectedItem == Tab and Tab.Frame.Visible then
@@ -379,11 +390,10 @@ function TabModule:New(Title, Icon, Parent)
 	local Library = require(Root)
 	local Window = TabModule.Window
 	local Elements = Library.Elements
+	local TabIcon = NormalizeIcon(Icon, Library)
 
 	TabModule.TabCount = TabModule.TabCount + 1
 	local TabIndex = TabModule.TabCount
-	local TabOrderBase = TabIndex * 100
-	local TabIcon = NormalizeIcon(Icon, Library)
 
 	local Tab = {
 		Selected = false,
@@ -395,11 +405,18 @@ function TabModule:New(Title, Icon, Parent)
 		SubTabCount = 0,
 	}
 
-	Tab.Frame = New("TextButton", {
+	Tab.Root = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundTransparency = 1,
 		Parent = Parent,
-		LayoutOrder = TabOrderBase,
+		LayoutOrder = TabIndex,
+		ClipsDescendants = true,
+	})
+
+	Tab.Frame = New("TextButton", {
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundTransparency = 1,
+		Parent = Tab.Root,
 		ThemeTag = {
 			BackgroundColor3 = "Tab",
 		},
@@ -466,9 +483,31 @@ function TabModule:New(Title, Icon, Parent)
 		Parent = Tab.Frame,
 	})
 
+	Tab.SubTabLayout = New("UIListLayout", {
+		Padding = UDim.new(0, 2),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+
+	Tab.SubTabHolder = New("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		Position = UDim2.fromOffset(0, 34),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = Tab.Root,
+		ClipsDescendants = true,
+	}, {
+		New("UIPadding", {
+			PaddingLeft = UDim.new(0, 12),
+		}),
+		Tab.SubTabLayout,
+	})
+
+	Creator.AddSignal(Tab.SubTabLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+		RefreshTabDropdown(Tab)
+	end)
+
 	Tab.ContainerFrame = CreatePageContainer(Window)
 	BindCanvasSize(Tab.ContainerFrame)
-
 	Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
 
 	function Tab:ToggleSubTabs()
@@ -553,9 +592,9 @@ function TabModule:New(Title, Icon, Parent)
 		SubTab.Frame = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 28),
 			BackgroundTransparency = 1,
-			Parent = Parent,
+			Parent = Tab.SubTabHolder,
 			Visible = false,
-			LayoutOrder = TabOrderBase + SubTabIndex,
+			LayoutOrder = SubTabIndex,
 			ThemeTag = {
 				BackgroundColor3 = "Tab",
 			},
@@ -566,7 +605,7 @@ function TabModule:New(Title, Icon, Parent)
 			}),
 			New("TextLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = SubIcon ~= nil and UDim2.new(0, 42, 0.5, 0) or UDim2.new(0, 24, 0.5, 0),
+				Position = SubIcon ~= nil and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
 				Text = SubTabConfig.Title,
 				RichText = true,
 				TextColor3 = Color3.fromRGB(220, 220, 220),
@@ -588,7 +627,7 @@ function TabModule:New(Title, Icon, Parent)
 			New("ImageLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
 				Size = UDim2.fromOffset(14, 14),
-				Position = UDim2.new(0, 24, 0.5, 0),
+				Position = UDim2.new(0, 12, 0.5, 0),
 				BackgroundTransparency = 1,
 				ImageRectOffset = SubIcon and SubIcon.ImageRectOffset or Vector2.zero,
 				ImageRectSize = SubIcon and SubIcon.ImageRectSize or Vector2.zero,
@@ -602,7 +641,6 @@ function TabModule:New(Title, Icon, Parent)
 
 		SubTab.ContainerFrame = CreatePageContainer(Window)
 		BindCanvasSize(SubTab.ContainerFrame)
-
 		SubTab.Motor, SubTab.SetTransparency = Creator.SpringMotor(1, SubTab.Frame, "BackgroundTransparency")
 
 		Creator.AddSignal(SubTab.Frame.MouseEnter, function()
@@ -631,14 +669,10 @@ function TabModule:New(Title, Icon, Parent)
 
 		SubTab.Container = SubTab.ContainerFrame
 		SubTab.ScrollFrame = SubTab.ContainerFrame
-
 		AddSectionAPI(SubTab, Elements, Library, SubTab.ContainerFrame, SubTab.ContainerFrame)
 		setmetatable(SubTab, Elements)
 
 		Tab.SubTabs[SubTabIndex] = SubTab
-		Tab.Chevron.Visible = true
-		Tab.DropdownHitbox.Visible = true
-		Tab.Expanded = true
 		RefreshTabDropdown(Tab)
 
 		if TabModule.SearchQuery ~= "" then
@@ -652,6 +686,7 @@ function TabModule:New(Title, Icon, Parent)
 	Tab.AddSubTab = Tab.SubTab
 
 	setmetatable(Tab, Elements)
+	RefreshTabDropdown(Tab)
 
 	if TabModule.SearchQuery ~= "" then
 		TabModule:ApplySearch(TabModule.SearchQuery)

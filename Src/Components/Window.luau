@@ -82,6 +82,7 @@ return function(Config)
 	}, {
 		New("UIListLayout", {
 			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
 
