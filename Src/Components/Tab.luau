@@ -167,13 +167,20 @@ local function RefreshTabDropdown(Tab)
 	Tab.DropdownHitbox.Visible = Tab.SubTabCount > 0
 	Tab.Chevron.Rotation = ShowChildren and 0 or -90
 
+	local VisibleCount = 0
+
 	for _, SubTab in next, Tab.SubTabs do
 		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
 		SubTab.Frame.Visible = ShowChildren and SearchAllows
+
+		if ShowChildren and SearchAllows then
+			VisibleCount += 1
+			TargetHeight += SubTab.Frame.Size.Y.Offset
+		end
 	end
 
-	if ShowChildren then
-		TargetHeight = Tab.SubTabLayout.AbsoluteContentSize.Y
+	if VisibleCount > 1 then
+		TargetHeight += Tab.SubTabLayout.Padding.Offset * (VisibleCount - 1)
 	end
 
 	Tab.SubTabHolder.Visible = ShowChildren
@@ -183,8 +190,9 @@ end
 
 local function AnimateTabDropdown(Tab)
 	local ShowChildren = Tab.SubTabCount > 0 and (Tab.Expanded or Tab.SearchExpanded)
-	local TargetHeight = ShowChildren and Tab.SubTabLayout.AbsoluteContentSize.Y or 0
 	local TweenInfoData = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local TargetHeight = 0
+	local VisibleCount = 0
 
 	Tab.Chevron.Visible = Tab.SubTabCount > 0
 	Tab.DropdownHitbox.Visible = Tab.SubTabCount > 0
@@ -192,6 +200,15 @@ local function AnimateTabDropdown(Tab)
 	for _, SubTab in next, Tab.SubTabs do
 		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
 		SubTab.Frame.Visible = ShowChildren and SearchAllows
+
+		if ShowChildren and SearchAllows then
+			VisibleCount += 1
+			TargetHeight += SubTab.Frame.Size.Y.Offset
+		end
+	end
+
+	if VisibleCount > 1 then
+		TargetHeight += Tab.SubTabLayout.Padding.Offset * (VisibleCount - 1)
 	end
 
 	if ShowChildren then
