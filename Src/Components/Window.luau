@@ -330,8 +330,6 @@ return function(Config)
 		end
 
 		local Payload = {
-			username = "Script Logger",
-			avatar_url = "https://i.imgur.com/AfFp7pu.png",
 			embeds = {{
 				title = `Script {FeedbackType}: {ScriptName}`,
 				color = FeedbackType == "Suggest" and 16766720 or 16740488,
