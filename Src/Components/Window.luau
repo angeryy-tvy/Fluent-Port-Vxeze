@@ -23,6 +23,9 @@ return function(Config)
 	assert(typeof(Config.Mobile) == "table", "Config key 'Mobile' must be a table!")
 	assert(typeof(Config.Mobile.GetIcon) == "function", "Mobile Config key 'GetIcon' must be a function!")
 	assert(typeof(Config.Mobile.Size) == "UDim2", "Mobile Config key 'Size' must be a UDim2!")
+
+	local PlayersService = game:GetService("Players")
+	local LocalPlayer = PlayersService.LocalPlayer
 	
 	local Window = {
 		Minimized = false,
@@ -49,6 +52,8 @@ return function(Config)
 	Window.TabWidth = Config.TabWidth
 	local SearchBarHeight = 36
 	local SearchBarPadding = 10
+	local UserCardHeight = 58
+	local UserCardPadding = 12
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
 
 	local Selector = New("Frame", {
@@ -72,7 +77,7 @@ return function(Config)
 	})
 
 	Window.TabHolder = New("ScrollingFrame", {
-		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding)),
+		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding + UserCardHeight + UserCardPadding)),
 		Position = UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding),
 		BackgroundTransparency = 1,
 		ScrollBarImageTransparency = 0.9,
@@ -139,6 +144,115 @@ return function(Config)
 	Library.Utilities.Icons:SetIcon(SearchIcon, "search")
 	SearchIcon.Parent = SearchBox.Frame
 	Window.SearchBox = SearchBox
+
+	Window.PlayerCard = New("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, UserCardHeight),
+		BackgroundTransparency = 0.22,
+		Parent = TabFrame,
+		ThemeTag = {
+			BackgroundColor3 = "Dialog",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(0, 12),
+		}),
+		New("UIStroke", {
+			Transparency = 0.35,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
+		}),
+	})
+
+	Window.PlayerAvatar = New("ImageLabel", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 12, 0.5, 0),
+		Size = UDim2.fromOffset(36, 36),
+		BackgroundTransparency = 0.08,
+		Parent = Window.PlayerCard,
+		Image = "",
+		ThemeTag = {
+			BackgroundColor3 = "Tab",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(1, 0),
+		}),
+	})
+
+	Window.PlayerDisplayName = New("TextLabel", {
+		AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.fromOffset(58, 11),
+		Size = UDim2.new(1, -70, 0, 18),
+		BackgroundTransparency = 1,
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+		Text = LocalPlayer and LocalPlayer.DisplayName or "Player",
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ThemeTag = {
+			TextColor3 = "Text",
+		},
+	}, {
+		New("UITextSizeConstraint", {
+			MaxTextSize = 13,
+		}),
+	})
+	Window.PlayerDisplayName.Parent = Window.PlayerCard
+
+	Window.PlayerMeta = New("TextLabel", {
+		AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.fromOffset(58, 29),
+		Size = UDim2.new(1, -70, 0, 16),
+		BackgroundTransparency = 1,
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+		Text = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable",
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ThemeTag = {
+			TextColor3 = "SubText",
+		},
+	}, {
+		New("UITextSizeConstraint", {
+			MaxTextSize = 11,
+		}),
+	})
+	Window.PlayerMeta.Parent = Window.PlayerCard
+
+	if LocalPlayer then
+		task.spawn(function()
+			local Success, Content, IsReady = pcall(function()
+				return PlayersService:GetUserThumbnailAsync(
+					LocalPlayer.UserId,
+					Enum.ThumbnailType.HeadShot,
+					Enum.ThumbnailSize.Size100x100
+				)
+			end)
+
+			if Success and Content then
+				Window.PlayerAvatar.Image = Content
+
+				if not IsReady then
+					task.wait(0.25)
+
+					local RetrySuccess, RetryContent = pcall(function()
+						return PlayersService:GetUserThumbnailAsync(
+							LocalPlayer.UserId,
+							Enum.ThumbnailType.HeadShot,
+							Enum.ThumbnailSize.Size100x100
+						)
+					end)
+
+					if RetrySuccess and RetryContent then
+						Window.PlayerAvatar.Image = RetryContent
+					end
+				end
+			end
+		end)
+	end
 
 	Window.TabDisplay = New("TextLabel", {
 		RichText = true,
@@ -238,8 +352,6 @@ return function(Config)
 	-- CustomButton Toggle - appears as a draggable circular button to toggle UI
 	local TweenService = game:GetService("TweenService")
 	local ContentProvider = game:GetService("ContentProvider")
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer
 	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 	local existingGui = playerGui:FindFirstChild("FluentToggleGui")
