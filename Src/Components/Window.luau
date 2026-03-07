@@ -59,7 +59,7 @@ return function(Config)
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
 	local DiscordInviteUrl = "https://discord.gg/vxezehub"
-	local ReportWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_8bc2ff2efe46fbdbc68eface88713c97"
+	local ReportWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_b7e05c77474568813bdd9d8efdcbb930"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
@@ -912,6 +912,8 @@ return function(Config)
 		local ReportDialog = DialogModule:Create()
 		local DialogWidth = math.clamp(Window.Size.X.Offset - 210, 400, 460)
 		local DialogHeight = math.clamp(Window.Size.Y.Offset - 165, 300, 340)
+		local Sending = false
+		local DialogAlive = true
 
 		ReportDialog.Title.Text = "Report Script"
 		ReportDialog.Root.Size = UDim2.fromOffset(DialogWidth, DialogHeight)
@@ -1042,7 +1044,22 @@ return function(Config)
 		CancelButton.Title.TextColor3 = Color3.fromRGB(215, 220, 230)
 		CancelButton.HoverFrame.BackgroundTransparency = 1
 
+		local function SetSubmitting(IsSubmitting)
+			Sending = IsSubmitting
+			SendButton.Title.Text = IsSubmitting and "Sending..." or "Send"
+			SendButton.Frame.Active = not IsSubmitting
+			CancelButton.Frame.Active = not IsSubmitting
+			SendButton.Frame.AutoButtonColor = false
+			CancelButton.Frame.AutoButtonColor = false
+			SendButton.Frame.BackgroundTransparency = IsSubmitting and 0.12 or 0
+			CancelButton.Frame.BackgroundTransparency = IsSubmitting and 0.3 or 0.14
+		end
+
 		Creator.AddSignal(SendButton.Frame.MouseButton1Click, function()
+			if Sending then
+				return
+			end
+
 			local ScriptName = TrimText(ScriptNameBox.Input.Text)
 			local ReportContent = TrimText(ReportInput.Text)
 
@@ -1055,19 +1072,36 @@ return function(Config)
 				return
 			end
 
-			local Success, ErrorMessage = SendReportWebhook(ScriptName, ReportContent)
-			Library:Notify({
-				Title = "Report",
-				Content = Success and "Report sent successfully." or (ErrorMessage or "Failed to send report."),
-				Duration = 4,
-			})
+			SetSubmitting(true)
 
-			if Success then
-				ReportDialog:Close()
-			end
+			task.spawn(function()
+				local Success, ErrorMessage = SendReportWebhook(ScriptName, ReportContent)
+
+				task.defer(function()
+					if DialogAlive then
+						SetSubmitting(false)
+					end
+
+					Library:Notify({
+						Title = "Report",
+						Content = Success and "Report sent successfully." or (ErrorMessage or "Failed to send report."),
+						Duration = 4,
+					})
+
+					if Success and DialogAlive then
+						ScriptNameBox.Input.Text = ""
+						ReportInput.Text = ""
+					end
+				end)
+			end)
 		end)
 
 		Creator.AddSignal(CancelButton.Frame.MouseButton1Click, function()
+			if Sending then
+				return
+			end
+
+			DialogAlive = false
 			ReportDialog:Close()
 		end)
 
