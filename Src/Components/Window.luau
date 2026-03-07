@@ -54,6 +54,9 @@ return function(Config)
 	local SearchBarPadding = 10
 	local UserCardHeight = 58
 	local UserCardPadding = 12
+	local DiscordInvite = "discord.gg/vxezehub"
+	local DiscordOwner = "zthinhtran_dex"
+	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
 
 	local Selector = New("Frame", {
@@ -182,10 +185,37 @@ return function(Config)
 		}),
 	})
 
+	Window.PlayerCardButton = New("TextButton", {
+		Size = UDim2.new(1, -40, 1, 0),
+		BackgroundTransparency = 1,
+		Text = "",
+		Parent = Window.PlayerCard,
+	})
+
+	Window.PlayerVisibilityToggle = New("TextButton", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.fromOffset(24, 24),
+		BackgroundTransparency = 1,
+		Text = "",
+		Parent = Window.PlayerCard,
+	}, {
+		New("ImageLabel", {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(16, 16),
+			BackgroundTransparency = 1,
+			ThemeTag = {
+				ImageColor3 = "SubText",
+			},
+		}),
+	})
+
 	Window.PlayerDisplayName = New("TextLabel", {
 		AnchorPoint = Vector2.new(0, 0),
 		Position = UDim2.fromOffset(58, 11),
-		Size = UDim2.new(1, -70, 0, 18),
+		Size = UDim2.new(1, -98, 0, 18),
 		BackgroundTransparency = 1,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 		Text = LocalPlayer and LocalPlayer.DisplayName or "Player",
@@ -205,7 +235,7 @@ return function(Config)
 	Window.PlayerMeta = New("TextLabel", {
 		AnchorPoint = Vector2.new(0, 0),
 		Position = UDim2.fromOffset(58, 29),
-		Size = UDim2.new(1, -70, 0, 16),
+		Size = UDim2.new(1, -98, 0, 16),
 		BackgroundTransparency = 1,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 		Text = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable",
@@ -221,6 +251,30 @@ return function(Config)
 		}),
 	})
 	Window.PlayerMeta.Parent = Window.PlayerCard
+
+	local PlayerCardVisible = true
+	local DefaultAvatarTransparency = Window.PlayerAvatar.BackgroundTransparency
+	local PlayerDisplayNameText = LocalPlayer and LocalPlayer.DisplayName or "Player"
+	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
+
+	local function CopyToClipboard(Value)
+		local CopyFunction = setclipboard or toclipboard or set_clipboard or copystring
+		if typeof(CopyFunction) == "function" then
+			return pcall(CopyFunction, Value)
+		end
+
+		return false
+	end
+
+	local function UpdatePlayerCardVisibility()
+		Window.PlayerDisplayName.Text = PlayerCardVisible and PlayerDisplayNameText or "Profile hidden"
+		Window.PlayerMeta.Text = PlayerCardVisible and PlayerMetaText or "Tap eye icon to reveal"
+		Window.PlayerAvatar.ImageTransparency = PlayerCardVisible and 0 or 1
+		Window.PlayerAvatar.BackgroundTransparency = PlayerCardVisible and DefaultAvatarTransparency or 0.55
+		Library.Utilities.Icons:SetIcon(Window.PlayerVisibilityToggle.Icon, PlayerCardVisible and "eye" or "eye-off")
+	end
+
+	UpdatePlayerCardVisibility()
 
 	if LocalPlayer then
 		task.spawn(function()
@@ -735,6 +789,44 @@ return function(Config)
 
 		return Dialog
 	end
+
+	Creator.AddSignal(Window.PlayerVisibilityToggle.MouseButton1Click, function()
+		PlayerCardVisible = not PlayerCardVisible
+		UpdatePlayerCardVisibility()
+	end)
+
+	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, function()
+		local CopyResult = false
+		Window:Dialog({
+			Title = "Profile Details",
+			Content = table.concat({
+				`Display Name: {PlayerDisplayNameText}`,
+				`Username: @{LocalPlayer and LocalPlayer.Name or "unknown"}`,
+				`User ID: {LocalPlayer and LocalPlayer.UserId or 0}`,
+				"",
+				`Discord: {DiscordInvite}`,
+				`Owner: {DiscordOwner}`,
+				`Co.Owner: {DiscordCoOwner}`,
+			}, "\n"),
+			Buttons = {
+				{
+					Title = "Copy Discord Link",
+					Callback = function()
+						CopyResult = CopyToClipboard(DiscordInvite)
+						Library:Notify({
+							Title = "Discord",
+							Content = CopyResult and "Discord link copied." or "Clipboard is not supported by this executor.",
+							Duration = 4,
+						})
+					end,
+				},
+				{
+					Title = "Close",
+					Callback = function() end,
+				},
+			},
+		})
+	end)
 
 	local TabModule = require(Components.Tab):Init(Window)
 
