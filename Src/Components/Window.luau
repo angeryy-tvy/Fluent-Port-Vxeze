@@ -875,18 +875,18 @@ return function(Config)
 	end)
 
 	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, function()
-		local DialogWidth = math.clamp(Window.Size.X.Offset - 170, 560, 680)
-		local DialogHeight = math.clamp(Window.Size.Y.Offset - 165, 352, 388)
-		local DialogPadding = 20
-		local HeaderY = 60
-		local HeaderHeight = 96
-		local FooterHeight = 64
+		local DialogWidth = math.clamp(Window.Size.X.Offset - 250, 420, 500)
+		local DialogHeight = math.clamp(Window.Size.Y.Offset - 215, 300, 324)
+		local DialogPadding = 16
+		local HeaderY = 50
+		local HeaderHeight = 78
+		local FooterHeight = 56
 		local FooterTop = DialogHeight - FooterHeight
-		local DiscordY = HeaderY + HeaderHeight + 14
-		local DiscordHeight = FooterTop - DiscordY - 12
-		local BadgeWidth = math.clamp(math.floor(DialogWidth * 0.25), 146, 164)
-		local HeaderTextLeft = 114
-		local HeaderTextRight = BadgeWidth + 30
+		local DiscordY = HeaderY + HeaderHeight + 10
+		local DiscordHeight = FooterTop - DiscordY - 10
+		local BadgeWidth = math.clamp(math.floor(DialogWidth * 0.26), 124, 136)
+		local HeaderTextLeft = 92
+		local HeaderTextRight = BadgeWidth + 24
 		local ProfileDialog = DialogModule:Create()
 		ProfileDialog.Title.Text = "Profile Details"
 		ProfileDialog.Root.Size = UDim2.fromOffset(DialogWidth, DialogHeight)
@@ -894,14 +894,14 @@ return function(Config)
 		ProfileDialog.Root.UIStroke.Color = Color3.fromRGB(113, 225, 255)
 		ProfileDialog.Root.UIStroke.Transparency = 0.18
 		ProfileDialog.Root.ClipsDescendants = true
-		ProfileDialog.Title.Position = UDim2.fromOffset(24, 20)
-		ProfileDialog.Title.Size = UDim2.new(1, -48, 0, 30)
-		ProfileDialog.Title.TextSize = 22
+		ProfileDialog.Title.Position = UDim2.fromOffset(18, 16)
+		ProfileDialog.Title.Size = UDim2.new(1, -36, 0, 26)
+		ProfileDialog.Title.TextSize = 18
 		ProfileDialog.Title.TextColor3 = Color3.fromRGB(244, 248, 255)
 
 		New("UISizeConstraint", {
-			MinSize = Vector2.new(560, 352),
-			MaxSize = Vector2.new(680, 388),
+			MinSize = Vector2.new(420, 300),
+			MaxSize = Vector2.new(500, 324),
 			Parent = ProfileDialog.Root,
 		})
 
@@ -928,7 +928,7 @@ return function(Config)
 		New("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.58, 0.4),
-			Size = UDim2.fromOffset(172, 172),
+			Size = UDim2.fromOffset(132, 132),
 			BackgroundTransparency = 1,
 			ZIndex = 0,
 			Parent = ProfileDialog.Root,
@@ -939,14 +939,14 @@ return function(Config)
 			New("UIStroke", {
 				Color = Color3.fromRGB(108, 229, 255),
 				Transparency = 0.9,
-				Thickness = 2,
+				Thickness = 1.5,
 			}),
 		})
 
 		New("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.58, 0.4),
-			Size = UDim2.fromOffset(248, 248),
+			Size = UDim2.fromOffset(184, 184),
 			BackgroundTransparency = 1,
 			ZIndex = 0,
 			Parent = ProfileDialog.Root,
@@ -963,8 +963,8 @@ return function(Config)
 
 		New("ImageLabel", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.59, 0.5),
-			Size = UDim2.fromOffset(134, 134),
+			Position = UDim2.fromScale(0.6, 0.5),
+			Size = UDim2.fromOffset(96, 96),
 			Image = Window.PlayerAvatar.Image,
 			ImageTransparency = 0.94,
 			BackgroundTransparency = 1,
@@ -980,12 +980,12 @@ return function(Config)
 			Parent = ProfileDialog.Root,
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 16),
+				CornerRadius = UDim.new(0, 14),
 			}),
 			New("UIStroke", {
 				Color = Color3.fromRGB(122, 213, 241),
 				Transparency = 0.74,
-				Thickness = 1.25,
+				Thickness = 1,
 			}),
 			New("UIGradient", {
 				Color = ColorSequence.new({
@@ -997,8 +997,8 @@ return function(Config)
 		})
 
 		New("Frame", {
-			Size = UDim2.new(1, -24, 0, 1),
-			Position = UDim2.fromOffset(12, 0),
+			Size = UDim2.new(1, -20, 0, 1),
+			Position = UDim2.fromOffset(10, 0),
 			BackgroundColor3 = Color3.fromRGB(114, 225, 255),
 			BackgroundTransparency = 0.78,
 			Parent = Header,
@@ -1007,7 +1007,7 @@ return function(Config)
 		New("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(116, 116),
+			Size = UDim2.fromOffset(94, 94),
 			BackgroundTransparency = 1,
 			Parent = Header,
 		}, {
@@ -1017,13 +1017,13 @@ return function(Config)
 			New("UIStroke", {
 				Color = Color3.fromRGB(113, 225, 255),
 				Transparency = 0.94,
-				Thickness = 1.5,
+				Thickness = 1,
 			}),
 		})
 
 		local AvatarRing = New("Frame", {
-			Size = UDim2.fromOffset(74, 74),
-			Position = UDim2.fromOffset(18, 11),
+			Size = UDim2.fromOffset(60, 60),
+			Position = UDim2.fromOffset(14, 9),
 			BackgroundColor3 = Color3.fromRGB(111, 227, 255),
 			BackgroundTransparency = 0.85,
 			Parent = Header,
@@ -1034,13 +1034,13 @@ return function(Config)
 			New("UIStroke", {
 				Color = Color3.fromRGB(144, 238, 255),
 				Transparency = 0.14,
-				Thickness = 2.5,
+				Thickness = 2,
 			}),
 		})
 
 		local HeaderAvatar = New("ImageLabel", {
-			Size = UDim2.fromOffset(60, 60),
-			Position = UDim2.fromOffset(7, 7),
+			Size = UDim2.fromOffset(48, 48),
+			Position = UDim2.fromOffset(6, 6),
 			BackgroundTransparency = 0.04,
 			Image = Window.PlayerAvatar.Image,
 			ScaleType = Enum.ScaleType.Crop,
@@ -1053,11 +1053,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(HeaderTextLeft, 24),
-			Size = UDim2.new(1, -(HeaderTextLeft + HeaderTextRight), 0, 26),
+			Position = UDim2.fromOffset(HeaderTextLeft, 18),
+			Size = UDim2.new(1, -(HeaderTextLeft + HeaderTextRight), 0, 22),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			Text = PlayerDisplayNameText,
-			TextSize = 17,
+			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(247, 249, 255),
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1066,11 +1066,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(HeaderTextLeft, 48),
-			Size = UDim2.new(1, -(HeaderTextLeft + 28), 0, 18),
+			Position = UDim2.fromOffset(HeaderTextLeft, 39),
+			Size = UDim2.new(1, -(HeaderTextLeft + 22), 0, 16),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 			Text = PlayerMetaText,
-			TextSize = 12,
+			TextSize = 10,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(156, 163, 177),
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1079,8 +1079,8 @@ return function(Config)
 
 		local ProfileBadge = New("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -16, 0, 16),
-			Size = UDim2.fromOffset(BadgeWidth, 30),
+			Position = UDim2.new(1, -12, 0, 12),
+			Size = UDim2.fromOffset(BadgeWidth, 26),
 			BackgroundTransparency = 0,
 			Parent = Header,
 		}, {
@@ -1101,7 +1101,7 @@ return function(Config)
 			Size = UDim2.fromScale(1, 1),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			Text = PlayerCardRole,
-			TextSize = 11,
+			TextSize = 10,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = Color3.fromRGB(29, 52, 63),
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1116,12 +1116,12 @@ return function(Config)
 			Parent = ProfileDialog.Root,
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 16),
+				CornerRadius = UDim.new(0, 14),
 			}),
 			New("UIStroke", {
 				Color = Color3.fromRGB(122, 213, 241),
 				Transparency = 0.76,
-				Thickness = 1.25,
+				Thickness = 1,
 			}),
 			New("UIGradient", {
 				Color = ColorSequence.new({
@@ -1134,11 +1134,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(16, 12),
-			Size = UDim2.new(1, -32, 0, 18),
+			Position = UDim2.fromOffset(14, 10),
+			Size = UDim2.new(1, -28, 0, 16),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 			Text = "Discord Hub",
-			TextSize = 14,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(245, 248, 255),
 			Parent = DiscordPanel,
@@ -1159,11 +1159,11 @@ return function(Config)
 
 		local DiscordLink = New("TextButton", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(16, 34),
-			Size = UDim2.new(1, -32, 0, 24),
+			Position = UDim2.fromOffset(14, 28),
+			Size = UDim2.new(1, -28, 0, 22),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			Text = DiscordInvite,
-			TextSize = 16,
+			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(115, 228, 255),
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1173,8 +1173,8 @@ return function(Config)
 		Creator.AddSignal(DiscordLink.MouseButton1Click, NotifyDiscordCopy)
 
 		New("Frame", {
-			Position = UDim2.fromOffset(16, 58),
-			Size = UDim2.new(0, 112, 0, 1),
+			Position = UDim2.fromOffset(14, 49),
+			Size = UDim2.new(0, 88, 0, 1),
 			BackgroundColor3 = Color3.fromRGB(115, 228, 255),
 			BackgroundTransparency = 0.55,
 			Parent = DiscordPanel,
@@ -1183,13 +1183,13 @@ return function(Config)
 		local function CreateDiscordInfoColumn(Parent, Position, IconName, Label, Value)
 			local Holder = New("Frame", {
 				Position = Position,
-				Size = UDim2.new(0.5, -20, 0, 32),
+				Size = UDim2.new(0.5, -18, 0, 28),
 				BackgroundColor3 = Color3.fromRGB(14, 20, 30),
 				BackgroundTransparency = 0.18,
 				Parent = Parent,
 			}, {
 				New("UICorner", {
-					CornerRadius = UDim.new(0, 10),
+					CornerRadius = UDim.new(0, 8),
 				}),
 				New("UIStroke", {
 					Color = Color3.fromRGB(130, 179, 200),
@@ -1200,8 +1200,8 @@ return function(Config)
 
 			local Icon = New("ImageLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = UDim2.fromOffset(12, 16),
-				Size = UDim2.fromOffset(14, 14),
+				Position = UDim2.fromOffset(10, 14),
+				Size = UDim2.fromOffset(12, 12),
 				BackgroundTransparency = 1,
 				ImageColor3 = Color3.fromRGB(194, 201, 214),
 				Parent = Holder,
@@ -1210,11 +1210,11 @@ return function(Config)
 
 			New("TextLabel", {
 				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(34, 0),
-				Size = UDim2.new(1, -44, 1, 0),
+				Position = UDim2.fromOffset(28, 0),
+				Size = UDim2.new(1, -36, 1, 0),
 				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 				Text = `{Label}: {Value}`,
-				TextSize = 11,
+				TextSize = 10,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextColor3 = Color3.fromRGB(225, 228, 236),
 				TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1222,15 +1222,15 @@ return function(Config)
 			})
 		end
 
-		CreateDiscordInfoColumn(DiscordPanel, UDim2.fromOffset(16, DiscordHeight - 44), "crown", "Owner", DiscordOwner)
-		CreateDiscordInfoColumn(DiscordPanel, UDim2.new(0.5, 4, 0, DiscordHeight - 44), "shield", "Co-Owner", DiscordCoOwner)
+		CreateDiscordInfoColumn(DiscordPanel, UDim2.fromOffset(14, DiscordHeight - 36), "crown", "Owner", DiscordOwner)
+		CreateDiscordInfoColumn(DiscordPanel, UDim2.new(0.5, 4, 0, DiscordHeight - 36), "shield", "Co-Owner", DiscordCoOwner)
 
 		ProfileDialog.ButtonHolderFrame.BackgroundTransparency = 1
 		ProfileDialog.ButtonHolderFrame.Frame.BackgroundColor3 = Color3.fromRGB(113, 225, 255)
 		ProfileDialog.ButtonHolderFrame.Frame.BackgroundTransparency = 0.88
 		ProfileDialog.ButtonHolderFrame.Size = UDim2.new(1, 0, 0, FooterHeight)
 		ProfileDialog.ButtonHolderFrame.Position = UDim2.new(0, 0, 1, -FooterHeight)
-		ProfileDialog.ButtonHolder.Size = UDim2.new(1, -(DialogPadding * 2), 0, 44)
+		ProfileDialog.ButtonHolder.Size = UDim2.new(1, -(DialogPadding * 2), 0, 40)
 		ProfileDialog.ButtonHolder.Position = UDim2.fromScale(0.5, 0.5)
 
 		local CopyButton = ProfileDialog:Button("Copy Discord Link", function()
@@ -1239,13 +1239,13 @@ return function(Config)
 		local CloseButton = ProfileDialog:Button("Đóng", function() end)
 
 		for _, Button in next, { CopyButton, CloseButton } do
-			Button.Frame.Size = UDim2.new(0.5, -6, 0, 44)
-			Button.Frame.UICorner.CornerRadius = UDim.new(0, 12)
+			Button.Frame.Size = UDim2.new(0.5, -5, 0, 40)
+			Button.Frame.UICorner.CornerRadius = UDim.new(0, 10)
 			Button.Frame.UIStroke.Transparency = 0.3
-			Button.Title.TextSize = 13
+			Button.Title.TextSize = 12
 			Button.Title.TextXAlignment = Enum.TextXAlignment.Left
-			Button.Title.Size = UDim2.new(1, -52, 1, 0)
-			Button.Title.Position = UDim2.fromOffset(38, 0)
+			Button.Title.Size = UDim2.new(1, -46, 1, 0)
+			Button.Title.Position = UDim2.fromOffset(34, 0)
 		end
 
 		CopyButton.Frame.BackgroundTransparency = 0
@@ -1270,8 +1270,8 @@ return function(Config)
 
 		local CopyIcon = New("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.fromOffset(14, 22),
-			Size = UDim2.fromOffset(18, 18),
+			Position = UDim2.fromOffset(12, 20),
+			Size = UDim2.fromOffset(16, 16),
 			BackgroundTransparency = 1,
 			ImageColor3 = Color3.fromRGB(18, 30, 38),
 			Parent = CopyButton.Frame,
@@ -1280,8 +1280,8 @@ return function(Config)
 
 		local CloseIcon = New("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.fromOffset(14, 22),
-			Size = UDim2.fromOffset(18, 18),
+			Position = UDim2.fromOffset(12, 20),
+			Size = UDim2.fromOffset(16, 16),
 			BackgroundTransparency = 1,
 			ImageColor3 = Color3.fromRGB(130, 224, 255),
 			Parent = CloseButton.Frame,
