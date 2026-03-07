@@ -60,6 +60,7 @@ return function(Config)
 	local DiscordInvite = "discord.gg/vxezehub"
 	local DiscordInviteUrl = "https://discord.gg/vxezehub"
 	local ReportWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_b7e05c77474568813bdd9d8efdcbb930"
+	local SuggestWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_81bc939df362fd6d7f9e38e3c6ded5e6"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
@@ -311,7 +312,7 @@ return function(Config)
 			or (fluxus and fluxus.request)
 	end
 
-	local function SendReportWebhook(ScriptName, ReportContent)
+	local function SendFeedbackWebhook(FeedbackType, WebhookUrl, ScriptName, FeedbackContent)
 		local RequestFunction = GetRequestFunction()
 		if typeof(RequestFunction) ~= "function" then
 			return false, "HTTP requests are not supported by this executor."
@@ -319,17 +320,15 @@ return function(Config)
 
 		local Payload = {
 			content = table.concat({
-				"**New Script Report**",
-				`**Player:** {PlayerDisplayNameText} (@{LocalPlayer and LocalPlayer.Name or "unknown"})`,
-				`**User ID:** {LocalPlayer and LocalPlayer.UserId or 0}`,
+				`**New Script {FeedbackType}**`,
 				`**Script:** {ScriptName}`,
-				"**Report:**",
-				ReportContent,
+				`**{FeedbackType}:**`,
+				FeedbackContent,
 			}, "\n"),
 		}
 
 		local Success, Response = pcall(RequestFunction, {
-			Url = ReportWebhookUrl,
+			Url = WebhookUrl,
 			Method = "POST",
 			Headers = {
 				["Content-Type"] = "application/json",
@@ -908,27 +907,27 @@ return function(Config)
 		return Dialog
 	end
 
-	function Window:OpenReportDialog()
-		local ReportDialog = DialogModule:Create()
+	function Window:OpenFeedbackDialog(FeedbackConfig)
+		local FeedbackDialog = DialogModule:Create()
 		local DialogWidth = math.clamp(Window.Size.X.Offset - 210, 400, 460)
 		local DialogHeight = math.clamp(Window.Size.Y.Offset - 165, 300, 340)
 		local Sending = false
 		local DialogAlive = true
 
-		ReportDialog.Title.Text = "Report Script"
-		ReportDialog.Root.Size = UDim2.fromOffset(DialogWidth, DialogHeight)
-		ReportDialog.Root.BackgroundTransparency = 0.08
-		ReportDialog.Root.UIStroke.Color = Color3.fromRGB(255, 109, 124)
-		ReportDialog.Root.UIStroke.Transparency = 0.2
-		ReportDialog.Root.ClipsDescendants = true
-		ReportDialog.Title.Position = UDim2.fromOffset(18, 16)
-		ReportDialog.Title.Size = UDim2.new(1, -36, 0, 24)
-		ReportDialog.Title.TextSize = 18
+		FeedbackDialog.Title.Text = FeedbackConfig.Title
+		FeedbackDialog.Root.Size = UDim2.fromOffset(DialogWidth, DialogHeight)
+		FeedbackDialog.Root.BackgroundTransparency = 0.08
+		FeedbackDialog.Root.UIStroke.Color = FeedbackConfig.StrokeColor
+		FeedbackDialog.Root.UIStroke.Transparency = 0.2
+		FeedbackDialog.Root.ClipsDescendants = true
+		FeedbackDialog.Title.Position = UDim2.fromOffset(18, 16)
+		FeedbackDialog.Title.Size = UDim2.new(1, -36, 0, 24)
+		FeedbackDialog.Title.TextSize = 18
 
 		New("UISizeConstraint", {
 			MinSize = Vector2.new(400, 300),
 			MaxSize = Vector2.new(460, 340),
-			Parent = ReportDialog.Root,
+			Parent = FeedbackDialog.Root,
 		})
 
 		New("Frame", {
@@ -936,7 +935,7 @@ return function(Config)
 			BackgroundColor3 = Color3.fromRGB(10, 13, 19),
 			BackgroundTransparency = 0.06,
 			ZIndex = 0,
-			Parent = ReportDialog.Root,
+			Parent = FeedbackDialog.Root,
 		}, {
 			New("UICorner", {
 				CornerRadius = UDim.new(0, 8),
@@ -955,20 +954,20 @@ return function(Config)
 			Position = UDim2.fromOffset(18, 48),
 			Size = UDim2.new(1, -36, 0, 18),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-			Text = "Send the script name and your report directly to the Vxeze bot.",
+			Text = FeedbackConfig.Description,
 			TextSize = 12,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(209, 213, 222),
-			Parent = ReportDialog.Root,
+			Parent = FeedbackDialog.Root,
 		})
 
-		local ScriptNameBox = require(Components.Textbox)(ReportDialog.Root, false)
+		local ScriptNameBox = require(Components.Textbox)(FeedbackDialog.Root, false)
 		ScriptNameBox.Frame.Size = UDim2.new(1, -36, 0, 34)
 		ScriptNameBox.Frame.Position = UDim2.fromOffset(18, 76)
 		ScriptNameBox.Input.PlaceholderText = "Script name"
 		ScriptNameBox.Input.ClearTextOnFocus = false
-		ScriptNameBox.Input.Text = ""
+		ScriptNameBox.Input.Text = Config.Title or ""
 		ScriptNameBox.Input.Size = UDim2.new(1, -8, 1, 0)
 		ScriptNameBox.Input.Position = UDim2.fromOffset(4, 0)
 
@@ -976,7 +975,7 @@ return function(Config)
 			Size = UDim2.new(1, -36, 0, 110),
 			Position = UDim2.fromOffset(18, 120),
 			BackgroundTransparency = 0.08,
-			Parent = ReportDialog.Root,
+			Parent = FeedbackDialog.Root,
 			ThemeTag = {
 				BackgroundColor3 = "DialogInput",
 			},
@@ -998,7 +997,7 @@ return function(Config)
 			Size = UDim2.new(1, -24, 1, -20),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 			Text = "",
-			PlaceholderText = "Describe the issue or report content",
+			PlaceholderText = FeedbackConfig.PlaceholderText,
 			TextSize = 13,
 			ClearTextOnFocus = false,
 			MultiLine = true,
@@ -1012,16 +1011,16 @@ return function(Config)
 			Parent = ReportBox,
 		})
 
-		ReportDialog.ButtonHolderFrame.BackgroundTransparency = 1
-		ReportDialog.ButtonHolderFrame.Frame.BackgroundColor3 = Color3.fromRGB(255, 109, 124)
-		ReportDialog.ButtonHolderFrame.Frame.BackgroundTransparency = 0.9
-		ReportDialog.ButtonHolderFrame.Size = UDim2.new(1, 0, 0, 58)
-		ReportDialog.ButtonHolderFrame.Position = UDim2.new(0, 0, 1, -58)
-		ReportDialog.ButtonHolder.Size = UDim2.new(1, -36, 0, 40)
-		ReportDialog.ButtonHolder.Position = UDim2.fromScale(0.5, 0.5)
+		FeedbackDialog.ButtonHolderFrame.BackgroundTransparency = 1
+		FeedbackDialog.ButtonHolderFrame.Frame.BackgroundColor3 = FeedbackConfig.StrokeColor
+		FeedbackDialog.ButtonHolderFrame.Frame.BackgroundTransparency = 0.9
+		FeedbackDialog.ButtonHolderFrame.Size = UDim2.new(1, 0, 0, 58)
+		FeedbackDialog.ButtonHolderFrame.Position = UDim2.new(0, 0, 1, -58)
+		FeedbackDialog.ButtonHolder.Size = UDim2.new(1, -36, 0, 40)
+		FeedbackDialog.ButtonHolder.Position = UDim2.fromScale(0.5, 0.5)
 
-		local SendButton = DialogButtonComponent("", ReportDialog.ButtonHolder, true)
-		local CancelButton = DialogButtonComponent("", ReportDialog.ButtonHolder, true)
+		local SendButton = DialogButtonComponent("", FeedbackDialog.ButtonHolder, true)
+		local CancelButton = DialogButtonComponent("", FeedbackDialog.ButtonHolder, true)
 		SendButton.Title.Text = "Send"
 		CancelButton.Title.Text = "Cancel"
 
@@ -1033,9 +1032,9 @@ return function(Config)
 		end
 
 		SendButton.Frame.BackgroundTransparency = 0
-		SendButton.Frame.BackgroundColor3 = Color3.fromRGB(138, 52, 66)
-		SendButton.Frame.UIStroke.Color = Color3.fromRGB(255, 120, 136)
-		SendButton.Title.TextColor3 = Color3.fromRGB(255, 239, 242)
+		SendButton.Frame.BackgroundColor3 = FeedbackConfig.ButtonColor
+		SendButton.Frame.UIStroke.Color = FeedbackConfig.StrokeColor
+		SendButton.Title.TextColor3 = FeedbackConfig.ButtonTextColor
 		SendButton.HoverFrame.BackgroundTransparency = 1
 
 		CancelButton.Frame.BackgroundColor3 = Color3.fromRGB(38, 44, 56)
@@ -1065,8 +1064,8 @@ return function(Config)
 
 			if ScriptName == "" or ReportContent == "" then
 				Library:Notify({
-					Title = "Report",
-					Content = "Please fill in both the script name and report content.",
+					Title = FeedbackConfig.TypeName,
+					Content = "Please fill in both the script name and content.",
 					Duration = 4,
 				})
 				return
@@ -1075,7 +1074,12 @@ return function(Config)
 			SetSubmitting(true)
 
 			task.spawn(function()
-				local Success, ErrorMessage = SendReportWebhook(ScriptName, ReportContent)
+				local Success, ErrorMessage = SendFeedbackWebhook(
+					FeedbackConfig.TypeName,
+					FeedbackConfig.WebhookUrl,
+					ScriptName,
+					ReportContent
+				)
 
 				task.defer(function()
 					if DialogAlive then
@@ -1083,13 +1087,12 @@ return function(Config)
 					end
 
 					Library:Notify({
-						Title = "Report",
-						Content = Success and "Report sent successfully." or (ErrorMessage or "Failed to send report."),
+						Title = FeedbackConfig.TypeName,
+						Content = Success and `${FeedbackConfig.TypeName} sent successfully.` or (ErrorMessage or `Failed to send ${string.lower(FeedbackConfig.TypeName)}.`),
 						Duration = 4,
 					})
 
 					if Success and DialogAlive then
-						ScriptNameBox.Input.Text = ""
 						ReportInput.Text = ""
 					end
 				end)
@@ -1102,10 +1105,10 @@ return function(Config)
 			end
 
 			DialogAlive = false
-			ReportDialog:Close()
+			FeedbackDialog:Close()
 		end)
 
-		ReportDialog:Open()
+		FeedbackDialog:Open()
 	end
 
 	Creator.AddSignal(Window.PlayerVisibilityToggle.MouseButton1Click, function()
@@ -1181,7 +1184,55 @@ return function(Config)
 		})
 		Library.Utilities.Icons:SetIcon(ReportButton.Icon, "flag")
 		Creator.AddSignal(ReportButton.MouseButton1Click, function()
-			Window:OpenReportDialog()
+			Window:OpenFeedbackDialog({
+				TypeName = "Report",
+				Title = "Report Script",
+				Description = "Send the script name and your report directly to the Vxeze bot.",
+				PlaceholderText = "Describe the issue or report content",
+				WebhookUrl = ReportWebhookUrl,
+				StrokeColor = Color3.fromRGB(255, 120, 136),
+				ButtonColor = Color3.fromRGB(138, 52, 66),
+				ButtonTextColor = Color3.fromRGB(255, 239, 242),
+			})
+		end)
+
+		local SuggestButton = New("TextButton", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -50, 0, 14),
+			Size = UDim2.fromOffset(28, 28),
+			BackgroundColor3 = Color3.fromRGB(39, 79, 118),
+			BackgroundTransparency = 0.08,
+			Parent = ProfileDialog.Root,
+			Text = "",
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 8),
+			}),
+			New("UIStroke", {
+				Color = Color3.fromRGB(108, 201, 255),
+				Transparency = 0.18,
+			}),
+			New("ImageLabel", {
+				Name = "Icon",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(14, 14),
+				BackgroundTransparency = 1,
+				ImageColor3 = Color3.fromRGB(214, 241, 255),
+			}),
+		})
+		Library.Utilities.Icons:SetIcon(SuggestButton.Icon, "message-square-plus")
+		Creator.AddSignal(SuggestButton.MouseButton1Click, function()
+			Window:OpenFeedbackDialog({
+				TypeName = "Suggest",
+				Title = "Suggest Script",
+				Description = "Send your suggestion for this script directly to the Vxeze bot.",
+				PlaceholderText = "Describe your suggestion",
+				WebhookUrl = SuggestWebhookUrl,
+				StrokeColor = Color3.fromRGB(108, 201, 255),
+				ButtonColor = Color3.fromRGB(44, 104, 152),
+				ButtonTextColor = Color3.fromRGB(238, 248, 255),
+			})
 		end)
 
 		New("UISizeConstraint", {
