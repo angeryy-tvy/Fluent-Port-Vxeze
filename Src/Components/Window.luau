@@ -878,85 +878,38 @@ return function(Config)
 		local CopyResult = false
 		local ProfileDialog = DialogModule:Create()
 		ProfileDialog.Title.Text = "Profile Details"
-		ProfileDialog.Root.Size = UDim2.fromOffset(math.min(Window.Size.X.Offset - 34, 860), math.min(Window.Size.Y.Offset - 34, 470))
-		ProfileDialog.Root.BackgroundTransparency = 0.04
-		ProfileDialog.Root.UIStroke.Color = Creator.GetThemeProperty("Accent")
-		ProfileDialog.Root.UIStroke.Transparency = 0.18
-		ProfileDialog.Title.Position = UDim2.fromOffset(34, 24)
-		ProfileDialog.Title.Size = UDim2.new(1, -68, 0, 40)
-		ProfileDialog.Title.TextSize = 36
+		ProfileDialog.Root.Size = UDim2.fromOffset(390, 286)
 
 		New("UISizeConstraint", {
-			MinSize = Vector2.new(760, 430),
-			MaxSize = Vector2.new(920, 520),
+			MinSize = Vector2.new(390, 286),
+			MaxSize = Vector2.new(460, 320),
 			Parent = ProfileDialog.Root,
 		})
-
-		local BackdropAvatar = New("ImageLabel", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.52, 0.52),
-			Size = UDim2.fromOffset(260, 260),
-			Image = Window.PlayerAvatar.Image,
-			ImageTransparency = 0.86,
-			BackgroundTransparency = 1,
-			Parent = ProfileDialog.Root,
-		})
-
-		for _, RingSize in next, { 290, 420 } do
-			New("Frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.52, 0.52),
-				Size = UDim2.fromOffset(RingSize, RingSize),
-				BackgroundTransparency = 1,
-				Parent = ProfileDialog.Root,
-			}, {
-				New("UICorner", {
-					CornerRadius = UDim.new(1, 0),
-				}),
-				New("UIStroke", {
-					Transparency = RingSize == 290 and 0.72 or 0.84,
-					Thickness = RingSize == 290 and 3 or 2,
-					ThemeTag = {
-						Color = "Accent",
-					},
-				}),
-			})
-		end
 
 		local Header = New("Frame", {
-			Size = UDim2.new(1, -64, 0, 146),
-			Position = UDim2.fromOffset(32, 92),
-			BackgroundTransparency = 0.2,
+			Size = UDim2.new(1, -40, 0, 84),
+			Position = UDim2.fromOffset(20, 58),
+			BackgroundTransparency = 0.14,
 			Parent = ProfileDialog.Root,
 			ThemeTag = {
 				BackgroundColor3 = "DialogHolder",
 			},
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 18),
+				CornerRadius = UDim.new(0, 12),
 			}),
 			New("UIStroke", {
-				Transparency = 0.3,
+				Transparency = 0.18,
 				ThemeTag = {
 					Color = "DialogBorder",
 				},
 			}),
 		})
 
-		local HeaderBackdrop = New("ImageLabel", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(220, 220),
-			Image = Window.PlayerAvatar.Image,
-			ImageTransparency = 0.9,
-			BackgroundTransparency = 1,
-			Parent = Header,
-		})
-
-		local AvatarRing = New("Frame", {
-			Size = UDim2.fromOffset(112, 112),
-			Position = UDim2.fromOffset(28, 18),
-			BackgroundTransparency = 0.86,
+		local HeaderAccent = New("Frame", {
+			Size = UDim2.new(0, 4, 1, -16),
+			Position = UDim2.fromOffset(10, 8),
+			BackgroundTransparency = 0,
 			Parent = Header,
 			ThemeTag = {
 				BackgroundColor3 = "Accent",
@@ -965,21 +918,14 @@ return function(Config)
 			New("UICorner", {
 				CornerRadius = UDim.new(1, 0),
 			}),
-			New("UIStroke", {
-				Transparency = 0.08,
-				Thickness = 3,
-				ThemeTag = {
-					Color = "Accent",
-				},
-			}),
 		})
 
 		local HeaderAvatar = New("ImageLabel", {
-			Size = UDim2.fromOffset(92, 92),
-			Position = UDim2.fromOffset(10, 10),
-			BackgroundTransparency = 0.02,
+			Size = UDim2.fromOffset(50, 50),
+			Position = UDim2.fromOffset(24, 17),
+			BackgroundTransparency = 0.05,
 			Image = Window.PlayerAvatar.Image,
-			Parent = AvatarRing,
+			Parent = Header,
 			ThemeTag = {
 				BackgroundColor3 = "Tab",
 			},
@@ -991,11 +937,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(168, 34),
-			Size = UDim2.new(1, -420, 0, 36),
+			Position = UDim2.fromOffset(88, 16),
+			Size = UDim2.new(1, -190, 0, 22),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			Text = PlayerDisplayNameText,
-			TextSize = 34,
+			TextSize = 18,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -1005,11 +951,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(170, 78),
-			Size = UDim2.new(1, -430, 0, 26),
+			Position = UDim2.fromOffset(88, 40),
+			Size = UDim2.new(1, -190, 0, 18),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 			Text = `@{LocalPlayer and LocalPlayer.Name or "unknown"}  •  ID {LocalPlayer and LocalPlayer.UserId or 0}`,
-			TextSize = 18,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ThemeTag = {
 				TextColor3 = "SubText",
@@ -1019,9 +965,9 @@ return function(Config)
 
 		local ProfileBadge = New("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -24, 0, 22),
-			Size = UDim2.fromOffset(230, 42),
-			BackgroundTransparency = 0.14,
+			Position = UDim2.new(1, -16, 0, 16),
+			Size = UDim2.fromOffset(110, 26),
+			BackgroundTransparency = 0.08,
 			Parent = Header,
 			ThemeTag = {
 				BackgroundColor3 = "Accent",
@@ -1037,7 +983,7 @@ return function(Config)
 			Size = UDim2.fromScale(1, 1),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 			Text = PlayerCardRole,
-			TextSize = 16,
+			TextSize = 11,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -1045,49 +991,20 @@ return function(Config)
 			Parent = ProfileBadge,
 		})
 
-		local StatusDot = New("Frame", {
-			Position = UDim2.new(1, -242, 1, -32),
-			Size = UDim2.fromOffset(12, 12),
-			BackgroundTransparency = 0.12,
-			Parent = Header,
-			ThemeTag = {
-				BackgroundColor3 = "Accent",
-			},
-		}, {
-			New("UICorner", {
-				CornerRadius = UDim.new(1, 0),
-			}),
-		})
-
-		New("TextLabel", {
-			AnchorPoint = Vector2.new(1, 1),
-			Position = UDim2.new(1, -24, 1, -18),
-			Size = UDim2.fromOffset(220, 18),
-			BackgroundTransparency = 1,
-			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-			Text = "Active Status: Online",
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			ThemeTag = {
-				TextColor3 = "SubText",
-			},
-			Parent = Header,
-		})
-
 		local DiscordPanel = New("Frame", {
-			Size = UDim2.new(1, -64, 0, 146),
-			Position = UDim2.fromOffset(32, 262),
-			BackgroundTransparency = 0.22,
+			Size = UDim2.new(1, -40, 0, 78),
+			Position = UDim2.fromOffset(20, 152),
+			BackgroundTransparency = 0.18,
 			Parent = ProfileDialog.Root,
 			ThemeTag = {
 				BackgroundColor3 = "DialogHolder",
 			},
 		}, {
 			New("UICorner", {
-				CornerRadius = UDim.new(0, 18),
+				CornerRadius = UDim.new(0, 12),
 			}),
 			New("UIStroke", {
-				Transparency = 0.32,
+				Transparency = 0.24,
 				ThemeTag = {
 					Color = "DialogBorder",
 				},
@@ -1096,11 +1013,11 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(28, 22),
-			Size = UDim2.new(1, -56, 0, 22),
+			Position = UDim2.fromOffset(16, 12),
+			Size = UDim2.new(1, -32, 0, 16),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 			Text = "Discord Hub",
-			TextSize = 18,
+			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ThemeTag = {
 				TextColor3 = "Text",
@@ -1110,14 +1027,14 @@ return function(Config)
 
 		New("TextLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(28, 56),
-			Size = UDim2.new(1, -56, 0, 34),
-			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+			Position = UDim2.fromOffset(16, 31),
+			Size = UDim2.new(1, -32, 0, 16),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 			Text = DiscordInvite,
-			TextSize = 28,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ThemeTag = {
-				TextColor3 = "Accent",
+				TextColor3 = "SubText",
 			},
 			Parent = DiscordPanel,
 		})
@@ -1125,11 +1042,11 @@ return function(Config)
 		local function CreateRoleBadge(Parent, Position, Label, Value)
 			local Badge = New("Frame", {
 				Position = Position,
-				Size = UDim2.new(0.5, -34, 0, 34),
-				BackgroundTransparency = 0.4,
+				Size = UDim2.new(0.5, -20, 0, 24),
+				BackgroundTransparency = 0.08,
 				Parent = Parent,
 				ThemeTag = {
-					BackgroundColor3 = "Dialog",
+					BackgroundColor3 = "Accent",
 				},
 			}, {
 				New("UICorner", {
@@ -1137,25 +1054,13 @@ return function(Config)
 				}),
 			})
 
-			local BadgeIcon = New("ImageLabel", {
-				AnchorPoint = Vector2.new(0, 0.5),
-				Position = UDim2.fromOffset(14, 17),
-				Size = UDim2.fromOffset(18, 18),
-				BackgroundTransparency = 1,
-				ThemeTag = {
-					ImageColor3 = "SubText",
-				},
-				Parent = Badge,
-			})
-			Library.Utilities.Icons:SetIcon(BadgeIcon, Label == "OWNER" and "crown" or "shield")
-
 			New("TextLabel", {
 				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(42, 0),
-				Size = UDim2.new(1, -52, 1, 0),
-				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-				Text = `{Label == "OWNER" and "Owner" or "Co-Owner"}: {Value}`,
-				TextSize = 14,
+				Position = UDim2.fromOffset(10, 0),
+				Size = UDim2.new(1, -20, 1, 0),
+				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+				Text = `{Label}: {Value}`,
+				TextSize = 10,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				ThemeTag = {
 					TextColor3 = "Text",
@@ -1164,15 +1069,10 @@ return function(Config)
 			})
 		end
 
-		CreateRoleBadge(DiscordPanel, UDim2.fromOffset(28, 100), "OWNER", DiscordOwner)
-		CreateRoleBadge(DiscordPanel, UDim2.new(0.5, 6, 0, 100), "CO-OWNER", DiscordCoOwner)
+		CreateRoleBadge(DiscordPanel, UDim2.fromOffset(16, 48), "OWNER", DiscordOwner)
+		CreateRoleBadge(DiscordPanel, UDim2.new(0.5, 4, 0, 48), "CO-OWNER", DiscordCoOwner)
 
-		ProfileDialog.ButtonHolderFrame.BackgroundTransparency = 1
-		ProfileDialog.ButtonHolderFrame.Frame.BackgroundTransparency = 1
-		ProfileDialog.ButtonHolder.Size = UDim2.new(1, -64, 1, -10)
-		ProfileDialog.ButtonHolder.Position = UDim2.fromScale(0.5, 0.5)
-
-		local CopyButton = ProfileDialog:Button("  Copy Discord Link", function()
+		ProfileDialog:Button("Copy Discord Link", function()
 			CopyResult = CopyToClipboard(DiscordInviteUrl)
 			if not CopyResult then
 				CopyResult = CopyToClipboard(DiscordInvite)
@@ -1184,48 +1084,7 @@ return function(Config)
 				Duration = 4,
 			})
 		end)
-		local CloseButton = ProfileDialog:Button("  Dong", function() end)
-
-		for _, Button in next, { CopyButton, CloseButton } do
-			Button.Frame.Size = UDim2.new(0.5, -10, 0, 64)
-			Button.Title.TextSize = 16
-			Button.Title.TextXAlignment = Enum.TextXAlignment.Center
-			Button.Frame.UICorner.CornerRadius = UDim.new(0, 14)
-			Button.Frame.UIStroke.Transparency = 0.22
-		end
-
-		CopyButton.Frame.BackgroundTransparency = 0.1
-		CopyButton.Frame.BackgroundColor3 = Creator.GetThemeProperty("Accent")
-		CopyButton.HoverFrame.BackgroundTransparency = 1
-
-		CloseButton.Frame.BackgroundTransparency = 0.42
-		CloseButton.Frame.BackgroundColor3 = Creator.GetThemeProperty("DialogHolder")
-		CloseButton.HoverFrame.BackgroundTransparency = 1
-
-		local CopyIcon = New("ImageLabel", {
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 56, 0.5, 0),
-			Size = UDim2.fromOffset(22, 22),
-			BackgroundTransparency = 1,
-			ThemeTag = {
-				ImageColor3 = "Text",
-			},
-			Parent = CopyButton.Frame,
-		})
-		Library.Utilities.Icons:SetIcon(CopyIcon, "link")
-
-		local CloseIcon = New("ImageLabel", {
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 72, 0.5, 0),
-			Size = UDim2.fromOffset(22, 22),
-			BackgroundTransparency = 1,
-			ThemeTag = {
-				ImageColor3 = "Accent",
-			},
-			Parent = CloseButton.Frame,
-		})
-		Library.Utilities.Icons:SetIcon(CloseIcon, "x")
-
+		ProfileDialog:Button("Close", function() end)
 		ProfileDialog:Open()
 	end)
 
