@@ -1200,7 +1200,7 @@ return function(Config)
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -50, 0, 14),
 			Size = UDim2.fromOffset(28, 28),
-			BackgroundColor3 = Color3.fromRGB(39, 79, 118),
+			BackgroundColor3 = Color3.fromRGB(118, 88, 26),
 			BackgroundTransparency = 0.08,
 			Parent = ProfileDialog.Root,
 			Text = "",
@@ -1209,7 +1209,7 @@ return function(Config)
 				CornerRadius = UDim.new(0, 8),
 			}),
 			New("UIStroke", {
-				Color = Color3.fromRGB(108, 201, 255),
+				Color = Color3.fromRGB(255, 211, 94),
 				Transparency = 0.18,
 			}),
 			New("ImageLabel", {
@@ -1218,7 +1218,7 @@ return function(Config)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(14, 14),
 				BackgroundTransparency = 1,
-				ImageColor3 = Color3.fromRGB(214, 241, 255),
+				ImageColor3 = Color3.fromRGB(255, 243, 204),
 			}),
 		})
 		Library.Utilities.Icons:SetIcon(SuggestButton.Icon, "message-square-plus")
@@ -1229,9 +1229,9 @@ return function(Config)
 				Description = "Send your suggestion for this script directly to the Vxeze bot.",
 				PlaceholderText = "Describe your suggestion",
 				WebhookUrl = SuggestWebhookUrl,
-				StrokeColor = Color3.fromRGB(108, 201, 255),
-				ButtonColor = Color3.fromRGB(44, 104, 152),
-				ButtonTextColor = Color3.fromRGB(238, 248, 255),
+				StrokeColor = Color3.fromRGB(255, 211, 94),
+				ButtonColor = Color3.fromRGB(169, 125, 28),
+				ButtonTextColor = Color3.fromRGB(255, 248, 229),
 			})
 		end)
 
