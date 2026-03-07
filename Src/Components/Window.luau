@@ -312,6 +312,17 @@ return function(Config)
 			or (fluxus and fluxus.request)
 	end
 
+	local function GetExecutorName()
+		if typeof(identifyexecutor) == "function" then
+			local Success, ExecutorName = pcall(identifyexecutor)
+			if Success and ExecutorName then
+				return tostring(ExecutorName)
+			end
+		end
+
+		return "Unknown"
+	end
+
 	local function SendFeedbackWebhook(FeedbackType, WebhookUrl, ScriptName, FeedbackContent)
 		local RequestFunction = GetRequestFunction()
 		if typeof(RequestFunction) ~= "function" then
@@ -319,12 +330,32 @@ return function(Config)
 		end
 
 		local Payload = {
-			content = table.concat({
-				`**New Script {FeedbackType}**`,
-				`**Script:** {ScriptName}`,
-				`**{FeedbackType}:**`,
-				FeedbackContent,
-			}, "\n"),
+			username = "Script Logger",
+			avatar_url = "https://i.imgur.com/AfFp7pu.png",
+			embeds = {{
+				title = `Script {FeedbackType}: {ScriptName}`,
+				color = FeedbackType == "Suggest" and 16766720 or 16740488,
+				fields = {
+					{
+						name = "Name Script",
+						value = ScriptName,
+						inline = false,
+					},
+					{
+						name = FeedbackType == "Suggest" and "Suggest" or "Report Bug",
+						value = FeedbackContent,
+						inline = false,
+					},
+					{
+						name = "Executor",
+						value = GetExecutorName(),
+						inline = false,
+					},
+				},
+				footer = {
+					text = "Time: " .. os.date("%c"),
+				},
+			}},
 		}
 
 		local Success, Response = pcall(RequestFunction, {
