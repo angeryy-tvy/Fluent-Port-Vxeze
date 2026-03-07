@@ -8,9 +8,11 @@ local Layout = require(Root.Modules.Layout)
 local Signal = require(Root.Packages.Signal)
 local Assets = require(script.Parent.Assets)
 local Components = script.Parent
+local DialogButtonComponent = require(Components.Button)
 
 local Library = require(Root)
 
+local HttpService = game:GetService("HttpService")
 local UserInputService = Library.Utilities:Clone(game:GetService("UserInputService"))
 local Mouse = Library.Utilities:Clone(game:GetService("Players")).LocalPlayer:GetMouse()
 local Camera = Library.Utilities:Clone(game:GetService("Workspace")).CurrentCamera
@@ -57,6 +59,7 @@ return function(Config)
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
 	local DiscordInviteUrl = "https://discord.gg/vxezehub"
+	local ReportWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_8bc2ff2efe46fbdbc68eface88713c97"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
@@ -294,6 +297,58 @@ return function(Config)
 		end
 
 		return false
+	end
+
+	local function TrimText(Value)
+		return tostring(Value or ""):match("^%s*(.-)%s*$")
+	end
+
+	local function GetRequestFunction()
+		return request
+			or http_request
+			or (syn and syn.request)
+			or (http and http.request)
+			or (fluxus and fluxus.request)
+	end
+
+	local function SendReportWebhook(ScriptName, ReportContent)
+		local RequestFunction = GetRequestFunction()
+		if typeof(RequestFunction) ~= "function" then
+			return false, "HTTP requests are not supported by this executor."
+		end
+
+		local Payload = {
+			content = table.concat({
+				"**New Script Report**",
+				`**Player:** {PlayerDisplayNameText} (@{LocalPlayer and LocalPlayer.Name or "unknown"})`,
+				`**User ID:** {LocalPlayer and LocalPlayer.UserId or 0}`,
+				`**Script:** {ScriptName}`,
+				"**Report:**",
+				ReportContent,
+			}, "\n"),
+		}
+
+		local Success, Response = pcall(RequestFunction, {
+			Url = ReportWebhookUrl,
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = HttpService:JSONEncode(Payload),
+		})
+
+		if not Success then
+			return false, tostring(Response)
+		end
+
+		if typeof(Response) == "table" then
+			local StatusCode = tonumber(Response.StatusCode or Response.Status)
+			if StatusCode and (StatusCode < 200 or StatusCode >= 300) then
+				return false, Response.Body or `Request failed ({StatusCode}).`
+			end
+		end
+
+		return true
 	end
 
 	local function UpdatePlayerCardVisibility()
@@ -853,6 +908,172 @@ return function(Config)
 		return Dialog
 	end
 
+	function Window:OpenReportDialog()
+		local ReportDialog = DialogModule:Create()
+		local DialogWidth = math.clamp(Window.Size.X.Offset - 210, 400, 460)
+		local DialogHeight = math.clamp(Window.Size.Y.Offset - 165, 300, 340)
+
+		ReportDialog.Title.Text = "Report Script"
+		ReportDialog.Root.Size = UDim2.fromOffset(DialogWidth, DialogHeight)
+		ReportDialog.Root.BackgroundTransparency = 0.08
+		ReportDialog.Root.UIStroke.Color = Color3.fromRGB(255, 109, 124)
+		ReportDialog.Root.UIStroke.Transparency = 0.2
+		ReportDialog.Root.ClipsDescendants = true
+		ReportDialog.Title.Position = UDim2.fromOffset(18, 16)
+		ReportDialog.Title.Size = UDim2.new(1, -36, 0, 24)
+		ReportDialog.Title.TextSize = 18
+
+		New("UISizeConstraint", {
+			MinSize = Vector2.new(400, 300),
+			MaxSize = Vector2.new(460, 340),
+			Parent = ReportDialog.Root,
+		})
+
+		New("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.fromRGB(10, 13, 19),
+			BackgroundTransparency = 0.06,
+			ZIndex = 0,
+			Parent = ReportDialog.Root,
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 8),
+			}),
+			New("UIGradient", {
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 19, 28)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 17, 23)),
+				}),
+				Rotation = 18,
+			}),
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(18, 48),
+			Size = UDim2.new(1, -36, 0, 18),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+			Text = "Send the script name and your report directly to the Vxeze bot.",
+			TextSize = 12,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(209, 213, 222),
+			Parent = ReportDialog.Root,
+		})
+
+		local ScriptNameBox = require(Components.Textbox)(ReportDialog.Root, false)
+		ScriptNameBox.Frame.Size = UDim2.new(1, -36, 0, 34)
+		ScriptNameBox.Frame.Position = UDim2.fromOffset(18, 76)
+		ScriptNameBox.Input.PlaceholderText = "Script name"
+		ScriptNameBox.Input.ClearTextOnFocus = false
+		ScriptNameBox.Input.Text = ""
+		ScriptNameBox.Input.Size = UDim2.new(1, -8, 1, 0)
+		ScriptNameBox.Input.Position = UDim2.fromOffset(4, 0)
+
+		local ReportBox = New("Frame", {
+			Size = UDim2.new(1, -36, 0, 110),
+			Position = UDim2.fromOffset(18, 120),
+			BackgroundTransparency = 0.08,
+			Parent = ReportDialog.Root,
+			ThemeTag = {
+				BackgroundColor3 = "DialogInput",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 10),
+			}),
+			New("UIStroke", {
+				Transparency = 0.45,
+				ThemeTag = {
+					Color = "DialogButtonBorder",
+				},
+			}),
+		})
+
+		local ReportInput = New("TextBox", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(12, 10),
+			Size = UDim2.new(1, -24, 1, -20),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
+			Text = "",
+			PlaceholderText = "Describe the issue or report content",
+			TextSize = 13,
+			ClearTextOnFocus = false,
+			MultiLine = true,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			ThemeTag = {
+				TextColor3 = "Text",
+				PlaceholderColor3 = "SubText",
+			},
+			Parent = ReportBox,
+		})
+
+		ReportDialog.ButtonHolderFrame.BackgroundTransparency = 1
+		ReportDialog.ButtonHolderFrame.Frame.BackgroundColor3 = Color3.fromRGB(255, 109, 124)
+		ReportDialog.ButtonHolderFrame.Frame.BackgroundTransparency = 0.9
+		ReportDialog.ButtonHolderFrame.Size = UDim2.new(1, 0, 0, 58)
+		ReportDialog.ButtonHolderFrame.Position = UDim2.new(0, 0, 1, -58)
+		ReportDialog.ButtonHolder.Size = UDim2.new(1, -36, 0, 40)
+		ReportDialog.ButtonHolder.Position = UDim2.fromScale(0.5, 0.5)
+
+		local SendButton = DialogButtonComponent("", ReportDialog.ButtonHolder, true)
+		local CancelButton = DialogButtonComponent("", ReportDialog.ButtonHolder, true)
+		SendButton.Title.Text = "Send"
+		CancelButton.Title.Text = "Cancel"
+
+		for _, Button in next, { SendButton, CancelButton } do
+			Button.Frame.Size = UDim2.new(0.5, -5, 0, 40)
+			Button.Frame.UICorner.CornerRadius = UDim.new(0, 10)
+			Button.Frame.UIStroke.Transparency = 0.28
+			Button.Title.TextSize = 12
+		end
+
+		SendButton.Frame.BackgroundTransparency = 0
+		SendButton.Frame.BackgroundColor3 = Color3.fromRGB(138, 52, 66)
+		SendButton.Frame.UIStroke.Color = Color3.fromRGB(255, 120, 136)
+		SendButton.Title.TextColor3 = Color3.fromRGB(255, 239, 242)
+		SendButton.HoverFrame.BackgroundTransparency = 1
+
+		CancelButton.Frame.BackgroundColor3 = Color3.fromRGB(38, 44, 56)
+		CancelButton.Frame.BackgroundTransparency = 0.14
+		CancelButton.Frame.UIStroke.Color = Color3.fromRGB(145, 153, 166)
+		CancelButton.Title.TextColor3 = Color3.fromRGB(215, 220, 230)
+		CancelButton.HoverFrame.BackgroundTransparency = 1
+
+		Creator.AddSignal(SendButton.Frame.MouseButton1Click, function()
+			local ScriptName = TrimText(ScriptNameBox.Input.Text)
+			local ReportContent = TrimText(ReportInput.Text)
+
+			if ScriptName == "" or ReportContent == "" then
+				Library:Notify({
+					Title = "Report",
+					Content = "Please fill in both the script name and report content.",
+					Duration = 4,
+				})
+				return
+			end
+
+			local Success, ErrorMessage = SendReportWebhook(ScriptName, ReportContent)
+			Library:Notify({
+				Title = "Report",
+				Content = Success and "Report sent successfully." or (ErrorMessage or "Failed to send report."),
+				Duration = 4,
+			})
+
+			if Success then
+				ReportDialog:Close()
+			end
+		end)
+
+		Creator.AddSignal(CancelButton.Frame.MouseButton1Click, function()
+			ReportDialog:Close()
+		end)
+
+		ReportDialog:Open()
+	end
+
 	Creator.AddSignal(Window.PlayerVisibilityToggle.MouseButton1Click, function()
 		PlayerCardVisible = not PlayerCardVisible
 		UpdatePlayerCardVisibility()
@@ -895,9 +1116,39 @@ return function(Config)
 		ProfileDialog.Root.UIStroke.Transparency = 0.18
 		ProfileDialog.Root.ClipsDescendants = true
 		ProfileDialog.Title.Position = UDim2.fromOffset(18, 16)
-		ProfileDialog.Title.Size = UDim2.new(1, -36, 0, 26)
+		ProfileDialog.Title.Size = UDim2.new(1, -74, 0, 26)
 		ProfileDialog.Title.TextSize = 18
 		ProfileDialog.Title.TextColor3 = Color3.fromRGB(244, 248, 255)
+
+		local ReportButton = New("TextButton", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 14),
+			Size = UDim2.fromOffset(28, 28),
+			BackgroundColor3 = Color3.fromRGB(112, 30, 43),
+			BackgroundTransparency = 0.08,
+			Parent = ProfileDialog.Root,
+			Text = "",
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 8),
+			}),
+			New("UIStroke", {
+				Color = Color3.fromRGB(255, 111, 129),
+				Transparency = 0.18,
+			}),
+			New("ImageLabel", {
+				Name = "Icon",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(14, 14),
+				BackgroundTransparency = 1,
+				ImageColor3 = Color3.fromRGB(255, 214, 220),
+			}),
+		})
+		Library.Utilities.Icons:SetIcon(ReportButton.Icon, "flag")
+		Creator.AddSignal(ReportButton.MouseButton1Click, function()
+			Window:OpenReportDialog()
+		end)
 
 		New("UISizeConstraint", {
 			MinSize = Vector2.new(420, 300),
