@@ -25,6 +25,7 @@ return function(Config)
 	assert(typeof(Config.Mobile.Size) == "UDim2", "Mobile Config key 'Size' must be a UDim2!")
 
 	local PlayersService = game:GetService("Players")
+	local TweenService = game:GetService("TweenService")
 	local LocalPlayer = PlayersService.LocalPlayer
 	
 	local Window = {
@@ -55,6 +56,7 @@ return function(Config)
 	local UserCardHeight = 58
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
+	local DiscordInviteUrl = "https://discord.gg/vxezehub"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
@@ -158,6 +160,9 @@ return function(Config)
 			BackgroundColor3 = "Dialog",
 		},
 	}, {
+		New("UIScale", {
+			Scale = 1,
+		}),
 		New("UICorner", {
 			CornerRadius = UDim.new(0, 12),
 		}),
@@ -166,6 +171,19 @@ return function(Config)
 			ThemeTag = {
 				Color = "InElementBorder",
 			},
+		}),
+	})
+
+	Window.PlayerCardAccent = New("Frame", {
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundTransparency = 0.35,
+		Parent = Window.PlayerCard,
+		ThemeTag = {
+			BackgroundColor3 = "Accent",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(1, 0),
 		}),
 	})
 
@@ -253,12 +271,24 @@ return function(Config)
 	Window.PlayerMeta.Parent = Window.PlayerCard
 
 	local PlayerCardVisible = true
+	local PlayerCardTween = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	local DefaultAvatarTransparency = Window.PlayerAvatar.BackgroundTransparency
 	local PlayerDisplayNameText = LocalPlayer and LocalPlayer.DisplayName or "Player"
 	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
+	local PlayerCardStroke = Window.PlayerCard.UIStroke
+	local PlayerCardScale = Window.PlayerCard.UIScale
+	local PlayerCardRole = "Community Profile"
 
 	local function CopyToClipboard(Value)
-		local CopyFunction = setclipboard or toclipboard or set_clipboard or copystring
+		local CopyFunction = setclipboard
+			or toclipboard
+			or set_clipboard
+			or copystring
+			or (Clipboard and Clipboard.set)
+			or (clipboard and clipboard.set)
+			or (Clipboard and Clipboard.copy)
+			or (clipboard and clipboard.copy)
+
 		if typeof(CopyFunction) == "function" then
 			return pcall(CopyFunction, Value)
 		end
@@ -274,7 +304,40 @@ return function(Config)
 		Library.Utilities.Icons:SetIcon(Window.PlayerVisibilityToggle.Icon, PlayerCardVisible and "eye" or "eye-off")
 	end
 
+	local function SetPlayerCardState(State)
+		local BackgroundTransparency = 0.22
+		local StrokeTransparency = 0.35
+		local Scale = 1
+		local AccentTransparency = 0.35
+
+		if State == "hover" then
+			BackgroundTransparency = 0.14
+			StrokeTransparency = 0.18
+			Scale = 1.02
+			AccentTransparency = 0.05
+		elseif State == "pressed" then
+			BackgroundTransparency = 0.08
+			StrokeTransparency = 0
+			Scale = 0.985
+			AccentTransparency = 0
+		end
+
+		TweenService:Create(Window.PlayerCard, PlayerCardTween, {
+			BackgroundTransparency = BackgroundTransparency,
+		}):Play()
+		TweenService:Create(PlayerCardStroke, PlayerCardTween, {
+			Transparency = StrokeTransparency,
+		}):Play()
+		TweenService:Create(PlayerCardScale, PlayerCardTween, {
+			Scale = Scale,
+		}):Play()
+		TweenService:Create(Window.PlayerCardAccent, PlayerCardTween, {
+			BackgroundTransparency = AccentTransparency,
+		}):Play()
+	end
+
 	UpdatePlayerCardVisibility()
+	SetPlayerCardState("default")
 
 	if LocalPlayer then
 		task.spawn(function()
@@ -404,7 +467,6 @@ return function(Config)
 	})
 
 	-- CustomButton Toggle - appears as a draggable circular button to toggle UI
-	local TweenService = game:GetService("TweenService")
 	local ContentProvider = game:GetService("ContentProvider")
 	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -796,37 +858,234 @@ return function(Config)
 		UpdatePlayerCardVisibility()
 	end)
 
+	Creator.AddSignal(Window.PlayerCardButton.MouseEnter, function()
+		SetPlayerCardState("hover")
+	end)
+
+	Creator.AddSignal(Window.PlayerCardButton.MouseLeave, function()
+		SetPlayerCardState("default")
+	end)
+
+	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Down, function()
+		SetPlayerCardState("pressed")
+	end)
+
+	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Up, function()
+		SetPlayerCardState("hover")
+	end)
+
 	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, function()
 		local CopyResult = false
-		Window:Dialog({
-			Title = "Profile Details",
-			Content = table.concat({
-				`Display Name: {PlayerDisplayNameText}`,
-				`Username: @{LocalPlayer and LocalPlayer.Name or "unknown"}`,
-				`User ID: {LocalPlayer and LocalPlayer.UserId or 0}`,
-				"",
-				`Discord: {DiscordInvite}`,
-				`Owner: {DiscordOwner}`,
-				`Co.Owner: {DiscordCoOwner}`,
-			}, "\n"),
-			Buttons = {
-				{
-					Title = "Copy Discord Link",
-					Callback = function()
-						CopyResult = CopyToClipboard(DiscordInvite)
-						Library:Notify({
-							Title = "Discord",
-							Content = CopyResult and "Discord link copied." or "Clipboard is not supported by this executor.",
-							Duration = 4,
-						})
-					end,
-				},
-				{
-					Title = "Close",
-					Callback = function() end,
-				},
-			},
+		local ProfileDialog = DialogModule:Create()
+		ProfileDialog.Title.Text = "Profile Details"
+		ProfileDialog.Root.Size = UDim2.fromOffset(390, 286)
+
+		New("UISizeConstraint", {
+			MinSize = Vector2.new(390, 286),
+			MaxSize = Vector2.new(460, 320),
+			Parent = ProfileDialog.Root,
 		})
+
+		local Header = New("Frame", {
+			Size = UDim2.new(1, -40, 0, 84),
+			Position = UDim2.fromOffset(20, 58),
+			BackgroundTransparency = 0.14,
+			Parent = ProfileDialog.Root,
+			ThemeTag = {
+				BackgroundColor3 = "DialogHolder",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 12),
+			}),
+			New("UIStroke", {
+				Transparency = 0.18,
+				ThemeTag = {
+					Color = "DialogBorder",
+				},
+			}),
+		})
+
+		local HeaderAccent = New("Frame", {
+			Size = UDim2.new(0, 4, 1, -16),
+			Position = UDim2.fromOffset(10, 8),
+			BackgroundTransparency = 0,
+			Parent = Header,
+			ThemeTag = {
+				BackgroundColor3 = "Accent",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		})
+
+		local HeaderAvatar = New("ImageLabel", {
+			Size = UDim2.fromOffset(50, 50),
+			Position = UDim2.fromOffset(24, 17),
+			BackgroundTransparency = 0.05,
+			Image = Window.PlayerAvatar.Image,
+			Parent = Header,
+			ThemeTag = {
+				BackgroundColor3 = "Tab",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(88, 16),
+			Size = UDim2.new(1, -190, 0, 22),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+			Text = PlayerDisplayNameText,
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ThemeTag = {
+				TextColor3 = "Text",
+			},
+			Parent = Header,
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(88, 40),
+			Size = UDim2.new(1, -190, 0, 18),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+			Text = `@{LocalPlayer and LocalPlayer.Name or "unknown"}  •  ID {LocalPlayer and LocalPlayer.UserId or 0}`,
+			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ThemeTag = {
+				TextColor3 = "SubText",
+			},
+			Parent = Header,
+		})
+
+		local ProfileBadge = New("Frame", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 16),
+			Size = UDim2.fromOffset(110, 26),
+			BackgroundTransparency = 0.08,
+			Parent = Header,
+			ThemeTag = {
+				BackgroundColor3 = "Accent",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+			Text = PlayerCardRole,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ThemeTag = {
+				TextColor3 = "Text",
+			},
+			Parent = ProfileBadge,
+		})
+
+		local DiscordPanel = New("Frame", {
+			Size = UDim2.new(1, -40, 0, 78),
+			Position = UDim2.fromOffset(20, 152),
+			BackgroundTransparency = 0.18,
+			Parent = ProfileDialog.Root,
+			ThemeTag = {
+				BackgroundColor3 = "DialogHolder",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(0, 12),
+			}),
+			New("UIStroke", {
+				Transparency = 0.24,
+				ThemeTag = {
+					Color = "DialogBorder",
+				},
+			}),
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(16, 12),
+			Size = UDim2.new(1, -32, 0, 16),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+			Text = "Discord Hub",
+			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ThemeTag = {
+				TextColor3 = "Text",
+			},
+			Parent = DiscordPanel,
+		})
+
+		New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(16, 31),
+			Size = UDim2.new(1, -32, 0, 16),
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+			Text = DiscordInvite,
+			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ThemeTag = {
+				TextColor3 = "SubText",
+			},
+			Parent = DiscordPanel,
+		})
+
+		local function CreateRoleBadge(Parent, Position, Label, Value)
+			local Badge = New("Frame", {
+				Position = Position,
+				Size = UDim2.new(0.5, -20, 0, 24),
+				BackgroundTransparency = 0.08,
+				Parent = Parent,
+				ThemeTag = {
+					BackgroundColor3 = "Accent",
+				},
+			}, {
+				New("UICorner", {
+					CornerRadius = UDim.new(1, 0),
+				}),
+			})
+
+			New("TextLabel", {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(10, 0),
+				Size = UDim2.new(1, -20, 1, 0),
+				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+				Text = `{Label}: {Value}`,
+				TextSize = 10,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ThemeTag = {
+					TextColor3 = "Text",
+				},
+				Parent = Badge,
+			})
+		end
+
+		CreateRoleBadge(DiscordPanel, UDim2.fromOffset(16, 48), "OWNER", DiscordOwner)
+		CreateRoleBadge(DiscordPanel, UDim2.new(0.5, 4, 0, 48), "CO-OWNER", DiscordCoOwner)
+
+		ProfileDialog:Button("Copy Discord Link", function()
+			CopyResult = CopyToClipboard(DiscordInviteUrl)
+			if not CopyResult then
+				CopyResult = CopyToClipboard(DiscordInvite)
+			end
+
+			Library:Notify({
+				Title = "Discord",
+				Content = CopyResult and `Copied: {DiscordInviteUrl}` or "Clipboard is not supported by this executor.",
+				Duration = 4,
+			})
+		end)
+		ProfileDialog:Button("Close", function() end)
+		ProfileDialog:Open()
 	end)
 
 	local TabModule = require(Components.Tab):Init(Window)
