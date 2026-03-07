@@ -746,6 +746,7 @@ return function(Config)
 	function Window:Dialog(Config)
 		local Dialog = DialogModule:Create()
 		Dialog.Title.Text = Config.Title
+		local MaxDialogWidth = math.min(620, Window.Size.X.Offset - 120)
 
 		local Content = New("TextLabel", {
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
@@ -754,7 +755,9 @@ return function(Config)
 			TextSize = 14,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top,
-			Size = UDim2.new(1, -40, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			Size = UDim2.new(1, -40, 0, 0),
 			Position = UDim2.fromOffset(20, 60),
 			BackgroundTransparency = 1,
 			Parent = Dialog.Root,
@@ -770,12 +773,10 @@ return function(Config)
 			Parent = Dialog.Root,
 		})
 
-		Dialog.Root.Size = UDim2.fromOffset(Content.TextBounds.X + 40, 165)
-		if Content.TextBounds.X + 40 > Window.Size.X.Offset - 120 then
-			Dialog.Root.Size = UDim2.fromOffset(Window.Size.X.Offset - 120, 165)
-			Content.TextWrapped = true
-			Dialog.Root.Size = UDim2.fromOffset(Window.Size.X.Offset - 120, Content.TextBounds.Y + 150)
-		end
+		local TargetWidth = math.clamp(Content.TextBounds.X + 40, 300, MaxDialogWidth)
+		Dialog.Root.Size = UDim2.fromOffset(TargetWidth, 165)
+		task.wait()
+		Dialog.Root.Size = UDim2.fromOffset(TargetWidth, math.max(165, Content.TextBounds.Y + 150))
 
 		for _, Button in next, Config.Buttons do
 			Dialog:Button(Button.Title, Button.Callback)
