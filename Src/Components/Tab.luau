@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 
 local New = Creator.New
 local Spring = Flipper.Spring.new
+local ElevationTween = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 local TabModule = {
 	Window = nil,
@@ -172,11 +173,12 @@ local function RefreshTabDropdown(Tab)
 
 	for _, SubTab in next, Tab.SubTabs do
 		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
+		SubTab.Root.Visible = ShowChildren and SearchAllows
 		SubTab.Frame.Visible = ShowChildren and SearchAllows
 
 		if ShowChildren and SearchAllows then
 			VisibleCount += 1
-			TargetHeight += SubTab.Frame.Size.Y.Offset
+			TargetHeight += SubTab.Root.Size.Y.Offset
 		end
 	end
 
@@ -200,11 +202,12 @@ local function AnimateTabDropdown(Tab)
 
 	for _, SubTab in next, Tab.SubTabs do
 		local SearchAllows = TabModule.SearchQuery == "" or SubTab.SearchVisible ~= false
+		SubTab.Root.Visible = ShowChildren and SearchAllows
 		SubTab.Frame.Visible = ShowChildren and SearchAllows
 
 		if ShowChildren and SearchAllows then
 			VisibleCount += 1
-			TargetHeight += SubTab.Frame.Size.Y.Offset
+			TargetHeight += SubTab.Root.Size.Y.Offset
 		end
 	end
 
@@ -247,6 +250,40 @@ local function GetFirstMatchingItem(Tab, Query, HasTabContentMatch)
 	end
 
 	return nil
+end
+
+local function AttachElevation(Item, RootFrame, ButtonFrame, CornerRadius, ShadowTransparency)
+	Item.Shadow = New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 2),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = RootFrame,
+	}, {
+		New("UICorner", {
+			CornerRadius = CornerRadius,
+		}),
+	})
+
+	ButtonFrame.ZIndex = 2
+
+	for _, Descendant in next, ButtonFrame:GetDescendants() do
+		if Descendant:IsA("GuiObject") then
+			Descendant.ZIndex = math.max(Descendant.ZIndex, 3)
+		end
+	end
+
+	Item.SetElevation = function(Enabled)
+		TweenService:Create(Item.Shadow, ElevationTween, {
+			BackgroundTransparency = Enabled and ShadowTransparency or 1,
+			Position = Enabled and UDim2.new(0.5, 0, 0.5, 3) or UDim2.new(0.5, 0, 0.5, 2),
+		}):Play()
+		TweenService:Create(ButtonFrame, ElevationTween, {
+			Position = Enabled and UDim2.fromOffset(0, -1) or UDim2.fromOffset(0, 0),
+		}):Play()
+	end
 end
 
 function TabModule:Init(Window)
@@ -297,22 +334,27 @@ function TabModule:SelectItem(TabIndex, Item)
 
 	for _, ExistingTab in next, TabModule.Tabs do
 		ExistingTab.SetTransparency(0.97)
+		ExistingTab.SetElevation(false)
 		ExistingTab.Selected = false
 		for _, SubTab in next, ExistingTab.SubTabs do
 			SubTab.SetTransparency(0.99)
+			SubTab.SetElevation(false)
 			SubTab.Selected = false
 		end
 	end
 
 	if Item.Type == "SubTab" then
 		Tab.SetTransparency(0.84)
+		Tab.SetElevation(false)
 		Tab.Selected = true
 		Item.SetTransparency(0.72)
+		Item.SetElevation(true)
 		Item.Selected = true
 		Tab.Expanded = true
 		RefreshTabDropdown(Tab)
 	else
 		Tab.SetTransparency(0.8)
+		Tab.SetElevation(true)
 		Tab.Selected = true
 	end
 
@@ -393,7 +435,7 @@ function TabModule:ApplySearch(Query)
 
 			SubTab.SearchVisible = TextMatches(SubTab.Name, Query) or HasSubTabContentMatch
 			HasSubTabMatch = HasSubTabMatch or SubTab.SearchVisible
-			CacheVisibility(TabModule.SearchVisibility, SubTab.Frame)
+			CacheVisibility(TabModule.SearchVisibility, SubTab.Root)
 		end
 
 		local TabVisible = TextMatches(Tab.Name, Query) or HasTabContentMatch or HasSubTabMatch
@@ -411,7 +453,7 @@ function TabModule:ApplySearch(Query)
 			CurrentSelectionVisible = true
 		else
 			for _, SubTab in next, Tab.SubTabs do
-				if TabModule.SelectedItem == SubTab and SubTab.Frame.Visible then
+				if TabModule.SelectedItem == SubTab and SubTab.Root.Visible then
 					CurrentSelectionVisible = true
 				end
 			end
@@ -470,6 +512,7 @@ function TabModule:New(Title, Icon, Parent)
 
 	Tab.Frame = New("TextButton", {
 		Size = UDim2.new(1, 0, 0, 38),
+		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 0.97,
 		Parent = Tab.Root,
 		ThemeTag = {
@@ -502,6 +545,7 @@ function TabModule:New(Title, Icon, Parent)
 			TextYAlignment = Enum.TextYAlignment.Center,
 			Size = UDim2.new(1, -54, 1, 0),
 			BackgroundTransparency = 1,
+			ZIndex = 3,
 			ThemeTag = {
 				TextColor3 = "Text",
 			},
@@ -514,11 +558,13 @@ function TabModule:New(Title, Icon, Parent)
 			ImageRectOffset = TabIcon and TabIcon.ImageRectOffset or Vector2.zero,
 			ImageRectSize = TabIcon and TabIcon.ImageRectSize or Vector2.zero,
 			Image = TabIcon and TabIcon.Image or nil,
+			ZIndex = 3,
 			ThemeTag = {
 				ImageColor3 = "Text",
 			},
 		}),
 	})
+	AttachElevation(Tab, Tab.Root, Tab.Frame, UDim.new(0, 9), 0.86)
 
 	Tab.Chevron = New("ImageLabel", {
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -527,6 +573,7 @@ function TabModule:New(Title, Icon, Parent)
 		BackgroundTransparency = 1,
 		Visible = false,
 		Rotation = -90,
+		ZIndex = 3,
 		Parent = Tab.Frame,
 		ThemeTag = {
 			ImageColor3 = "SubText",
@@ -541,6 +588,7 @@ function TabModule:New(Title, Icon, Parent)
 		BackgroundTransparency = 1,
 		Text = "",
 		Visible = false,
+		ZIndex = 4,
 		Parent = Tab.Frame,
 	})
 
@@ -650,12 +698,20 @@ function TabModule:New(Title, Icon, Parent)
 			SearchVisible = nil,
 		}
 
-		SubTab.Frame = New("TextButton", {
+		SubTab.Root = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 30),
-			BackgroundTransparency = 0.99,
+			BackgroundTransparency = 1,
 			Parent = Tab.SubTabHolder,
 			Visible = false,
 			LayoutOrder = SubTabIndex,
+		})
+
+		SubTab.Frame = New("TextButton", {
+			Size = UDim2.new(1, 0, 0, 30),
+			Position = UDim2.fromOffset(0, 0),
+			BackgroundTransparency = 0.99,
+			Parent = SubTab.Root,
+			Visible = false,
 			ThemeTag = {
 				BackgroundColor3 = "Tab",
 			},
@@ -687,6 +743,7 @@ function TabModule:New(Title, Icon, Parent)
 				TextYAlignment = Enum.TextYAlignment.Center,
 				Size = UDim2.new(1, -34, 1, 0),
 				BackgroundTransparency = 1,
+				ZIndex = 3,
 				ThemeTag = {
 					TextColor3 = "SubText",
 				},
@@ -700,11 +757,13 @@ function TabModule:New(Title, Icon, Parent)
 				ImageRectSize = SubIcon and SubIcon.ImageRectSize or Vector2.zero,
 				Image = SubIcon and SubIcon.Image or nil,
 				Visible = SubIcon ~= nil,
+				ZIndex = 3,
 				ThemeTag = {
 					ImageColor3 = "SubText",
 				},
 			}),
 		})
+		AttachElevation(SubTab, SubTab.Root, SubTab.Frame, UDim.new(0, 8), 0.9)
 
 		SubTab.ContainerFrame = CreatePageContainer(Window)
 		BindCanvasSize(SubTab.ContainerFrame)
