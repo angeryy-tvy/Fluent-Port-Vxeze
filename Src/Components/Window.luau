@@ -207,6 +207,40 @@ return function(Config)
 		}),
 	})
 
+	Window.PlayerDismissButton = New("TextButton", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromOffset(52, 7),
+		Size = UDim2.fromOffset(16, 16),
+		AutoButtonColor = false,
+		BackgroundColor3 = Color3.fromRGB(24, 29, 36),
+		BackgroundTransparency = 0.12,
+		Text = "",
+		ZIndex = 3,
+		Parent = Window.PlayerCard,
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(1, 0),
+		}),
+		New("UIStroke", {
+			Transparency = 0.35,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
+		}),
+		New("ImageLabel", {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(10, 10),
+			BackgroundTransparency = 1,
+			ZIndex = 4,
+			ThemeTag = {
+				ImageColor3 = "SubText",
+			},
+		}),
+	})
+	Library.Utilities.Icons:SetIcon(Window.PlayerDismissButton.Icon, "x")
+
 	Window.PlayerCardButton = New("TextButton", {
 		Size = UDim2.new(1, -40, 1, 0),
 		BackgroundTransparency = 1,
@@ -260,7 +294,7 @@ return function(Config)
 		Size = UDim2.new(1, -98, 0, 16),
 		BackgroundTransparency = 1,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-		Text = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable",
+		Text = LocalPlayer and (`@{LocalPlayer.Name}`) or "Unavailable",
 		TextSize = 11,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
@@ -275,10 +309,12 @@ return function(Config)
 	Window.PlayerMeta.Parent = Window.PlayerCard
 
 	local PlayerCardVisible = true
+	local PlayerCardDismissed = false
 	local PlayerCardTween = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	local DefaultAvatarTransparency = Window.PlayerAvatar.BackgroundTransparency
 	local PlayerDisplayNameText = LocalPlayer and LocalPlayer.DisplayName or "Player"
-	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
+	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}`) or "Unavailable"
+	local PlayerDetailMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
 	local PlayerCardStroke = Window.PlayerCard.UIStroke
 	local PlayerCardScale = Window.PlayerCard.UIScale
 	local PlayerCardRole = "Community Profile"
@@ -387,6 +423,16 @@ return function(Config)
 		Library.Utilities.Icons:SetIcon(Window.PlayerVisibilityToggle.Icon, PlayerCardVisible and "eye" or "eye-off")
 	end
 
+	local function UpdatePlayerCardLayout()
+		local ReservedHeight = SearchBarHeight + SearchBarPadding
+		if not PlayerCardDismissed then
+			ReservedHeight += UserCardHeight + UserCardPadding
+		end
+
+		Window.PlayerCard.Visible = not PlayerCardDismissed
+		Window.TabHolder.Size = UDim2.new(1, 0, 1, -ReservedHeight)
+	end
+
 	local function SetPlayerCardState(State)
 		local BackgroundTransparency = 0.22
 		local StrokeTransparency = 0.35
@@ -420,6 +466,7 @@ return function(Config)
 	end
 
 	UpdatePlayerCardVisibility()
+	UpdatePlayerCardLayout()
 	SetPlayerCardState("default")
 
 	if LocalPlayer then
@@ -1145,6 +1192,11 @@ return function(Config)
 		UpdatePlayerCardVisibility()
 	end)
 
+	Creator.AddSignal(Window.PlayerDismissButton.MouseButton1Click, function()
+		PlayerCardDismissed = true
+		UpdatePlayerCardLayout()
+	end)
+
 	Creator.AddSignal(Window.PlayerCardButton.MouseEnter, function()
 		SetPlayerCardState("hover")
 	end)
@@ -1434,7 +1486,7 @@ return function(Config)
 			Position = UDim2.fromOffset(HeaderTextLeft, 39),
 			Size = UDim2.new(1, -(HeaderTextLeft + 22), 0, 16),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-			Text = PlayerMetaText,
+			Text = PlayerDetailMetaText,
 			TextSize = 10,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(156, 163, 177),
