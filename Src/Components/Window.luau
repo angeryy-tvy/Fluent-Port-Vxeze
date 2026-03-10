@@ -267,6 +267,7 @@ return function(Config)
 			},
 		}),
 	})
+	Library.Utilities.Icons:SetIcon(Window.PlayerVisibilityToggle.Icon, "eye")
 
 	Window.PlayerDisplayName = New("TextLabel", {
 		AnchorPoint = Vector2.new(0, 0),
@@ -308,10 +309,8 @@ return function(Config)
 	})
 	Window.PlayerMeta.Parent = Window.PlayerCard
 
-	local PlayerCardVisible = true
 	local PlayerCardDismissed = false
 	local PlayerCardTween = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-	local DefaultAvatarTransparency = Window.PlayerAvatar.BackgroundTransparency
 	local PlayerDisplayNameText = LocalPlayer and LocalPlayer.DisplayName or "Player"
 	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}`) or "Unavailable"
 	local PlayerDetailMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
@@ -415,14 +414,6 @@ return function(Config)
 		return true
 	end
 
-	local function UpdatePlayerCardVisibility()
-		Window.PlayerDisplayName.Text = PlayerCardVisible and PlayerDisplayNameText or "Profile hidden"
-		Window.PlayerMeta.Text = PlayerCardVisible and PlayerMetaText or "Tap eye icon to reveal"
-		Window.PlayerAvatar.ImageTransparency = PlayerCardVisible and 0 or 1
-		Window.PlayerAvatar.BackgroundTransparency = PlayerCardVisible and DefaultAvatarTransparency or 0.55
-		Library.Utilities.Icons:SetIcon(Window.PlayerVisibilityToggle.Icon, PlayerCardVisible and "eye" or "eye-off")
-	end
-
 	local function UpdatePlayerCardLayout()
 		local ReservedHeight = SearchBarHeight + SearchBarPadding
 		if not PlayerCardDismissed then
@@ -431,6 +422,15 @@ return function(Config)
 
 		Window.PlayerCard.Visible = not PlayerCardDismissed
 		Window.TabHolder.Size = UDim2.new(1, 0, 1, -ReservedHeight)
+	end
+
+	local function DismissPlayerCard()
+		if PlayerCardDismissed then
+			return
+		end
+
+		PlayerCardDismissed = true
+		UpdatePlayerCardLayout()
 	end
 
 	local function SetPlayerCardState(State)
@@ -465,7 +465,6 @@ return function(Config)
 		}):Play()
 	end
 
-	UpdatePlayerCardVisibility()
 	UpdatePlayerCardLayout()
 	SetPlayerCardState("default")
 
@@ -1188,13 +1187,11 @@ return function(Config)
 	end
 
 	Creator.AddSignal(Window.PlayerVisibilityToggle.MouseButton1Click, function()
-		PlayerCardVisible = not PlayerCardVisible
-		UpdatePlayerCardVisibility()
+		DismissPlayerCard()
 	end)
 
 	Creator.AddSignal(Window.PlayerDismissButton.MouseButton1Click, function()
-		PlayerCardDismissed = true
-		UpdatePlayerCardLayout()
+		DismissPlayerCard()
 	end)
 
 	Creator.AddSignal(Window.PlayerCardButton.MouseEnter, function()
