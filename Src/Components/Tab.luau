@@ -125,11 +125,13 @@ end
 
 local function AddSectionAPI(Target, Elements, Library, SectionParent, ScrollFrame)
 	function Target:Section(SectionTitle)
+		local SectionDepth = Target.Type == "Section" and ((Target.SectionDepth or 0) + 1) or 0
 		local Section = {
 			Type = "Section",
+			SectionDepth = SectionDepth,
 		}
 
-		local SectionFrame = require(Root.Components.Section)(SectionTitle, SectionParent, Library)
+		local SectionFrame = require(Root.Components.Section)(SectionTitle, SectionParent, Library, SectionDepth)
 		Section.Container = SectionFrame.Container
 		Section.ScrollFrame = ScrollFrame
 		Section.Toggle = function()
@@ -144,6 +146,7 @@ local function AddSectionAPI(Target, Elements, Library, SectionParent, ScrollFra
 
 		Target.Container = SectionFrame.Container
 
+		AddSectionAPI(Section, Elements, Library, SectionFrame.Container, ScrollFrame)
 		setmetatable(Section, Elements)
 		return Section
 	end

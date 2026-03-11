@@ -34,6 +34,38 @@ QuickSection:CreateParagraph("SectionIntro", {
     Content = "This paragraph is inside a collapsible section."
 })
 
+local EventSection = Tabs.Main:CreateSection("Event")
+EventSection:CreateParagraph("EventIntro", {
+    Title = "Event Root",
+    Content = "This is the parent section. The nested sections below now work."
+})
+
+local MayaSection = EventSection:CreateSection("Maya")
+MayaSection:CreateToggle("MayaEnabled", {
+    Title = "Enable Maya Event",
+    Default = true
+})
+
+MayaSection:CreateParagraph("MayaInfo", {
+    Title = "Maya",
+    Content = "Nested section content inside Event > Maya."
+})
+
+local MannySection = EventSection:CreateSection("Manny")
+MannySection:CreateButton{
+    Title = "Run Manny",
+    Description = "Example button inside Event > Manny",
+    Callback = function()
+        print("Manny action clicked.")
+    end
+}
+
+local MannyRewardsSection = MannySection:CreateSection("Rewards")
+MannyRewardsSection:CreateParagraph("MannyRewardsInfo", {
+    Title = "Rewards",
+    Content = "Nested one level deeper: Event > Manny > Rewards."
+})
+
 QuickSection:CreateButton{
     Title = "Section Button",
     Description = "Example button inside a section",

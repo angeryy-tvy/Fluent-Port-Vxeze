@@ -5,7 +5,10 @@ local Layout = require(Root.Modules.Layout)
 
 local New = Creator.New
 
-return function(Title, Parent, Library)
+return function(Title, Parent, Library, Depth)
+	Depth = math.max(tonumber(Depth) or 0, 0)
+	local NestedInset = Depth * 12
+
 	local Section = {
 		Collapsed = false,
 		TargetHeight = 0
@@ -81,7 +84,8 @@ return function(Title, Parent, Library)
 
 	Section.Root = New("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 36),
+		Size = UDim2.new(1, -NestedInset, 0, 36),
+		Position = UDim2.fromOffset(NestedInset, 0),
 		LayoutOrder = 7,
 		Parent = Parent,
 		ClipsDescendants = true,
@@ -94,7 +98,7 @@ return function(Title, Parent, Library)
 		Section.TargetHeight = Section.Layout.AbsoluteContentSize.Y
 		if not Section.Collapsed then
 			Section.Container.Size = UDim2.new(1, 0, 0, Section.TargetHeight)
-			Section.Root.Size = UDim2.new(1, 0, 0, Section.TargetHeight + 36)
+			Section.Root.Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + 36)
 		end
 	end
 
@@ -108,11 +112,11 @@ return function(Title, Parent, Library)
 		if Section.Collapsed then
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = -90}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, 0)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, 36)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, 36)}):Play()
 		else
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = 0}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight + 36)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + 36)}):Play()
 		end
 	end
 
