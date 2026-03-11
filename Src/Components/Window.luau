@@ -86,7 +86,7 @@ return function(Config)
 	})
 
 	Window.TabHolder = New("ScrollingFrame", {
-		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding + UserCardHeight + UserCardPadding)),
+		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding)),
 		Position = UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding),
 		BackgroundTransparency = 1,
 		ScrollBarImageTransparency = 0.9,
@@ -309,14 +309,25 @@ return function(Config)
 	})
 	Window.PlayerMeta.Parent = Window.PlayerCard
 
-	local PlayerCardDismissed = false
+	local PlayerCardDismissed = true
 	local PlayerCardTween = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	local PlayerDisplayNameText = LocalPlayer and LocalPlayer.DisplayName or "Player"
-	local PlayerMetaText = LocalPlayer and (`@{LocalPlayer.Name}`) or "Unavailable"
 	local PlayerDetailMetaText = LocalPlayer and (`@{LocalPlayer.Name}  •  ID {LocalPlayer.UserId}`) or "Unavailable"
 	local PlayerCardStroke = Window.PlayerCard.UIStroke
 	local PlayerCardScale = Window.PlayerCard.UIScale
 	local PlayerCardRole = "Community Profile"
+
+	local function SetPlayerAvatarImage(Image)
+		Window.PlayerAvatar.Image = Image
+
+		if Window.ProfileAvatar then
+			Window.ProfileAvatar.Image = Image
+		end
+
+		if Window.ProfileAvatarFallback then
+			Window.ProfileAvatarFallback.ImageTransparency = Image ~= "" and 1 or 0
+		end
+	end
 
 	local function CopyToClipboard(Value)
 		local CopyFunction = setclipboard
@@ -479,7 +490,7 @@ return function(Config)
 			end)
 
 			if Success and Content then
-				Window.PlayerAvatar.Image = Content
+				SetPlayerAvatarImage(Content)
 
 				if not IsReady then
 					task.wait(0.25)
@@ -493,7 +504,7 @@ return function(Config)
 					end)
 
 					if RetrySuccess and RetryContent then
-						Window.PlayerAvatar.Image = RetryContent
+						SetPlayerAvatarImage(RetryContent)
 					end
 				end
 			end
@@ -700,6 +711,59 @@ return function(Config)
 		Parent = Window.Root,
 		Window = Window,
 	})
+
+	Window.ProfileButton = New("TextButton", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -114, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28),
+		AutoButtonColor = false,
+		BackgroundTransparency = 0.1,
+		Parent = Window.TitleBar.Frame,
+		Text = "",
+		ThemeTag = {
+			BackgroundColor3 = "Tab",
+		},
+	}, {
+		New("UICorner", {
+			CornerRadius = UDim.new(1, 0),
+		}),
+		New("UIStroke", {
+			Transparency = 0.32,
+			ThemeTag = {
+				Color = "InElementBorder",
+			},
+		}),
+		New("ImageLabel", {
+			Name = "FallbackIcon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(14, 14),
+			BackgroundTransparency = 1,
+			ThemeTag = {
+				ImageColor3 = "Text",
+			},
+		}),
+		New("ImageLabel", {
+			Name = "Avatar",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(24, 24),
+			BackgroundTransparency = 1,
+			Image = Window.PlayerAvatar.Image,
+			ScaleType = Enum.ScaleType.Crop,
+			ThemeTag = {
+				BackgroundColor3 = "Tab",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		}),
+	})
+	Window.ProfileAvatar = Window.ProfileButton.Avatar
+	Window.ProfileAvatarFallback = Window.ProfileButton.FallbackIcon
+	Library.Utilities.Icons:SetIcon(Window.ProfileAvatarFallback, "user-round")
+	SetPlayerAvatarImage(Window.PlayerAvatar.Image)
 
 	if Library.UseAcrylic then
 		Window.AcrylicPaint.AddParent(Window.Root)
@@ -1210,7 +1274,7 @@ return function(Config)
 		SetPlayerCardState("hover")
 	end)
 
-	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, function()
+	local function OpenProfileDialog()
 		local DialogWidth = math.clamp(Window.Size.X.Offset - 250, 420, 500)
 		local DialogHeight = math.clamp(Window.Size.Y.Offset - 215, 300, 324)
 		local DialogPadding = 16
@@ -1703,7 +1767,22 @@ return function(Config)
 		Library.Utilities.Icons:SetIcon(CloseIcon, "x")
 
 		ProfileDialog:Open()
+	end
+
+	Creator.AddSignal(Window.ProfileButton.MouseEnter, function()
+		TweenService:Create(Window.ProfileButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 0.02,
+		}):Play()
 	end)
+
+	Creator.AddSignal(Window.ProfileButton.MouseLeave, function()
+		TweenService:Create(Window.ProfileButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 0.1,
+		}):Play()
+	end)
+
+	Creator.AddSignal(Window.ProfileButton.MouseButton1Click, OpenProfileDialog)
+	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, OpenProfileDialog)
 
 	local TabModule = require(Components.Tab):Init(Window)
 

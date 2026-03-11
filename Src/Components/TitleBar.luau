@@ -93,7 +93,7 @@ return function(Config)
 	})
 
 	TitleBar.TitleHolder = New("Frame", {
-		Size = UDim2.new(1, -124, 1, 0),
+		Size = UDim2.new(1, -168, 1, 0),
 		Parent = TitleBar.Frame,
 		Position = UDim2.new(0, 18, 0, 0),
 		BackgroundTransparency = 1,
