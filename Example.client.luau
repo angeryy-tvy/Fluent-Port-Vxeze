@@ -6,7 +6,7 @@ local Window = Library:Window{
     TabWidth = 160,
     Size = UDim2.fromOffset(830, 525),
     Resize = true,
-    Acrylic = true,
+    Acrylic = false,
     Theme = "Vynixu",
     MinimizeKey = Enum.KeyCode.P
 }

@@ -59,8 +59,6 @@ return function(Config)
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
 	local DiscordInviteUrl = "https://discord.gg/vxezehub"
-	local ReportWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_b7e05c77474568813bdd9d8efdcbb930"
-	local SuggestWebhookUrl = "https://vxezestudio.online/api/webhooks/proxy_81bc939df362fd6d7f9e38e3c6ded5e6"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
@@ -1299,84 +1297,6 @@ return function(Config)
 		ProfileDialog.Title.TextSize = 18
 		ProfileDialog.Title.TextColor3 = Color3.fromRGB(244, 248, 255)
 
-		local ReportButton = New("TextButton", {
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -16, 0, 14),
-			Size = UDim2.fromOffset(28, 28),
-			BackgroundColor3 = Color3.fromRGB(112, 30, 43),
-			BackgroundTransparency = 0.08,
-			Parent = ProfileDialog.Root,
-			Text = "",
-		}, {
-			New("UICorner", {
-				CornerRadius = UDim.new(0, 8),
-			}),
-			New("UIStroke", {
-				Color = Color3.fromRGB(255, 111, 129),
-				Transparency = 0.18,
-			}),
-			New("ImageLabel", {
-				Name = "Icon",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(14, 14),
-				BackgroundTransparency = 1,
-				ImageColor3 = Color3.fromRGB(255, 214, 220),
-			}),
-		})
-		Library.Utilities.Icons:SetIcon(ReportButton.Icon, "flag")
-		Creator.AddSignal(ReportButton.MouseButton1Click, function()
-			Window:OpenFeedbackDialog({
-				TypeName = "Report",
-				Title = "Report Script",
-				Description = "Send the script name and your report directly to the Vxeze bot.",
-				PlaceholderText = "Describe the issue or report content",
-				WebhookUrl = ReportWebhookUrl,
-				StrokeColor = Color3.fromRGB(255, 120, 136),
-				ButtonColor = Color3.fromRGB(138, 52, 66),
-				ButtonTextColor = Color3.fromRGB(255, 239, 242),
-			})
-		end)
-
-		local SuggestButton = New("TextButton", {
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -50, 0, 14),
-			Size = UDim2.fromOffset(28, 28),
-			BackgroundColor3 = Color3.fromRGB(118, 88, 26),
-			BackgroundTransparency = 0.08,
-			Parent = ProfileDialog.Root,
-			Text = "",
-		}, {
-			New("UICorner", {
-				CornerRadius = UDim.new(0, 8),
-			}),
-			New("UIStroke", {
-				Color = Color3.fromRGB(255, 211, 94),
-				Transparency = 0.18,
-			}),
-			New("ImageLabel", {
-				Name = "Icon",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(14, 14),
-				BackgroundTransparency = 1,
-				ImageColor3 = Color3.fromRGB(255, 243, 204),
-			}),
-		})
-		Library.Utilities.Icons:SetIcon(SuggestButton.Icon, "message-square-plus")
-		Creator.AddSignal(SuggestButton.MouseButton1Click, function()
-			Window:OpenFeedbackDialog({
-				TypeName = "Suggest",
-				Title = "Suggest Script",
-				Description = "Send your suggestion for this script directly to the Vxeze bot.",
-				PlaceholderText = "Describe your suggestion",
-				WebhookUrl = SuggestWebhookUrl,
-				StrokeColor = Color3.fromRGB(255, 211, 94),
-				ButtonColor = Color3.fromRGB(169, 125, 28),
-				ButtonTextColor = Color3.fromRGB(255, 248, 229),
-			})
-		end)
-
 		New("UISizeConstraint", {
 			MinSize = Vector2.new(420, 300),
 			MaxSize = Vector2.new(500, 324),
@@ -1785,9 +1705,20 @@ return function(Config)
 	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, OpenProfileDialog)
 
 	local TabModule = require(Components.Tab):Init(Window)
+	local SearchDebounceDelay = 0.15
+	local SearchRequestId = 0
 
 	Creator.AddSignal(Window.SearchBox.Input:GetPropertyChangedSignal("Text"), function()
-		TabModule:ApplySearch(Window.SearchBox.Input.Text)
+		SearchRequestId += 1
+		local RequestId = SearchRequestId
+
+		task.delay(SearchDebounceDelay, function()
+			if RequestId ~= SearchRequestId then
+				return
+			end
+
+			TabModule:ApplySearch(Window.SearchBox.Input.Text)
+		end)
 	end)
 
 	function Window:Tab(TabConfig)
