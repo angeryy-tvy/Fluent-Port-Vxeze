@@ -38,6 +38,17 @@ function Element:New(Idx, Config)
 	Textbox.Input.PlaceholderText = Config.Placeholder or ""
 
 	local Box = Textbox.Input
+	local DesiredWidth = 160
+	local MinWidth = 48
+
+	local function UpdateTextboxWidth()
+		local Available = InputFrame.Frame.AbsoluteSize.X - (Layout.Card.TrailingInset + 8)
+		local Width = math.max(MinWidth, math.min(DesiredWidth, Available))
+		Textbox.Frame.Size = UDim2.fromOffset(Width, 30)
+	end
+
+	Creator.AddSignal(InputFrame.Frame:GetPropertyChangedSignal("AbsoluteSize"), UpdateTextboxWidth)
+	task.defer(UpdateTextboxWidth)
 
 	function Input:SetValue(Text)
 		if Config.MaxLength and #Text > Config.MaxLength then

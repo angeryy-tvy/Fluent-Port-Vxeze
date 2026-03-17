@@ -13,6 +13,8 @@ return function(Parent, Acrylic)
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 		TextColor3 = Color3.fromRGB(200, 200, 200),
 		TextSize = 13,
+		TextWrapped = false,
+		MultiLine = false,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),

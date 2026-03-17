@@ -56,6 +56,7 @@ function Element:New(Idx, Config)
 		Text = "Value",
 		TextColor3 = Color3.fromRGB(240, 240, 240),
 		TextSize = 13,
+		TextWrapped = false,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, -30, 0, 14),
 		Position = UDim2.new(0, 8, 0.5, 0),
@@ -102,6 +103,14 @@ function Element:New(Idx, Config)
 		DropdownIco,
 		DropdownDisplay,
 	})
+	local DesiredWidth = 160
+	local MinWidth = 48
+
+	local function UpdateDropdownWidth()
+		local Available = DropdownFrame.Frame.AbsoluteSize.X - (Layout.Card.TrailingInset + 8)
+		local Width = math.max(MinWidth, math.min(DesiredWidth, Available))
+		DropdownInner.Size = UDim2.fromOffset(Width, 30)
+	end
 
 	local DropdownListLayout = New("UIListLayout", {
 		Padding = UDim.new(0, 3),
@@ -265,8 +274,13 @@ function Element:New(Idx, Config)
 
 	RecalculateListPosition()
 	RecalculateListSize()
+	UpdateDropdownWidth()
 
 	Creator.AddSignal(DropdownInner:GetPropertyChangedSignal("AbsolutePosition"), RecalculateListPosition)
+	Creator.AddSignal(DropdownFrame.Frame:GetPropertyChangedSignal("AbsoluteSize"), function()
+		UpdateDropdownWidth()
+		RecalculateListPosition()
+	end)
 	Creator.AddSignal(SearchBox:GetPropertyChangedSignal("Text"), RepopulateDropdownList)
 
 	local ScrollFrame = self.ScrollFrame
