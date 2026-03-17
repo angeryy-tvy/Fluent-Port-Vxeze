@@ -514,7 +514,7 @@ return function(Config)
 		Text = "Tab",
 		TextTransparency = 0,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-		TextSize = 31,
+		TextSize = 24,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		Size = UDim2.new(1, -44, 0, 34),
@@ -530,7 +530,7 @@ return function(Config)
 		Text = "WORKSPACE",
 		TextTransparency = 0.1,
 		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-		TextSize = 11,
+		TextSize = 10,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		Size = UDim2.new(1, -44, 0, 14),
@@ -541,7 +541,7 @@ return function(Config)
 		},
 	}, {
 		New("UITextSizeConstraint", {
-			MaxTextSize = 11,
+			MaxTextSize = 10,
 		}),
 	})
 
@@ -579,7 +579,7 @@ return function(Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 14),
+			CornerRadius = UDim.new(0, 0),
 		}),
 		New("UIStroke", {
 			Transparency = 0.26,

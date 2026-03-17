@@ -69,7 +69,7 @@ return function(Title, Parent, Library, Depth)
 			Text = Title,
 			TextTransparency = 0,
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
-			TextSize = 13,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			Size = UDim2.new(1, -40, 1, 0),

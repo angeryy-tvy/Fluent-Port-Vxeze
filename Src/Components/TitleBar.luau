@@ -114,7 +114,7 @@ return function(Config)
 			Enum.FontWeight.SemiBold,
 			Enum.FontStyle.Normal
 		),
-		TextSize = 13,
+		TextSize = 12,
 		TextXAlignment = "Left",
 		TextYAlignment = "Center",
 		Size = UDim2.fromScale(0, 1),
@@ -135,7 +135,7 @@ return function(Config)
 			Enum.FontWeight.Regular,
 			Enum.FontStyle.Normal
 		),
-		TextSize = 11,
+		TextSize = 10,
 		TextXAlignment = "Left",
 		TextYAlignment = "Center",
 		Size = UDim2.fromScale(0, 1),

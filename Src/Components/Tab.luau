@@ -543,7 +543,7 @@ function TabModule:New(Title, Icon, Parent)
 				Enum.FontWeight.SemiBold,
 				Enum.FontStyle.Normal
 			),
-			TextSize = 13,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			Size = UDim2.new(1, -54, 1, 0),
@@ -741,7 +741,7 @@ function TabModule:New(Title, Icon, Parent)
 					Enum.FontWeight.Medium,
 					Enum.FontStyle.Normal
 				),
-				TextSize = 12,
+				TextSize = 11,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Center,
 				Size = UDim2.new(1, -34, 1, 0),
