@@ -5,6 +5,10 @@ local Acrylic = {
 }
 
 function Acrylic.init()
+	if getgenv().AcrylicController then
+		return
+	end
+
 	local baseEffect = Instance.new("DepthOfFieldEffect")
 	baseEffect.FarIntensity = 0
 	baseEffect.InFocusRadius = 0.1
@@ -12,18 +16,38 @@ function Acrylic.init()
 
 	local depthOfFieldDefaults = {}
 
-	function Acrylic.Enable()
+	-- Đăng ký bộ điều khiển Acrylic toàn cục
+	getgenv().AcrylicController = {
+		ActiveModels = {}
+	}
+
+	function getgenv().AcrylicController.Enable()
 		for _, effect in next, depthOfFieldDefaults do
 			effect.Enabled = false
 		end
 		baseEffect.Parent = game:GetService("Lighting")
 	end
 
-	function Acrylic.Disable()
+	function getgenv().AcrylicController.Disable()
 		for _, effect in next, depthOfFieldDefaults do
 			effect.Enabled = effect.enabled
 		end
 		baseEffect.Parent = nil
+	end
+
+	function getgenv().AcrylicController.Update()
+		local count = 0
+		for model, active in next, getgenv().AcrylicController.ActiveModels do
+			if active then
+				count = count + 1
+			end
+		end
+
+		if count > 0 then
+			getgenv().AcrylicController.Enable()
+		else
+			getgenv().AcrylicController.Disable()
+		end
 	end
 
 	local function registerDefaults()
@@ -45,7 +69,11 @@ function Acrylic.init()
 	end
 
 	registerDefaults()
-	Acrylic.Enable()
+	getgenv().AcrylicController.Enable()
+
+	-- Để tương thích ngược với các thành phần cũ
+	Acrylic.Enable = getgenv().AcrylicController.Enable
+	Acrylic.Disable = getgenv().AcrylicController.Disable
 end
 
 return Acrylic

@@ -75,6 +75,12 @@ local function createAcrylicBlur(distance)
 				item:Disconnect()
 			end)
 		end
+
+		local Controller = getgenv().AcrylicController
+		if Controller then
+			Controller.ActiveModels[model] = nil
+			Controller.Update()
+		end
 	end)
 
 	renderOnChange()
@@ -107,6 +113,13 @@ return function(distance)
 
 	Blur.SetVisibility = function(Value)
 		model.Transparency = Value and 0.98 or 1
+		model.Parent = Value and BlurFolder or nil
+
+		local Controller = getgenv().AcrylicController
+		if Controller then
+			Controller.ActiveModels[model] = Value or nil
+			Controller.Update()
+		end
 	end
 
 	Blur.Frame = comp
