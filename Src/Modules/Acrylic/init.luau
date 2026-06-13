@@ -21,21 +21,21 @@ function Acrylic.init()
 		ActiveModels = {}
 	}
 
-	function getgenv().AcrylicController.Enable()
+	getgenv().AcrylicController.Enable = function()
 		for _, effect in next, depthOfFieldDefaults do
 			effect.Enabled = false
 		end
 		baseEffect.Parent = game:GetService("Lighting")
 	end
 
-	function getgenv().AcrylicController.Disable()
+	getgenv().AcrylicController.Disable = function()
 		for _, effect in next, depthOfFieldDefaults do
 			effect.Enabled = effect.enabled
 		end
 		baseEffect.Parent = nil
 	end
 
-	function getgenv().AcrylicController.Update()
+	getgenv().AcrylicController.Update = function()
 		local count = 0
 		for model, active in next, getgenv().AcrylicController.ActiveModels do
 			if active then
