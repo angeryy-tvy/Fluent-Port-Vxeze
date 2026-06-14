@@ -275,11 +275,11 @@ function Library:Window(Config: {
 	Config.MinSize = if Config.Resize ~= true then Config.MinSize else Vector2.new(Library.Utilities:Resize((Config.MinSize and Config.MinSize.X) or 470, (Config.MinSize and Config.MinSize.Y) or 380))
 
 	Library.MinimizeKey = if typeof(Config.MinimizeKey) == "string" or typeof(Config.MinimizeKey) == "EnumItem" and Config.MinimizeKey.EnumType == Enum.KeyCode then Config.MinimizeKey else Enum.KeyCode.LeftControl
-	Library.UseAcrylic = if typeof(Config.Acrylic) == "boolean" then Config.Acrylic else false
-	Library.Acrylic = if typeof(Config.Acrylic) == "boolean" then Config.Acrylic else false
+	Library.UseAcrylic = false
+	Library.Acrylic = false
 	Library.Theme = if typeof(Config.Theme) == "string" then Config.Theme else "Vynixu"
 
-	if Config.Acrylic then
+	if false and Config.Acrylic then
 		Acrylic.init()
 	end
 
