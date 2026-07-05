@@ -11,7 +11,16 @@ local Window = Library:CreateWindow{
     MinSize = Vector2.new(470, 380),
     Acrylic = false, -- Disabled by default for better performance on low-end devices
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.RightControl -- Used when theres no MinimizeKeybind
+    MinimizeKey = Enum.KeyCode.RightControl, -- Used when theres no MinimizeKeybind
+    Profile = {
+        DiscordTitle = "Discord Hub",
+        DiscordInvite = "discord.gg/vxezehub", -- Text shown in the profile popup
+        DiscordInviteUrl = "https://discord.gg/vxezehub", -- Link copied when clicking/copying
+        OwnerLabel = "Owner",
+        Owner = "zthinhtran_dex",
+        CoOwnerLabel = "Co-Owner",
+        CoOwner = "Angeryy05"
+    }
 }
 
 -- Fluent Renewed provides ALL 1544 Lucide 0.469.0 https://lucide.dev/icons/ Icons and ALL 9072 Phosphor 2.1.0 https://phosphoricons.com/ Icons for the tabs, icons are optional

@@ -8,7 +8,16 @@ local Window = Library:Window{
     Resize = true,
     Acrylic = false,
     Theme = "Vynixu",
-    MinimizeKey = Enum.KeyCode.P
+    MinimizeKey = Enum.KeyCode.P,
+    Profile = {
+        DiscordTitle = "Discord Hub",
+        DiscordInvite = "discord.gg/vxezehub", -- Text shown in the profile popup
+        DiscordInviteUrl = "https://discord.gg/vxezehub", -- Link copied when clicking/copying
+        OwnerLabel = "Owner",
+        Owner = "zthinhtran_dex",
+        CoOwnerLabel = "Co-Owner",
+        CoOwner = "Angeryy05"
+    }
 }
 
 local Tabs = {

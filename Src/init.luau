@@ -259,6 +259,15 @@ function Library:Window(Config: {
 		Mobile: {
 			GetIcon: (IsMinimized: boolean) -> { Image: string, ImageRectOffset: Vector2, ImageRectSize: Vector2 },
 			Size: UDim2
+		}?,
+		Profile: {
+			DiscordTitle: string?,
+			DiscordInvite: string?,
+			DiscordInviteUrl: string?,
+			OwnerLabel: string?,
+			Owner: string?,
+			CoOwnerLabel: string?,
+			CoOwner: string?
 		}?
 	})
 	assert(Library.CreatedWindow == nil, debug.traceback("You cannot create more than one window.", 2))

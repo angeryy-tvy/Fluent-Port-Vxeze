@@ -57,10 +57,14 @@ return function(Config)
 	local SearchBarPadding = 10
 	local UserCardHeight = 58
 	local UserCardPadding = 12
-	local DiscordInvite = "discord.gg/vxezehub"
-	local DiscordInviteUrl = "https://discord.gg/vxezehub"
-	local DiscordOwner = "zthinhtran_dex"
-	local DiscordCoOwner = "Angeryy05"
+	local ProfileConfig = if typeof(Config.Config) == "table" and typeof(Config.Config.Profile) == "table" then Config.Config.Profile else {}
+	local DiscordTitle = if typeof(ProfileConfig.DiscordTitle) == "string" then ProfileConfig.DiscordTitle else "Discord Hub"
+	local DiscordInvite = if typeof(ProfileConfig.DiscordInvite) == "string" then ProfileConfig.DiscordInvite else "discord.gg/vxezehub"
+	local DiscordInviteUrl = if typeof(ProfileConfig.DiscordInviteUrl) == "string" then ProfileConfig.DiscordInviteUrl else "https://discord.gg/vxezehub"
+	local DiscordOwnerLabel = if typeof(ProfileConfig.OwnerLabel) == "string" then ProfileConfig.OwnerLabel else "Owner"
+	local DiscordOwner = if typeof(ProfileConfig.Owner) == "string" then ProfileConfig.Owner else "zthinhtran_dex"
+	local DiscordCoOwnerLabel = if typeof(ProfileConfig.CoOwnerLabel) == "string" then ProfileConfig.CoOwnerLabel else "Co-Owner"
+	local DiscordCoOwner = if typeof(ProfileConfig.CoOwner) == "string" then ProfileConfig.CoOwner else "Angeryy05"
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
 
 	local Selector = New("Frame", {
@@ -604,104 +608,11 @@ return function(Config)
 		ResizeStartFrame,
 	})
 
-	-- CustomButton Toggle - appears as a draggable circular button to toggle UI
-	local ContentProvider = game:GetService("ContentProvider")
-	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-	local existingGui = playerGui:FindFirstChild("FluentToggleGui")
-	if existingGui then existingGui:Destroy() end
-
-	Window.ToggleScreenGui = Instance.new("ScreenGui")
-	Window.ToggleScreenGui.Name = "FluentToggleGui"
-	Window.ToggleScreenGui.ResetOnSpawn = false
-	Window.ToggleScreenGui.Parent = playerGui
-
-	local BorderFrame = Instance.new("Frame")
-	BorderFrame.Name = "BorderFrame"
-	BorderFrame.Parent = Window.ToggleScreenGui
-	BorderFrame.Size = UDim2.new(0, 52, 0, 52)
-	BorderFrame.Position = UDim2.new(0, 50, 0, 50)
-	BorderFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-	BorderFrame.BackgroundTransparency = 0
-	BorderFrame.BorderSizePixel = 2
-	BorderFrame.BorderColor3 = Color3.fromRGB(0, 255, 255)
-
-	local BorderUICorner = Instance.new("UICorner")
-	BorderUICorner.CornerRadius = UDim.new(1, 0)
-	BorderUICorner.Parent = BorderFrame
-
-	local ToggleButton = Instance.new("ImageButton")
-	ToggleButton.Name = "CustomButton"
-	ToggleButton.Parent = BorderFrame
-	ToggleButton.Size = UDim2.new(1, -4, 1, -4)
-	ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
-	ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
-	ToggleButton.BackgroundTransparency = 1
-	ToggleButton.Image = "rbxassetid://87167480222237"
-
-	local ToggleUICorner = Instance.new("UICorner")
-	ToggleUICorner.CornerRadius = UDim.new(1, 0)
-	ToggleUICorner.Parent = ToggleButton
-
-	local ToggleGlow = Instance.new("UIStroke")
-	ToggleGlow.Thickness = 2
-	ToggleGlow.Color = Color3.fromRGB(0, 255, 255)
-	ToggleGlow.Parent = BorderFrame
-	ToggleGlow.Enabled = false
-
-	local toggleImageLoaded = false
-	ContentProvider:PreloadAsync({ ToggleButton.Image }, function()
-		toggleImageLoaded = true
-	end)
-
-	local toggleDragging = false
-	local toggleDragStart = nil
-	local toggleStartPos = nil
-	local toggleOriginalSize = ToggleButton.Size
-	local toggleGlowEnabled = false
-
-	ToggleButton.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			toggleDragging = true
-			toggleDragStart = input.Position
-			toggleStartPos = BorderFrame.Position
-			TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Size = UDim2.new(toggleOriginalSize.X.Scale, toggleOriginalSize.X.Offset * 0.9, toggleOriginalSize.Y.Scale, toggleOriginalSize.Y.Offset * 0.9)
-			}):Play()
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					toggleDragging = false
-					TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = toggleOriginalSize }):Play()
-				end
-			end)
-		end
-	end)
-
-	ToggleButton.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-			if toggleDragging then
-				local delta = input.Position - toggleDragStart
-				local targetPos = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
-				TweenService:Create(BorderFrame, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-					Position = targetPos
-				}):Play()
-			end
-		end
-	end)
-
-	ToggleButton.MouseEnter:Connect(function()
-		TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(toggleOriginalSize.X.Scale, toggleOriginalSize.X.Offset * 1.1, toggleOriginalSize.Y.Scale, toggleOriginalSize.Y.Offset * 1.1)
-		}):Play()
-	end)
-
-	ToggleButton.MouseLeave:Connect(function()
-		TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = toggleOriginalSize }):Play()
-	end)
-
-	Window.ToggleButton = ToggleButton
-	Window.ToggleGlow = ToggleGlow
-	Window.ToggleBorderFrame = BorderFrame
+	-- Floating custom toggle button disabled. The interface is still toggled by MinimizeKey.
+	Window.ToggleScreenGui = nil
+	Window.ToggleButton = nil
+	Window.ToggleGlow = nil
+	Window.ToggleBorderFrame = nil
 
 	Window.TitleBar = require(script.Parent.TitleBar)({
 		Title = Config.Title,
@@ -939,9 +850,9 @@ return function(Config)
 		Window.Minimized = not Window.Minimized
 		Window.Root.Visible = not Window.Minimized
 
-		-- Toggle CustomButton glow to indicate state
-		toggleGlowEnabled = Window.Minimized
-		Window.ToggleGlow.Enabled = toggleGlowEnabled
+		if Window.ToggleGlow then
+			Window.ToggleGlow.Enabled = Window.Minimized
+		end
 
 		Window.OnMinimized:Fire(tick(), Window.Root.Visible)
 
@@ -972,18 +883,6 @@ return function(Config)
 			Window:Minimize()
 		end
 	end)
-
-	-- CustomButton click handler to toggle UI
-	do
-		local LastClick = 0
-		ToggleButton.MouseButton1Click:Connect(function()
-			if tick() - LastClick > 0.3 then
-				LastClick = tick()
-				if not toggleImageLoaded then return end
-				Window:Minimize()
-			end
-		end)
-	end
 
 	function Window:Destroy()
 		if Library.UseAcrylic then
@@ -1535,7 +1434,7 @@ return function(Config)
 			Position = UDim2.fromOffset(14, 10),
 			Size = UDim2.new(1, -28, 0, 16),
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
-			Text = "Discord Hub",
+			Text = DiscordTitle,
 			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(245, 248, 255),
@@ -1620,8 +1519,8 @@ return function(Config)
 			})
 		end
 
-		CreateDiscordInfoColumn(DiscordPanel, UDim2.fromOffset(14, DiscordHeight - 36), "crown", "Owner", DiscordOwner)
-		CreateDiscordInfoColumn(DiscordPanel, UDim2.new(0.5, 4, 0, DiscordHeight - 36), "shield", "Co-Owner", DiscordCoOwner)
+		CreateDiscordInfoColumn(DiscordPanel, UDim2.fromOffset(14, DiscordHeight - 36), "crown", DiscordOwnerLabel, DiscordOwner)
+		CreateDiscordInfoColumn(DiscordPanel, UDim2.new(0.5, 4, 0, DiscordHeight - 36), "shield", DiscordCoOwnerLabel, DiscordCoOwner)
 
 		ProfileDialog.ButtonHolderFrame.BackgroundTransparency = 1
 		ProfileDialog.ButtonHolderFrame.Frame.BackgroundColor3 = Color3.fromRGB(113, 225, 255)
