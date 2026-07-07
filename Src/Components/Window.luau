@@ -68,16 +68,16 @@ return function(Config)
 	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
 
 	local Selector = New("Frame", {
-		Size = UDim2.fromOffset(3, 0),
+		Size = UDim2.fromOffset(4, 0), -- Tăng độ dày selector để dễ nhìn hơn
 		BackgroundColor3 = Color3.fromRGB(76, 194, 255),
-		Position = UDim2.fromOffset(6, 19),
+		Position = UDim2.fromOffset(8, 19), -- Điều chỉnh position
 		AnchorPoint = Vector2.new(0, 0.5),
 		ThemeTag = {
 			BackgroundColor3 = "Accent",
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 2),
+			CornerRadius = UDim.new(0, 2), -- Bo tròn selector
 		}),
 	})
 
@@ -91,14 +91,14 @@ return function(Config)
 		Size = UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding)),
 		Position = UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding),
 		BackgroundTransparency = 1,
-		ScrollBarImageTransparency = 0.9,
-		ScrollBarThickness = 2,
+		ScrollBarImageTransparency = 0.85, -- Giảm transparency scrollbar
+		ScrollBarThickness = 3, -- Tăng độ dày scrollbar
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.fromScale(0, 0),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, {
 		New("UIListLayout", {
-			Padding = UDim.new(0, 4),
+			Padding = UDim.new(0, 6), -- Tăng padding giữa các tabs
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
@@ -114,19 +114,19 @@ return function(Config)
 	})
 
 	local SidebarShell = New("Frame", {
-		Size = UDim2.new(0, Window.TabWidth + 24, 1, -66),
-		Position = UDim2.new(0, 12, 0, 54),
-		BackgroundTransparency = 0.16,
+		Size = UDim2.new(0, Window.TabWidth + 28, 1, -68), -- Tăng kích thước sidebar
+		Position = UDim2.new(0, 14, 0, 56), -- Điều chỉnh position để floating effect
+		BackgroundTransparency = 0.14, -- Giảm transparency để nổi bật hơn
 		ClipsDescendants = true,
 		ThemeTag = {
 			BackgroundColor3 = "DialogHolder",
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 12),
+			CornerRadius = UDim.new(0, 16), -- Tăng bo tròn cho sidebar (floating effect)
 		}),
 		New("UIStroke", {
-			Transparency = 0.28,
+			Transparency = 0.25, -- Giảm transparency stroke để viền rõ hơn
 			ThemeTag = {
 				Color = "InElementBorder",
 			},
@@ -170,7 +170,7 @@ return function(Config)
 			Scale = 1,
 		}),
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 12),
+			CornerRadius = UDim.new(0, 14),
 		}),
 		New("UIStroke", {
 			Transparency = 0.35,
@@ -196,7 +196,7 @@ return function(Config)
 	Window.PlayerAvatar = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.fromOffset(36, 36),
+		Size = UDim2.fromOffset(40, 40),
 		BackgroundTransparency = 0.08,
 		Parent = Window.PlayerCard,
 		Image = "",
@@ -538,7 +538,7 @@ return function(Config)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		Size = UDim2.new(1, -44, 0, 14),
-		Position = UDim2.fromOffset(22, 12),
+		Position = UDim2.fromOffset(22, 14),
 		BackgroundTransparency = 1,
 		ThemeTag = {
 			TextColor3 = "SubText",

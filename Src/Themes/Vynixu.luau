@@ -17,6 +17,7 @@ return {
 	DropdownFrame = Color3.fromRGB(120, 120, 120),
 	DropdownHolder = Color3.fromRGB(35, 35, 35),
 	DropdownBorder = Color3.fromRGB(25, 25, 25),
+	DropdownOption = Color3.fromRGB(80, 80, 80),
 
 	Dialog = Color3.fromRGB(35, 35, 35),
 	DialogHolder = Color3.fromRGB(25, 25, 25),
@@ -25,5 +26,17 @@ return {
 	DialogButtonBorder = Color3.fromRGB(55, 55, 55),
 	DialogBorder = Color3.fromRGB(50, 50, 50),
 	DialogInput = Color3.fromRGB(45, 45, 45),
-	DialogInputLine = Color3.fromRGB(120, 120, 120)
+	DialogInputLine = Color3.fromRGB(120, 120, 120),
+
+	ToggleSlider = Color3.fromRGB(100, 100, 100),
+	ToggleToggled = Color3.fromRGB(90, 235, 45),
+
+	SliderRail = Color3.fromRGB(90, 90, 90),
+
+	Keybind = Color3.fromRGB(85, 85, 85),
+
+	Text = Color3.fromRGB(240, 240, 240),
+	SubText = Color3.fromRGB(200, 200, 200),
+
+	HoverChange = 0.06,
 }

@@ -30,7 +30,7 @@ function Element:New(Idx, Config)
 
 	local ToggleCircle = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Size = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(18, 18), -- Tăng kích thước circle
 		Position = UDim2.new(0, 2, 0.5, 0),
 		Image = "http://www.roblox.com/asset/?id=12266946128",
 		ImageTransparency = 0.5,
@@ -60,7 +60,7 @@ function Element:New(Idx, Config)
 	}) :: Frame
 
 	local ToggleSlider = New("Frame", {
-		Size = UDim2.fromOffset(36, 18),
+		Size = UDim2.fromOffset(44, 22), -- Tăng kích thước toggle (mềm mại hơn)
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		Parent = ToggleFrame.Frame,
@@ -70,7 +70,7 @@ function Element:New(Idx, Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 9),
+			CornerRadius = UDim.new(0, 11), -- Bo tròn hoàn toàn (pill shape)
 		}),
 		ToggleBorder,
 		ToggleCircle,
@@ -178,20 +178,20 @@ function Element:New(Idx, Config)
 
 		rawset(Toggle, "Value", Value)
 
-		Creator.OverrideTag(ToggleBorder, { Color = Toggle.Value and "Accent" or "ToggleSlider" })
+		Creator.OverrideTag(ToggleBorder, { Color = Toggle.Value and "ToggleToggled" or "ToggleSlider" })
 		Creator.OverrideTag(ToggleCircle, { ImageColor3 = Toggle.Value and "ToggleToggled" or "ToggleSlider" })
 
 		ToggleCircle:TweenPosition(
-			UDim2.new(0, Toggle.Value and 19 or 2, 0.5, 0),
+			UDim2.new(0, Toggle.Value and 23 or 2, 0.5, 0), -- Điều chỉnh position cho toggle lớn hơn
 			Enum.EasingDirection.Out,
 			Enum.EasingStyle.Quint,
-			.25,
+			0.35, -- Animation mượt mà hơn
 			true
 		)
 
 		TweenService:Create(
 			ToggleSlider,
-			TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{ BackgroundTransparency = Toggle.Value and 0.08 or 1 }
 		):Play()
 
