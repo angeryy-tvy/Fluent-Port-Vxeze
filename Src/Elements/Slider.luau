@@ -36,7 +36,7 @@ function Element:New(Idx, Config)
 	local SliderDot = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, -8, 0.5, 0),
-		Size = UDim2.fromOffset(16, 16),
+		Size = UDim2.fromOffset(18, 18), -- Tăng kích thước dot
 		Image = "http://www.roblox.com/asset/?id=12266946128",
 		ThemeTag = {
 			ImageColor3 = "Accent",
@@ -58,7 +58,7 @@ function Element:New(Idx, Config)
 		}
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(1, 0),
+			CornerRadius = UDim.new(1, 0), -- Bo tròn pill shape
 		})
 	})
 
@@ -80,7 +80,7 @@ function Element:New(Idx, Config)
 	})
 
 	local SliderInner = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 5),
+		Size = UDim2.new(1, 0, 0, 6), -- Tăng độ dày rail
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		BackgroundTransparency = 0.4,
@@ -90,7 +90,7 @@ function Element:New(Idx, Config)
 		}
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(1, 0),
+			CornerRadius = UDim.new(1, 0), -- Bo tròn pill shape
 		}),
 		New("UISizeConstraint", {
 			MaxSize = Vector2.new(150, math.huge),

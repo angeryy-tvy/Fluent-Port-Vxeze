@@ -81,7 +81,7 @@ function Element:New(Idx, Config)
 	})
 
 	local DropdownInner = New("TextButton", {
-		Size = UDim2.fromOffset(160, 30),
+		Size = UDim2.fromOffset(160, 32), -- Tăng chiều cao dropdown button
 		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 0.9,
@@ -91,7 +91,7 @@ function Element:New(Idx, Config)
 		}
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, 8), -- Bo tròn mềm mại hơn
 		}),
 		New("UIStroke", {
 			Transparency = 0.5,
@@ -140,7 +140,7 @@ function Element:New(Idx, Config)
 	}, {
 		DropdownScrollFrame,
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, 10), -- Bo tròn mềm mại hơn cho dropdown holder
 		}),
 		New("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -156,7 +156,7 @@ function Element:New(Idx, Config)
 			Size = UDim2.fromScale(1, 1) + UDim2.fromOffset(30, 30),
 			Position = UDim2.fromOffset(-15, -15),
 			ImageColor3 = Color3.fromRGB(0, 0, 0),
-			ImageTransparency = 0.1,
+			ImageTransparency = 0.08, -- Giảm transparency để shadow tinh tế hơn
 		}),
 	}) :: Frame
 
@@ -226,7 +226,7 @@ function Element:New(Idx, Config)
 		ButtonLabel_BuildList,
 		ButtonCheck_BuildList,
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, 8), -- Bo tròn mềm mại hơn cho button options
 		})
 	}) :: TextButton
 

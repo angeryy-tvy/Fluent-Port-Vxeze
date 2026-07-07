@@ -1,34 +1,34 @@
 return {
 	Window = {
-		SidebarInset = 12,
-		ContentInsetX = 20,
-		ContentInsetTop = 64,
-		ContentInsetBottom = 16,
+		SidebarInset = 14, -- Tăng để tạo khoảng cách "thở" cho floating sidebar
+		ContentInsetX = 24, -- Tăng padding ngang
+		ContentInsetTop = 72, -- Tăng padding trên cho title bar
+		ContentInsetBottom = 20, -- Tăng padding dưới
 	},
 
 	Page = {
-		ItemGap = 6,
-		PaddingLeft = 2,
-		PaddingRight = 16,
-		PaddingTop = 2,
-		PaddingBottom = 2,
+		ItemGap = 8, -- Tăng gap giữa các items
+		PaddingLeft = 4,
+		PaddingRight = 20,
+		PaddingTop = 4,
+		PaddingBottom = 4,
 	},
 
 	Card = {
-		Radius = 12,
-		LeftInset = 14,
-		TopInset = 11,
-		BottomInset = 13,
-		TrailingInset = 14,
-		ParticleInset = 3,
-		ControlGap = 10,
-		DefaultLabelRightReserve = 40,
-		ToggleLabelRightReserve = 72,
-		ControlLabelRightReserve = 170,
-		SwatchLabelRightReserve = 52,
+		Radius = 14, -- Bo tròn mềm mại hơn
+		LeftInset = 18, -- Tăng padding trái
+		TopInset = 14, -- Tăng padding trên
+		BottomInset = 16, -- Tăng padding dưới
+		TrailingInset = 18, -- Tăng padding phải cho controls
+		ParticleInset = 4, -- Tăng khoảng cách particles
+		ControlGap = 12, -- Tăng gap giữa label và control
+		DefaultLabelRightReserve = 45,
+		ToggleLabelRightReserve = 76,
+		ControlLabelRightReserve = 180,
+		SwatchLabelRightReserve = 56,
 	},
 
 	Dropdown = {
-		ChevronInset = 10,
+		ChevronInset = 12,
 	},
 }
