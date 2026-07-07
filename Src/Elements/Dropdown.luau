@@ -91,7 +91,7 @@ function Element:New(Idx, Config)
 		}
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 5),
+			CornerRadius = UDim.new(0, 6),
 		}),
 		New("UIStroke", {
 			Transparency = 0.5,
@@ -140,7 +140,7 @@ function Element:New(Idx, Config)
 	}, {
 		DropdownScrollFrame,
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 7),
+			CornerRadius = UDim.new(0, 8),
 		}),
 		New("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -171,9 +171,9 @@ function Element:New(Idx, Config)
 	local SearchBox = SearchableTextbox.Input
 
 	local ButtonSelector_BuildList = New("Frame", {
-		Size = UDim2.fromOffset(4, 14),
+		Size = UDim2.fromOffset(4, 16),
 		BackgroundColor3 = Color3.fromRGB(76, 194, 255),
-		Position = UDim2.fromOffset(-1, 16),
+		Position = UDim2.fromOffset(-1, 18),
 		AnchorPoint = Vector2.new(0, 0.5),
 		ThemeTag = {
 			BackgroundColor3 = "Accent",

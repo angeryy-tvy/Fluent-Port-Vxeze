@@ -77,7 +77,7 @@ return function(Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 2),
+			CornerRadius = UDim.new(0, 1.5),
 		}),
 	})
 
@@ -123,7 +123,7 @@ return function(Config)
 		},
 	}, {
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 12),
+			CornerRadius = UDim.new(0, 14),
 		}),
 		New("UIStroke", {
 			Transparency = 0.28,
@@ -170,7 +170,7 @@ return function(Config)
 			Scale = 1,
 		}),
 		New("UICorner", {
-			CornerRadius = UDim.new(0, 12),
+			CornerRadius = UDim.new(0, 14),
 		}),
 		New("UIStroke", {
 			Transparency = 0.35,
@@ -196,7 +196,7 @@ return function(Config)
 	Window.PlayerAvatar = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.fromOffset(36, 36),
+		Size = UDim2.fromOffset(40, 40),
 		BackgroundTransparency = 0.08,
 		Parent = Window.PlayerCard,
 		Image = "",
@@ -538,7 +538,7 @@ return function(Config)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		Size = UDim2.new(1, -44, 0, 14),
-		Position = UDim2.fromOffset(22, 12),
+		Position = UDim2.fromOffset(22, 14),
 		BackgroundTransparency = 1,
 		ThemeTag = {
 			TextColor3 = "SubText",

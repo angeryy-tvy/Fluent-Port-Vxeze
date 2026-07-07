@@ -1,8 +1,3 @@
-Distribution
-Packages
-sourcemap.json
-wally.lock
+```luau
 
-.vscode/*.d.luau
-Assets/Fonts/Touche
-.DS_Store
+```

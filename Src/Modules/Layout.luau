@@ -1,34 +1,34 @@
 return {
 	Window = {
-		SidebarInset = 14,
-		ContentInsetX = 24,
-		ContentInsetTop = 70,
-		ContentInsetBottom = 18,
+		SidebarInset = 12,
+		ContentInsetX = 20,
+		ContentInsetTop = 64,
+		ContentInsetBottom = 16,
 	},
 
 	Page = {
-		ItemGap = 5,
+		ItemGap = 6,
 		PaddingLeft = 2,
-		PaddingRight = 18,
+		PaddingRight = 16,
 		PaddingTop = 2,
 		PaddingBottom = 2,
 	},
 
 	Card = {
-		Radius = 8,
-		LeftInset = 16,
-		TopInset = 12,
-		BottomInset = 14,
-		TrailingInset = 16,
+		Radius = 12,
+		LeftInset = 14,
+		TopInset = 11,
+		BottomInset = 13,
+		TrailingInset = 14,
 		ParticleInset = 3,
-		ControlGap = 12,
-		DefaultLabelRightReserve = 42,
-		ToggleLabelRightReserve = 76,
-		ControlLabelRightReserve = 176,
-		SwatchLabelRightReserve = 56,
+		ControlGap = 10,
+		DefaultLabelRightReserve = 40,
+		ToggleLabelRightReserve = 72,
+		ControlLabelRightReserve = 170,
+		SwatchLabelRightReserve = 52,
 	},
 
 	Dropdown = {
-		ChevronInset = 12,
+		ChevronInset = 10,
 	},
 }

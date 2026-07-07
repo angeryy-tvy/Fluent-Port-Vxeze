@@ -35,8 +35,8 @@ function Element:New(Idx, Config)
 
 	local SliderDot = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, -7, 0.5, 0),
-		Size = UDim2.fromOffset(14, 14),
+		Position = UDim2.new(0, -8, 0.5, 0),
+		Size = UDim2.fromOffset(16, 16),
 		Image = "http://www.roblox.com/asset/?id=12266946128",
 		ThemeTag = {
 			ImageColor3 = "Accent",
@@ -45,8 +45,8 @@ function Element:New(Idx, Config)
 
 	local SliderRail = New("Frame", {
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(7, 0),
-		Size = UDim2.new(1, -14, 1, 0)
+		Position = UDim2.fromOffset(8, 0),
+		Size = UDim2.new(1, -16, 1, 0)
 	}, {
 		SliderDot,
 	})
@@ -80,7 +80,7 @@ function Element:New(Idx, Config)
 	})
 
 	local SliderInner = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 4),
+		Size = UDim2.new(1, 0, 0, 5),
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -Layout.Card.TrailingInset, 0.5, 0),
 		BackgroundTransparency = 0.4,
