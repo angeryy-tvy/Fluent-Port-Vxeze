@@ -52,16 +52,16 @@ return function(Config)
 	local MinimizeNotif = false
 
 	Window.AcrylicPaint = Acrylic.AcrylicPaint()
-	Window.TabWidth = Config.TabWidth
-	local SearchBarHeight = 36
-	local SearchBarPadding = 10
+	Window.TabWidth = Layout.Compact and math.min(Config.TabWidth, 124) or Config.TabWidth
+	local SearchBarHeight = Layout.Compact and 30 or 36
+	local SearchBarPadding = Layout.Compact and 6 or 10
 	local UserCardHeight = 58
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
 	local DiscordInviteUrl = "https://discord.gg/vxezehub"
 	local DiscordOwner = "zthinhtran_dex"
 	local DiscordCoOwner = "Angeryy05"
-	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + 19
+	local SelectorOffsetY = SearchBarHeight + SearchBarPadding + Layout.TabHeight / 2
 
 	local Selector = New("Frame", {
 		Size = UDim2.fromOffset(3, 0),
@@ -94,7 +94,7 @@ return function(Config)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, {
 		New("UIListLayout", {
-			Padding = UDim.new(0, 4),
+			Padding = UDim.new(0, Layout.Compact and 2 or 4),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
@@ -133,7 +133,7 @@ return function(Config)
 	local SearchBox = require(Components.Textbox)(TabFrame, true)
 	SearchBox.Frame.Size = UDim2.new(1, 0, 0, SearchBarHeight)
 	SearchBox.Frame.Position = UDim2.fromOffset(0, 0)
-	SearchBox.Input.PlaceholderText = "Find a setting"
+	SearchBox.Input.PlaceholderText = Layout.Compact and "Search" or "Find a setting"
 	SearchBox.Input.Text = ""
 	SearchBox.Container.Position = UDim2.fromOffset(22, 0)
 	SearchBox.Container.Size = UDim2.new(1, -28, 1, 0)
@@ -545,6 +545,10 @@ return function(Config)
 		}),
 	})
 
+	-- The selected tab already names the page on mobile. Reclaim its header space.
+	Window.TabDisplay.Visible = not Layout.Compact
+	Window.TabMeta.Visible = not Layout.Compact
+
 	Window.ContainerHolder = New("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -637,7 +641,7 @@ return function(Config)
 	ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
 	ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
 	ToggleButton.BackgroundTransparency = 1
-	ToggleButton.Image = "rbxassetid://87167480222237"
+	ToggleButton.Image = "rbxassetid://96365955041994"
 
 	local ToggleUICorner = Instance.new("UICorner")
 	ToggleUICorner.CornerRadius = UDim.new(1, 0)
@@ -1738,7 +1742,7 @@ return function(Config)
 	end
 
 	Creator.AddSignal(Window.TabHolder:GetPropertyChangedSignal("CanvasPosition"), function()
-		LastValue = TabModule:GetCurrentTabPos() + 19
+		LastValue = TabModule:GetCurrentTabPos() + Layout.TabHeight / 2
 		LastTime = 0
 		Window.SelectorPosMotor:setGoal(Instant(TabModule:GetCurrentTabPos()))
 	end)

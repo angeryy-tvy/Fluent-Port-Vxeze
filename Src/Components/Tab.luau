@@ -191,7 +191,7 @@ local function RefreshTabDropdown(Tab)
 
 	Tab.SubTabHolder.Visible = ShowChildren
 	Tab.SubTabHolder.Size = UDim2.new(1, 0, 0, TargetHeight)
-	Tab.Root.Size = UDim2.new(1, 0, 0, 38 + TargetHeight)
+	Tab.Root.Size = UDim2.new(1, 0, 0, Layout.TabHeight + TargetHeight)
 end
 
 local function AnimateTabDropdown(Tab)
@@ -229,7 +229,7 @@ local function AnimateTabDropdown(Tab)
 		Size = UDim2.new(1, 0, 0, TargetHeight),
 	}):Play()
 	TweenService:Create(Tab.Root, TweenInfoData, {
-		Size = UDim2.new(1, 0, 0, 38 + TargetHeight),
+		Size = UDim2.new(1, 0, 0, Layout.TabHeight + TargetHeight),
 	}):Play()
 
 	if not ShowChildren then
@@ -506,7 +506,7 @@ function TabModule:New(Title, Icon, Parent)
 	}
 
 	Tab.Root = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 38),
+		Size = UDim2.new(1, 0, 0, Layout.TabHeight),
 		BackgroundTransparency = 1,
 		Parent = Parent,
 		LayoutOrder = TabIndex,
@@ -514,7 +514,7 @@ function TabModule:New(Title, Icon, Parent)
 	})
 
 	Tab.Frame = New("TextButton", {
-		Size = UDim2.new(1, 0, 0, 38),
+		Size = UDim2.new(1, 0, 0, Layout.TabHeight),
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 0.97,
 		Parent = Tab.Root,
@@ -533,7 +533,7 @@ function TabModule:New(Title, Icon, Parent)
 		}),
 		New("TextLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = TabIcon ~= nil and UDim2.new(0, 38, 0.5, 0) or UDim2.new(0, 14, 0.5, 0),
+			Position = TabIcon ~= nil and UDim2.new(0, Layout.Compact and 30 or 38, 0.5, 0) or UDim2.new(0, 14, 0.5, 0),
 			Text = Title,
 			RichText = true,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -546,7 +546,8 @@ function TabModule:New(Title, Icon, Parent)
 			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			Size = UDim2.new(1, -54, 1, 0),
+			Size = UDim2.new(1, Layout.Compact and -48 or -54, 1, 0),
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			BackgroundTransparency = 1,
 			ZIndex = 3,
 			ThemeTag = {
@@ -555,8 +556,8 @@ function TabModule:New(Title, Icon, Parent)
 		}),
 		New("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
-			Size = UDim2.fromOffset(18, 18),
-			Position = UDim2.new(0, 12, 0.5, 0),
+			Size = Layout.Compact and UDim2.fromOffset(14, 14) or UDim2.fromOffset(18, 18),
+			Position = UDim2.new(0, Layout.Compact and 9 or 12, 0.5, 0),
 			BackgroundTransparency = 1,
 			ImageRectOffset = TabIcon and TabIcon.ImageRectOffset or Vector2.zero,
 			ImageRectSize = TabIcon and TabIcon.ImageRectSize or Vector2.zero,
@@ -602,7 +603,7 @@ function TabModule:New(Title, Icon, Parent)
 
 	Tab.SubTabHolder = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
-		Position = UDim2.fromOffset(0, 38),
+		Position = UDim2.fromOffset(0, Layout.TabHeight),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = Tab.Root,

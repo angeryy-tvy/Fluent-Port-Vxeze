@@ -7,7 +7,8 @@ local New = Creator.New
 
 return function(Title, Parent, Library, Depth)
 	Depth = math.max(tonumber(Depth) or 0, 0)
-	local NestedInset = Depth * 12
+	local NestedInset = Depth * (Layout.Compact and 6 or 12)
+	local HeaderHeight = Layout.Compact and 32 or 36
 
 	local Section = {
 		Collapsed = false,
@@ -15,17 +16,17 @@ return function(Title, Parent, Library, Depth)
 	}
 
 	Section.Layout = New("UIListLayout", {
-		Padding = UDim.new(0, 6),
+		Padding = UDim.new(0, Layout.Compact and 3 or 6),
 	})
 
 	Section.Container = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
-		Position = UDim2.fromOffset(0, 36),
+		Position = UDim2.fromOffset(0, HeaderHeight),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, {
 		New("UIPadding", {
-			PaddingLeft = UDim.new(0, 6),
+			PaddingLeft = UDim.new(0, Layout.Compact and 2 or 6),
 		}),
 		Section.Layout,
 	})
@@ -84,7 +85,7 @@ return function(Title, Parent, Library, Depth)
 
 	Section.Root = New("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -NestedInset, 0, 36),
+		Size = UDim2.new(1, -NestedInset, 0, HeaderHeight),
 		Position = UDim2.fromOffset(NestedInset, 0),
 		LayoutOrder = 7,
 		Parent = Parent,
@@ -98,7 +99,7 @@ return function(Title, Parent, Library, Depth)
 		Section.TargetHeight = Section.Layout.AbsoluteContentSize.Y
 		if not Section.Collapsed then
 			Section.Container.Size = UDim2.new(1, 0, 0, Section.TargetHeight)
-			Section.Root.Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + 36)
+			Section.Root.Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + HeaderHeight)
 		end
 	end
 
@@ -112,11 +113,11 @@ return function(Title, Parent, Library, Depth)
 		if Section.Collapsed then
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = -90}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, 0)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, 36)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, HeaderHeight)}):Play()
 		else
 			TweenService:Create(ChevronIcon, tweenInfo, {Rotation = 0}):Play()
 			TweenService:Create(Section.Container, tweenInfo, {Size = UDim2.new(1, 0, 0, Section.TargetHeight)}):Play()
-			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + 36)}):Play()
+			TweenService:Create(Section.Root, tweenInfo, {Size = UDim2.new(1, -NestedInset, 0, Section.TargetHeight + HeaderHeight)}):Play()
 		end
 	end
 

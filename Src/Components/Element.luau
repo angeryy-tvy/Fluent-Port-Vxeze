@@ -16,6 +16,8 @@ return function(Title, Desc, Parent, Hover, Config)
 		Text = Title,
 		TextColor3 = Color3.fromRGB(240, 240, 240),
 		TextSize = 13,
+		TextWrapped = Layout.Compact,
+		AutomaticSize = Layout.Compact and Enum.AutomaticSize.Y or Enum.AutomaticSize.None,
 		TextXAlignment = Config.TitleAlignment or Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, 0, 0, 14),
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
