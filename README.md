@@ -40,6 +40,6 @@ local Library = loadstring(game:HttpGetAsync("https://github.com/ActualMasterOog
 
 ## Compact mobile layout
 
-Touch devices without a hardware keyboard automatically use a narrower sidebar, 30 px tabs, tighter cards and section spacing, and hide the workspace heading. Desktop spacing is unchanged. Density values live in `Src/Modules/Layout.luau`.
+Touch devices without a hardware keyboard automatically use a narrower sidebar, 26 px tabs, tighter cards and section spacing, and hide the workspace heading. Desktop spacing is unchanged. Density values live in `Src/Modules/Layout.luau`.
 
 These source changes require a fresh bundle through the repository build workflow before loading `Fluent.luau`; existing root-level bundles are not regenerated automatically.

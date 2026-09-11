@@ -72,7 +72,8 @@ return function(Title, Desc, Parent, Hover, Config)
 	}) :: UIStroke
 
 	Element.Frame = New("TextButton", {
-		Size = UDim2.new(1, 0, 0, 0),
+		-- Keep the 30 px controls inside compact cards.
+		Size = UDim2.new(1, 0, 0, Layout.Compact and 30 or 0),
 		BackgroundTransparency = 0.82,
 		BackgroundColor3 = Color3.fromRGB(130, 130, 130),
 		Parent = Parent,

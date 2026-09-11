@@ -588,7 +588,7 @@ function TabModule:New(Title, Icon, Parent)
 	Tab.DropdownHitbox = New("TextButton", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(32, 32),
+		Size = UDim2.fromOffset(32, Layout.TabHeight),
 		BackgroundTransparency = 1,
 		Text = "",
 		Visible = false,
@@ -703,7 +703,7 @@ function TabModule:New(Title, Icon, Parent)
 		}
 
 		SubTab.Root = New("Frame", {
-			Size = UDim2.new(1, 0, 0, 30),
+			Size = UDim2.new(1, 0, 0, Layout.Compact and 26 or 30),
 			BackgroundTransparency = 1,
 			Parent = Tab.SubTabHolder,
 			Visible = false,
@@ -711,7 +711,7 @@ function TabModule:New(Title, Icon, Parent)
 		})
 
 		SubTab.Frame = New("TextButton", {
-			Size = UDim2.new(1, 0, 0, 30),
+			Size = UDim2.new(1, 0, 0, Layout.Compact and 26 or 30),
 			Position = UDim2.fromOffset(0, 0),
 			BackgroundTransparency = 0.99,
 			Parent = SubTab.Root,

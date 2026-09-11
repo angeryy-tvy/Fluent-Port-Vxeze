@@ -52,9 +52,9 @@ return function(Config)
 	local MinimizeNotif = false
 
 	Window.AcrylicPaint = Acrylic.AcrylicPaint()
-	Window.TabWidth = Layout.Compact and math.min(Config.TabWidth, 124) or Config.TabWidth
-	local SearchBarHeight = Layout.Compact and 30 or 36
-	local SearchBarPadding = Layout.Compact and 6 or 10
+	Window.TabWidth = Layout.Compact and math.min(Config.TabWidth, 112) or Config.TabWidth
+	local SearchBarHeight = Layout.Compact and 26 or 36
+	local SearchBarPadding = Layout.Compact and 4 or 10
 	local UserCardHeight = 58
 	local UserCardPadding = 12
 	local DiscordInvite = "discord.gg/vxezehub"
@@ -641,7 +641,7 @@ return function(Config)
 	ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
 	ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
 	ToggleButton.BackgroundTransparency = 1
-	ToggleButton.Image = "rbxassetid://96365955041994"
+	ToggleButton.Image = "rbxassetid://87167480222237"
 
 	local ToggleUICorner = Instance.new("UICorner")
 	ToggleUICorner.CornerRadius = UDim.new(1, 0)

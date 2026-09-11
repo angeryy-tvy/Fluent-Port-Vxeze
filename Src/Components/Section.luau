@@ -8,7 +8,7 @@ local New = Creator.New
 return function(Title, Parent, Library, Depth)
 	Depth = math.max(tonumber(Depth) or 0, 0)
 	local NestedInset = Depth * (Layout.Compact and 6 or 12)
-	local HeaderHeight = Layout.Compact and 32 or 36
+	local HeaderHeight = Layout.Compact and 28 or 36
 
 	local Section = {
 		Collapsed = false,
@@ -16,7 +16,7 @@ return function(Title, Parent, Library, Depth)
 	}
 
 	Section.Layout = New("UIListLayout", {
-		Padding = UDim.new(0, Layout.Compact and 3 or 6),
+		Padding = UDim.new(0, Layout.Compact and 2 or 6),
 	})
 
 	Section.Container = New("Frame", {
@@ -49,7 +49,7 @@ return function(Title, Parent, Library, Depth)
 	end
 
 	local HeaderButton = New("TextButton", {
-		Size = UDim2.new(1, 0, 0, 30),
+		Size = UDim2.new(1, 0, 0, Layout.Compact and 26 or 30),
 		BackgroundTransparency = 0.88,
 		Text = "",
 		ThemeTag = {
