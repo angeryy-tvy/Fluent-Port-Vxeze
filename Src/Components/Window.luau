@@ -641,7 +641,7 @@ return function(Config)
 	ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
 	ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
 	ToggleButton.BackgroundTransparency = 1
-	ToggleButton.Image = "rbxassetid://87167480222237"
+	ToggleButton.Image = "rbxassetid://96365955041994"
 
 	local ToggleUICorner = Instance.new("UICorner")
 	ToggleUICorner.CornerRadius = UDim.new(1, 0)
