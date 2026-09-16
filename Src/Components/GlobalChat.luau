@@ -60,6 +60,25 @@ local function resolveAvatarUrl(Config, Player)
 	return `https://www.roblox.com/headshot-thumbnail/image?userId={Player.UserId}&width=150&height=150&format=png`
 end
 
+local function resolveHttpRequest(Config)
+	if typeof(Config.Request) == "function" then
+		return Config.Request
+	end
+	if typeof(request) == "function" then
+		return request
+	end
+	if typeof(http_request) == "function" then
+		return http_request
+	end
+	if typeof(http) == "table" and typeof(http.request) == "function" then
+		return http.request
+	end
+	if typeof(syn) == "table" and typeof(syn.request) == "function" then
+		return syn.request
+	end
+	return nil
+end
+
 function GlobalChat.new(Config)
 	Config = Config or {}
 	assert(Config.Parent, "GlobalChat requires a Parent GuiObject or ScreenGui")
@@ -79,6 +98,7 @@ function GlobalChat.new(Config)
 		AvatarUrl = resolveAvatarUrl(Config, Player),
 		Endpoint = safeString(Config.Endpoint, ""),
 		ApiKey = safeString(Config.ApiKey, ""),
+		HttpRequest = resolveHttpRequest(Config),
 		PollInterval = math.max(tonumber(Config.PollInterval) or 3, 2),
 		MaxMessages = math.clamp(tonumber(Config.MaxMessages) or 50, 10, 100),
 	}, GlobalChat)
@@ -302,7 +322,12 @@ function GlobalChat:Request(Method, Payload)
 		Request.Body = HttpService:JSONEncode(Payload)
 	end
 
-	local Success, Response = pcall(HttpService.RequestAsync, HttpService, Request)
+	local Success, Response
+	if self.HttpRequest then
+		Success, Response = pcall(self.HttpRequest, Request)
+	else
+		Success, Response = pcall(HttpService.RequestAsync, HttpService, Request)
+	end
 	if not Success or typeof(Response) ~= "table" or not Response.Success then
 		return false, (Success and typeof(Response) == "table" and (Response.StatusMessage or "Request failed") or tostring(Response))
 	end
