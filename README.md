@@ -48,8 +48,6 @@ The root `Fluent.luau` in this revision includes the current source changes. Fut
 
 Fluent includes a compact global chat with player avatar (or two-letter initials), player name, current game name, polling, and message sending. `Example.luau` includes a **Global Chat** tab. Set `GLOBAL_CHAT_ENDPOINT` there to your deployed `/api/global-chat` URL.
 
-The example also shows a **Chat Admin** tab to the owner of a user-owned Roblox game, or to IDs added to `GLOBAL_CHAT_ADMIN_USER_IDS`. It displays the configured endpoint and whether an API key was entered, but never displays the key. This client-side tab check is only a UI convenience, not security.
-
 For a floating chat button instead of a tab, use:
 
 ```lua
