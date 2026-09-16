@@ -59,7 +59,7 @@ local Chat = Library:CreateGlobalChat({
 })
 ```
 
-To embed the chat in a tab, pass `Parent = Tabs.GlobalChat.Container` and `Inline = true`. Client scripts are readable by players, so `ApiKey` is not a private secret; never place database credentials here.
+To embed the chat in a tab, pass `Parent = Tabs.GlobalChat.Container` and `Inline = true`. Inline chat fills the visible tab height, keeps the message composer pinned above the bottom edge, and uses larger touch targets on mobile. Client scripts are readable by players, so `ApiKey` is not a private secret; never place database credentials here.
 
 In supported executors, Global Chat uses the executor's `request` function (including Real Executor) because client-side `HttpService:RequestAsync` can be disabled. You may also pass `Request = request` in the config to supply a transport explicitly. If no executor request function is available, it falls back to Roblox `HttpService:RequestAsync`.
 

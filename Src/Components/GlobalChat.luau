@@ -9,6 +9,7 @@ local New = Creator.New
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
+local UserInputService = game:GetService("UserInputService")
 
 local GlobalChat = {}
 GlobalChat.__index = GlobalChat
@@ -119,6 +120,14 @@ end
 function GlobalChat:Build(Parent)
 	local Accent = Color3.fromRGB(82, 201, 255)
 	local Inline = self.Config.Inline == true
+	local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local HeaderHeight = Compact and 44 or 48
+	local ContentTop = HeaderHeight + 4
+	local ComposerHeight = Compact and 44 or 34
+	local BottomInset = Compact and 8 or 12
+	local ComposerGap = Compact and 6 or 8
+	local HorizontalInset = Compact and 8 or 10
+	local SendWidth = Compact and 72 or 62
 
 	if not Inline then
 		self.ToggleButton = rounded(New("TextButton", {
@@ -149,8 +158,12 @@ function GlobalChat:Build(Parent)
 		Name = "GlobalChat",
 		AnchorPoint = Inline and Vector2.zero or Vector2.new(1, 1),
 		Position = Inline and UDim2.fromOffset(0, 0) or UDim2.new(1, -24, 1, -76),
-		Size = Inline and UDim2.new(1, 0, 0, self.Config.Height or 330)
+		-- Inline chat fills the visible tab instead of using a fixed pixel height.
+		-- This keeps the composer inside short mobile viewports and above the
+		-- on-screen keyboard area handled by the window.
+		Size = Inline and UDim2.new(1, 0, 1, -4)
 			or UDim2.fromOffset(self.Config.Width or 360, self.Config.Height or 330),
+		ClipsDescendants = true,
 		ZIndex = 90,
 		Parent = Parent,
 		ThemeTag = { BackgroundColor3 = "Dialog" },
@@ -159,7 +172,7 @@ function GlobalChat:Build(Parent)
 	}), 10)
 
 	self.Header = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 48),
+		Size = UDim2.new(1, 0, 0, HeaderHeight),
 		BackgroundTransparency = 1,
 		ZIndex = 91,
 		Parent = self.Panel,
@@ -206,10 +219,16 @@ function GlobalChat:Build(Parent)
 	})
 
 	self.Messages = New("ScrollingFrame", {
-		Position = UDim2.fromOffset(10, 52),
-		Size = UDim2.new(1, -20, 1, -106),
+		Position = UDim2.fromOffset(HorizontalInset, ContentTop),
+		Size = UDim2.new(
+			1,
+			-HorizontalInset * 2,
+			1,
+			-(ContentTop + ComposerHeight + BottomInset + ComposerGap)
+		),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		ScrollBarThickness = 3,
 		ScrollBarImageTransparency = 0.5,
 		CanvasSize = UDim2.fromOffset(0, 0),
@@ -237,17 +256,18 @@ function GlobalChat:Build(Parent)
 	})
 
 	self.InputFrame = rounded(New("Frame", {
-		Position = UDim2.new(0, 10, 1, -46),
-		Size = UDim2.new(1, -20, 0, 34),
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, HorizontalInset, 1, -BottomInset),
+		Size = UDim2.new(1, -HorizontalInset * 2, 0, ComposerHeight),
 		BackgroundTransparency = 0.08,
-		ZIndex = 92,
+		ZIndex = 96,
 		ThemeTag = { BackgroundColor3 = "DialogInput" },
 		Parent = self.Panel,
 	}), 7)
 
 	self.Input = New("TextBox", {
 		Position = UDim2.fromOffset(10, 0),
-		Size = UDim2.new(1, -84, 1, 0),
+		Size = UDim2.new(1, -(SendWidth + 22), 1, 0),
 		ClearTextOnFocus = false,
 		PlaceholderText = "Type a message…",
 		Text = "",
@@ -256,18 +276,18 @@ function GlobalChat:Build(Parent)
 		Font = Enum.Font.Gotham,
 		TextSize = 12,
 		BackgroundTransparency = 1,
-		ZIndex = 93,
+		ZIndex = 97,
 		ThemeTag = { TextColor3 = "Text", PlaceholderColor3 = "SubText" },
 		Parent = self.InputFrame,
 	})
 
 	self.Send = rounded(New("TextButton", {
 		Text = "Send",
-		Position = UDim2.new(1, -68, 0, 4),
-		Size = UDim2.fromOffset(62, 26),
+		Position = UDim2.new(1, -(SendWidth + 4), 0, 4),
+		Size = UDim2.new(0, SendWidth, 1, -8),
 		Font = Enum.Font.GothamBold,
 		TextSize = 11,
-		ZIndex = 94,
+		ZIndex = 98,
 		ThemeTag = { TextColor3 = "Text", BackgroundColor3 = "Accent" },
 		Parent = self.InputFrame,
 	}), 6)
