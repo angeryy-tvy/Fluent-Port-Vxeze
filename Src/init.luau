@@ -319,9 +319,9 @@ function Library:CreateWindow(Config)
 	return Library:Window(Config)
 end
 
--- Creates a compact floating chat overlay. The component is transport
--- agnostic; pass Config.Endpoint to a JSON relay (for example the optional
--- /api/global-chat route in the companion web project).
+-- Creates a compact chat, floating by default or embedded with Config.Inline.
+-- Pass Config.Endpoint to a JSON relay (for example /api/global-chat in the
+-- companion web project).
 function Library:CreateGlobalChat(Config)
 	Config = Config or {}
 	Config.Parent = Config.Parent or BaseContainer

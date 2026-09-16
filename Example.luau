@@ -14,13 +14,10 @@ local Window = Library:CreateWindow{
     MinimizeKey = Enum.KeyCode.RightControl -- Used when theres no MinimizeKeybind
 }
 
--- Optional compact global chat overlay. Point Endpoint at the companion
--- project's `/api/global-chat` route (or any compatible JSON relay).
--- local GlobalChat = Library:CreateGlobalChat{
---     Endpoint = "https://your-domain.example/api/global-chat",
---     ApiKey = "",
---     PollInterval = 3,
--- }
+-- Set this to the public URL of the companion project's /api/global-chat route.
+-- Do not put a database password here. Any key shipped in a client script is public.
+local GLOBAL_CHAT_ENDPOINT = ""
+local GLOBAL_CHAT_API_KEY = ""
 
 -- Fluent Renewed provides ALL 1544 Lucide 0.469.0 https://lucide.dev/icons/ Icons and ALL 9072 Phosphor 2.1.0 https://phosphoricons.com/ Icons for the tabs, icons are optional
 local Tabs = {
@@ -28,11 +25,31 @@ local Tabs = {
         Title = "Main",
         Icon = "phosphor-users-bold"
     },
+    GlobalChat = Window:CreateTab{
+        Title = "Global Chat",
+        Icon = "message-circle"
+    },
     Settings = Window:CreateTab{
         Title = "Settings",
         Icon = "settings"
     }
 }
+
+if typeof(Library.CreateGlobalChat) == "function" then
+    Library:CreateGlobalChat{
+        Parent = Tabs.GlobalChat.Container,
+        Inline = true,
+        Endpoint = GLOBAL_CHAT_ENDPOINT,
+        ApiKey = GLOBAL_CHAT_API_KEY,
+        PollInterval = 3,
+        Height = 330,
+    }
+else
+    Tabs.GlobalChat:CreateParagraph("GlobalChatBuildInfo", {
+        Title = "Global Chat chưa có trong Fluent.luau",
+        Content = "Hãy build source mới và đổi URL Fluent.luau ở đầu Example sang bản build đó.",
+    })
+end
 
 local Options = Library.Options
 

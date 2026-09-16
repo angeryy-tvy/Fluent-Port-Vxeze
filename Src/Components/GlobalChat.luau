@@ -62,14 +62,14 @@ end
 
 function GlobalChat.new(Config)
 	Config = Config or {}
-	assert(Config.Parent, "GlobalChat requires a Parent ScreenGui")
+	assert(Config.Parent, "GlobalChat requires a Parent GuiObject or ScreenGui")
 	local Player = Players.LocalPlayer
 	local PlayerName = safeString(Config.PlayerName, Player and (Player.DisplayName or Player.Name) or "Guest")
 
 	local self = setmetatable({
 		Config = Config,
 		Destroyed = false,
-		Open = Config.Open ~= false,
+		Open = Config.Inline == true or Config.Open ~= false,
 		Connections = {},
 		KnownMessages = {},
 		Player = Player,
@@ -91,35 +91,39 @@ end
 
 function GlobalChat:Build(Parent)
 	local Accent = Color3.fromRGB(82, 201, 255)
+	local Inline = self.Config.Inline == true
 
-	self.ToggleButton = rounded(New("TextButton", {
-		Name = "GlobalChatToggle",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -24, 1, -24),
-		Size = UDim2.fromOffset(42, 42),
-		Text = "",
-		ZIndex = 100,
-		Parent = Parent,
-		ThemeTag = { BackgroundColor3 = "DialogHolder" },
-	}, {
-		New("UICorner", { CornerRadius = UDim.new(1, 0) }),
-		New("UIStroke", { Transparency = 0.35, ThemeTag = { Color = "DialogBorder" } }),
-		New("TextLabel", {
-			Text = "●",
-			TextColor3 = Accent,
-			TextSize = 22,
-			Font = Enum.Font.GothamBold,
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			ThemeTag = { TextColor3 = "Accent" },
-		}),
-	}), 21)
+	if not Inline then
+		self.ToggleButton = rounded(New("TextButton", {
+			Name = "GlobalChatToggle",
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -24, 1, -24),
+			Size = UDim2.fromOffset(42, 42),
+			Text = "",
+			ZIndex = 100,
+			Parent = Parent,
+			ThemeTag = { BackgroundColor3 = "DialogHolder" },
+		}, {
+			New("UICorner", { CornerRadius = UDim.new(1, 0) }),
+			New("UIStroke", { Transparency = 0.35, ThemeTag = { Color = "DialogBorder" } }),
+			New("TextLabel", {
+				Text = "●",
+				TextColor3 = Accent,
+				TextSize = 22,
+				Font = Enum.Font.GothamBold,
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ThemeTag = { TextColor3 = "Accent" },
+			}),
+		}), 21)
+	end
 
 	self.Panel = rounded(New("Frame", {
 		Name = "GlobalChat",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -24, 1, -76),
-		Size = UDim2.fromOffset(self.Config.Width or 360, self.Config.Height or 330),
+		AnchorPoint = Inline and Vector2.zero or Vector2.new(1, 1),
+		Position = Inline and UDim2.fromOffset(0, 0) or UDim2.new(1, -24, 1, -76),
+		Size = Inline and UDim2.new(1, 0, 0, self.Config.Height or 330)
+			or UDim2.fromOffset(self.Config.Width or 360, self.Config.Height or 330),
 		ZIndex = 90,
 		Parent = Parent,
 		ThemeTag = { BackgroundColor3 = "Dialog" },
@@ -162,6 +166,7 @@ function GlobalChat:Build(Parent)
 
 	self.CloseButton = New("TextButton", {
 		Text = "×",
+		Visible = not Inline,
 		Position = UDim2.new(1, -38, 0, 9),
 		Size = UDim2.fromOffset(28, 28),
 		Font = Enum.Font.Gotham,
@@ -240,12 +245,14 @@ function GlobalChat:Build(Parent)
 		Parent = self.InputFrame,
 	}), 6)
 
-	table.insert(self.Connections, self.ToggleButton.MouseButton1Click:Connect(function()
-		self:Toggle()
-	end))
-	table.insert(self.Connections, self.CloseButton.MouseButton1Click:Connect(function()
-		self:SetOpen(false)
-	end))
+	if not Inline then
+		table.insert(self.Connections, self.ToggleButton.MouseButton1Click:Connect(function()
+			self:Toggle()
+		end))
+		table.insert(self.Connections, self.CloseButton.MouseButton1Click:Connect(function()
+			self:SetOpen(false)
+		end))
+	end
 	table.insert(self.Connections, self.Send.MouseButton1Click:Connect(function()
 		self:SendMessage()
 	end))
@@ -260,9 +267,11 @@ function GlobalChat:Build(Parent)
 end
 
 function GlobalChat:SetOpen(IsOpen)
-	self.Open = IsOpen == true
+	self.Open = self.Config.Inline == true or IsOpen == true
 	self.Panel.Visible = self.Open
-	self.ToggleButton.Visible = not self.Open
+	if self.ToggleButton then
+		self.ToggleButton.Visible = not self.Open
+	end
 end
 
 function GlobalChat:Toggle()
