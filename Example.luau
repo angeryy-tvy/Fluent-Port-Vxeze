@@ -18,6 +18,9 @@ local Window = Library:CreateWindow{
 -- Do not put a database password here. Any key shipped in a client script is public.
 local GLOBAL_CHAT_ENDPOINT = ""
 local GLOBAL_CHAT_API_KEY = ""
+-- Optional extra Roblox user IDs for the Chat Admin tab (useful for group games).
+-- This only hides the tab in the UI; it is not server-side authorization.
+local GLOBAL_CHAT_ADMIN_USER_IDS = {}
 
 -- Fluent Renewed provides ALL 1544 Lucide 0.469.0 https://lucide.dev/icons/ Icons and ALL 9072 Phosphor 2.1.0 https://phosphoricons.com/ Icons for the tabs, icons are optional
 local Tabs = {
@@ -34,6 +37,37 @@ local Tabs = {
         Icon = "settings"
     }
 }
+
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local IsGameOwner = game.CreatorType == Enum.CreatorType.User
+    and LocalPlayer ~= nil
+    and LocalPlayer.UserId == game.CreatorId
+local IsChatAdmin = IsGameOwner or (
+    LocalPlayer ~= nil
+    and table.find(GLOBAL_CHAT_ADMIN_USER_IDS, LocalPlayer.UserId) ~= nil
+)
+
+if IsChatAdmin then
+    Tabs.ChatAdmin = Window:CreateTab{
+        Title = "Chat Admin",
+        Icon = "shield"
+    }
+
+    Tabs.ChatAdmin:CreateParagraph("ChatEndpointInfo", {
+        Title = "Endpoint",
+        Content = GLOBAL_CHAT_ENDPOINT ~= "" and GLOBAL_CHAT_ENDPOINT
+            or "Chưa cấu hình. Lấy domain public của website trên Railway rồi thêm /api/global-chat.",
+    })
+    Tabs.ChatAdmin:CreateParagraph("ChatApiKeyInfo", {
+        Title = "API key",
+        Content = GLOBAL_CHAT_API_KEY ~= "" and "Đã điền trong script (mọi người chạy script đều có thể đọc được)."
+            or "Chưa cấu hình. Tự tạo giá trị GLOBAL_CHAT_API_KEY trong Railway > service > Variables; backend không tự cấp key.",
+    })
+    Tabs.ChatAdmin:CreateParagraph("ChatSecurityInfo", {
+        Title = "Lưu ý bảo mật",
+        Content = "Tab này chỉ ẩn giao diện với người không phải admin. Không lưu database password hoặc key bí mật trong Fluent/client script.",
+    })
+end
 
 if typeof(Library.CreateGlobalChat) == "function" then
     Library:CreateGlobalChat{
