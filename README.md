@@ -43,3 +43,18 @@ local Library = loadstring(game:HttpGetAsync("https://github.com/ActualMasterOog
 Touch devices without a hardware keyboard automatically use a narrower sidebar, 26 px tabs, tighter cards and section spacing, and hide the workspace heading. Desktop spacing is unchanged. Density values live in `Src/Modules/Layout.luau`.
 
 These source changes require a fresh bundle through the repository build workflow before loading `Fluent.luau`; existing root-level bundles are not regenerated automatically.
+
+## Global chat overlay
+
+Fluent includes an optional compact global chat overlay with player avatar (or two-letter initials), player name, current game name, polling, and message sending. It is transport-agnostic and only needs a JSON endpoint:
+
+```lua
+local Chat = Library:CreateGlobalChat({
+    Endpoint = "https://your-domain.example/api/global-chat",
+    ApiKey = "", -- same value as `GLOBAL_CHAT_API_KEY` in production
+    PollInterval = 3,
+    Open = true,
+})
+```
+
+The companion `discord-webhook-protector-codex-auth-redesign-preview` project exposes `/api/global-chat`, backed by its existing MySQL `DATABASE_URL`. Its startup migration creates `globalChatMessages`; the relay keeps the latest 200 messages across server restarts and instances. Set `GLOBAL_CHAT_API_KEY` in production and pass the same value as `ApiKey` above (the relay is intentionally disabled in production when the key is missing). Payloads are sanitized and a per-player send cooldown applies.

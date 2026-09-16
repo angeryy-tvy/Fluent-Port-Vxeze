@@ -14,6 +14,14 @@ local Window = Library:CreateWindow{
     MinimizeKey = Enum.KeyCode.RightControl -- Used when theres no MinimizeKeybind
 }
 
+-- Optional compact global chat overlay. Point Endpoint at the companion
+-- project's `/api/global-chat` route (or any compatible JSON relay).
+-- local GlobalChat = Library:CreateGlobalChat{
+--     Endpoint = "https://your-domain.example/api/global-chat",
+--     ApiKey = "",
+--     PollInterval = 3,
+-- }
+
 -- Fluent Renewed provides ALL 1544 Lucide 0.469.0 https://lucide.dev/icons/ Icons and ALL 9072 Phosphor 2.1.0 https://phosphoricons.com/ Icons for the tabs, icons are optional
 local Tabs = {
     Main = Window:CreateTab{

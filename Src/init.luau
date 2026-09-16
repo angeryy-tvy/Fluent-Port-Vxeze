@@ -56,6 +56,7 @@ local Themes = require(Root.Themes)
 local Signal = require(Root.Packages.Signal)
 
 local NotificationModule = require(Components.Notification)
+local GlobalChatModule = require(Components.GlobalChat)
 
 local SharedTable = shared or _G or (getgenv and getgenv()) or getfenv(1)
 local New = Creator.New
@@ -317,6 +318,18 @@ end
 function Library:CreateWindow(Config)
 	return Library:Window(Config)
 end
+
+-- Creates a compact floating chat overlay. The component is transport
+-- agnostic; pass Config.Endpoint to a JSON relay (for example the optional
+-- /api/global-chat route in the companion web project).
+function Library:CreateGlobalChat(Config)
+	Config = Config or {}
+	Config.Parent = Config.Parent or BaseContainer
+	Config.Library = Library
+	return GlobalChatModule.new(Config)
+end
+
+Library.GlobalChat = Library.CreateGlobalChat
 
 function Library:SetTheme(Name: string)
 	if Library.CreatedWindow and table.find(Library.Themes, Name) then
