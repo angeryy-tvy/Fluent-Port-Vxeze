@@ -398,7 +398,7 @@ function GlobalChat:Render(Messages)
 		local Meta = New("TextLabel", {
 			Position = UDim2.fromOffset(44, 5),
 			Size = UDim2.new(1, -52, 0, 14),
-			Text = `{Initials}  {DisplayName}  •  {GameName}  •  {Time}`,
+			Text = `{DisplayName}  •  {GameName}  •  {Time}`,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.GothamBold,
