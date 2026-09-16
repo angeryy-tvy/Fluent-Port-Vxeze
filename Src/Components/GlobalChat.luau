@@ -25,6 +25,13 @@ local function initials(Name)
 	return Name:sub(1, 2):upper()
 end
 
+local function maskedPlayerName(Name)
+	local Success, FourthByte = pcall(utf8.offset, Name, 4)
+	local Prefix = Success and (FourthByte and Name:sub(1, FourthByte - 1) or Name)
+		or Name:sub(1, 3)
+	return Prefix .. "*****"
+end
+
 local function rounded(Object, Radius)
 	New("UICorner", {
 		CornerRadius = UDim.new(0, Radius),
@@ -349,6 +356,7 @@ function GlobalChat:Render(Messages)
 	self.EmptyState.Visible = #Messages == 0
 	for Index, Message in ipairs(Messages) do
 		local PlayerName = safeString(Message.playerName, "Guest")
+		local DisplayName = maskedPlayerName(PlayerName)
 		local Initials = safeString(Message.initials, initials(PlayerName))
 		local GameName = safeString(Message.gameName, "Unknown game")
 		local AvatarUrl = safeString(Message.avatarUrl, "")
@@ -390,7 +398,7 @@ function GlobalChat:Render(Messages)
 		local Meta = New("TextLabel", {
 			Position = UDim2.fromOffset(44, 5),
 			Size = UDim2.new(1, -52, 0, 14),
-			Text = `{Initials}  {PlayerName}  •  {GameName}  •  {Time}`,
+			Text = `{Initials}  {DisplayName}  •  {GameName}  •  {Time}`,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.GothamBold,
@@ -444,7 +452,7 @@ function GlobalChat:SendMessage()
 	self.Send.Active = false
 	local Success, Result = self:Request("POST", {
 		playerId = self.PlayerId,
-		playerName = self.PlayerName,
+		playerName = maskedPlayerName(self.PlayerName),
 		gameName = self.GameName,
 		avatarUrl = self.AvatarUrl,
 		content = Content,

@@ -46,7 +46,7 @@ The root `Fluent.luau` in this revision includes the current source changes. Fut
 
 ## Global chat
 
-Fluent includes a compact global chat with player avatar (or two-letter initials), player name, current game name, polling, and message sending. `Example.luau` includes a **Global Chat** tab. Set `GLOBAL_CHAT_ENDPOINT` there to your deployed `/api/global-chat` URL.
+Fluent includes a compact global chat with player avatar (or two-letter initials), masked player name (first three characters plus `*****`), current game name, polling, and message sending. Names are masked when sent and when rendered, including for older messages returned by the API. `Example.luau` includes a **Global Chat** tab. Set `GLOBAL_CHAT_ENDPOINT` there to your deployed `/api/global-chat` URL.
 
 For a floating chat button instead of a tab, use:
 
