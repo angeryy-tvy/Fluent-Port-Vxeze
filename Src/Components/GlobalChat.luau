@@ -10,6 +10,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
 
 local GlobalChat = {}
 GlobalChat.__index = GlobalChat
@@ -125,6 +126,8 @@ function GlobalChat.new(Config)
 		Open = Config.Inline == true or Config.Open ~= false,
 		Connections = {},
 		LastRenderedSignature = nil,
+		AllowJoin = false,
+		PresenceBusy = false,
 		Player = Player,
 		PlayerId = tostring(Config.PlayerId or (Player and Player.UserId) or "guest"),
 		PlayerName = PlayerName,
@@ -154,6 +157,8 @@ function GlobalChat:Build(Parent)
 	local ComposerGap = Compact and 6 or 8
 	local HorizontalInset = Compact and 8 or 10
 	local SendWidth = Compact and 72 or 62
+	local JoinToggleWidth = Compact and 88 or 110
+	local JoinToggleRight = Inline and 8 or 42
 
 	if not Inline then
 		self.ToggleButton = rounded(New("TextButton", {
@@ -207,7 +212,7 @@ function GlobalChat:Build(Parent)
 	New("TextLabel", {
 		Text = safeString(self.Config.Title, "Global Chat"),
 		Position = UDim2.fromOffset(16, 9),
-		Size = UDim2.new(1, -80, 0, 18),
+		Size = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight + 20), 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Font = Enum.Font.GothamBold,
 		TextSize = 14,
@@ -220,7 +225,7 @@ function GlobalChat:Build(Parent)
 	self.Status = New("TextLabel", {
 		Text = "●  connecting…",
 		Position = UDim2.fromOffset(16, 27),
-		Size = UDim2.new(1, -80, 0, 14),
+		Size = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight + 20), 0, 14),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Font = Enum.Font.Gotham,
 		TextSize = 10,
@@ -243,6 +248,19 @@ function GlobalChat:Build(Parent)
 	}, {
 		New("UICorner", { CornerRadius = UDim.new(0, 7) }),
 	})
+
+	self.JoinToggle = rounded(New("TextButton", {
+		Name = "AllowJoinSetting",
+		Text = Compact and "Join: OFF" or "Allow Join: OFF",
+		Position = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight), 0, 10),
+		Size = UDim2.fromOffset(JoinToggleWidth, 26),
+		Font = Enum.Font.GothamBold,
+		TextSize = Compact and 9 or 10,
+		TextColor3 = Color3.fromRGB(170, 177, 190),
+		ZIndex = 93,
+		ThemeTag = { BackgroundColor3 = "DialogButton" },
+		Parent = self.Header,
+	}), 7)
 
 	self.Messages = New("ScrollingFrame", {
 		Position = UDim2.fromOffset(HorizontalInset, ContentTop),
@@ -329,6 +347,9 @@ function GlobalChat:Build(Parent)
 	table.insert(self.Connections, self.Send.MouseButton1Click:Connect(function()
 		self:SendMessage()
 	end))
+	table.insert(self.Connections, self.JoinToggle.MouseButton1Click:Connect(function()
+		self:SetAllowJoin(not self.AllowJoin)
+	end))
 	table.insert(self.Connections, self.Input.FocusLost:Connect(function(EnterPressed)
 		if EnterPressed then
 			self:SendMessage()
@@ -337,6 +358,16 @@ function GlobalChat:Build(Parent)
 	table.insert(self.Connections, self.MessageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		self.Messages.CanvasSize = UDim2.fromOffset(0, self.MessageLayout.AbsoluteContentSize.Y + 6)
 	end))
+	table.insert(self.Connections, TeleportService.TeleportInitFailed:Connect(function(Player, _, ErrorMessage)
+		if Player == self.Player and not self.Destroyed then
+			self:SetStatus("Join failed: " .. tostring(ErrorMessage), true)
+		end
+	end))
+	if self.Config.Library and self.Config.Library.OnUnload then
+		table.insert(self.Connections, self.Config.Library.OnUnload:Connect(function()
+			self:Destroy()
+		end))
+	end
 end
 
 function GlobalChat:SetOpen(IsOpen)
@@ -356,7 +387,7 @@ function GlobalChat:SetStatus(Text, IsError)
 	self.Status.TextColor3 = IsError and Color3.fromRGB(255, 130, 130) or Creator.GetThemeProperty("SubText")
 end
 
-function GlobalChat:Request(Method, Payload)
+function GlobalChat:Request(Method, Payload, Path)
 	if self.Endpoint == "" then
 		return false, "Set Config.Endpoint to enable online chat"
 	end
@@ -366,8 +397,12 @@ function GlobalChat:Request(Method, Payload)
 		Headers["X-Global-Chat-Key"] = self.ApiKey
 	end
 
+	local Url = Path and (self.Endpoint:gsub("/+$", "") .. Path) or self.Endpoint
+	if Method == "GET" and not Path then
+		Url = Url .. (Url:find("?", 1, true) and "&" or "?") .. "limit=" .. tostring(self.MaxMessages)
+	end
 	local Request = {
-		Url = Method == "GET" and (self.Endpoint .. (self.Endpoint:find("?", 1, true) and "&" or "?") .. "limit=" .. tostring(self.MaxMessages)) or self.Endpoint,
+		Url = Url,
 		Method = Method,
 		Headers = Headers,
 	}
@@ -392,6 +427,95 @@ function GlobalChat:Request(Method, Payload)
 	return true, Data
 end
 
+function GlobalChat:UpdateJoinToggle()
+	if not self.JoinToggle then return end
+	local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	self.JoinToggle.Text = Compact and (self.AllowJoin and "Join: ON" or "Join: OFF")
+		or (self.AllowJoin and "Allow Join: ON" or "Allow Join: OFF")
+	self.JoinToggle.TextColor3 = self.AllowJoin and Color3.fromRGB(105, 224, 163)
+		or Color3.fromRGB(170, 177, 190)
+end
+
+function GlobalChat:PublishPresence()
+	return self:Request("POST", {
+		playerId = self.PlayerId,
+		allowJoin = self.AllowJoin,
+		placeId = self.AllowJoin and game.PlaceId or nil,
+		jobId = self.AllowJoin and game.JobId or nil,
+	}, "/presence")
+end
+
+function GlobalChat:SetAllowJoin(Allow)
+	if self.Destroyed or self.PresenceBusy or Allow == self.AllowJoin then return end
+	if Allow and (game.JobId == "" or game.PrivateServerId ~= "" or game.PlaceId <= 0) then
+		self:SetStatus("Join sharing needs a public game server", true)
+		return
+	end
+
+	self.PresenceBusy = true
+	self.JoinToggle.Active = false
+	self.AllowJoin = Allow
+	self:UpdateJoinToggle()
+	local Success, Result = self:PublishPresence()
+	if not Success then
+		self.AllowJoin = not Allow
+		self:UpdateJoinToggle()
+		self:SetStatus(Result, true)
+	end
+	self.JoinToggle.Active = true
+	self.PresenceBusy = false
+end
+
+function GlobalChat:JoinServer(PlayerId)
+	local Success, Result = self:Request("GET", nil, "/presence/" .. PlayerId)
+	if not Success then
+		self:SetStatus(Result, true)
+		return
+	end
+
+	local Target = Result.joinServer
+	local PlaceId = typeof(Target) == "table" and tonumber(Target.placeId) or nil
+	local JobId = typeof(Target) == "table" and Target.jobId or nil
+	if not PlaceId or typeof(JobId) ~= "string" or JobId == "" then
+		self:SetStatus("This player is no longer sharing a server", true)
+		return
+	end
+	if not self.Player then
+		self:SetStatus("Local player is unavailable", true)
+		return
+	end
+	if PlaceId == game.PlaceId and JobId == game.JobId then
+		self:SetStatus("You are already in this server", false)
+		return
+	end
+
+	self:SetStatus("Joining server…", false)
+	-- Client-side executor scripts cannot call server-only TeleportAsync.
+	local Teleported, Error = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, PlaceId, JobId, self.Player)
+	if not Teleported then
+		self:SetStatus("Join failed: " .. tostring(Error), true)
+	end
+end
+
+function GlobalChat:ConfirmJoin(PlayerId, PlayerName, GameName)
+	local Window = self.Config.Library and self.Config.Library.CreatedWindow
+	if not Window or typeof(Window.Dialog) ~= "function" then
+		self:SetStatus("Join confirmation is unavailable", true)
+		return
+	end
+
+	Window:Dialog({
+		Title = "Join Server?",
+		Content = `Join {maskedPlayerName(PlayerName)} in {GameName}? You will leave your current server.`,
+		Buttons = {
+			{ Title = "No", Callback = function() end },
+			{ Title = "Yes", Callback = function()
+				task.spawn(function() self:JoinServer(PlayerId) end)
+			end },
+		},
+	})
+end
+
 function GlobalChat:Render(Messages)
 	local PreviousPosition = self.Messages.CanvasPosition.Y
 	local PreviousMax = math.max(0, self.Messages.CanvasSize.Y.Offset - self.Messages.AbsoluteWindowSize.Y)
@@ -413,9 +537,14 @@ function GlobalChat:Render(Messages)
 		local Time = formatChatTime(Message.createdAt)
 		local Role = RoleTags[tostring(Message.playerId or "")]
 		local Tag = Role and `  <font color="{Role.Color}">[{Role.Label}]</font>` or ""
+		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
+		local CanJoin = JoinData and tostring(Message.playerId or "") ~= self.PlayerId
+			and tonumber(JoinData.placeId) and typeof(JoinData.jobId) == "string" and JoinData.jobId ~= ""
+		local CompactJoin = CanJoin and UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		local RowHeight = CompactJoin and 52 or 42
 
 		local Row = rounded(New("Frame", {
-			Size = UDim2.new(1, -4, 0, 42),
+			Size = UDim2.new(1, -4, 0, RowHeight),
 			BackgroundTransparency = 0.55,
 			LayoutOrder = Index,
 			ZIndex = 92,
@@ -424,7 +553,7 @@ function GlobalChat:Render(Messages)
 		}), 7)
 
 		local Avatar = rounded(New("ImageLabel", {
-			Position = UDim2.fromOffset(7, 7),
+			Position = UDim2.fromOffset(7, math.floor((RowHeight - 28) / 2)),
 			Size = UDim2.fromOffset(28, 28),
 			Image = AvatarUrl,
 			Visible = AvatarUrl ~= "",
@@ -436,7 +565,7 @@ function GlobalChat:Render(Messages)
 		end
 
 		local InitialsLabel = rounded(New("TextLabel", {
-			Position = UDim2.fromOffset(7, 7),
+			Position = UDim2.fromOffset(7, math.floor((RowHeight - 28) / 2)),
 			Size = UDim2.fromOffset(28, 28),
 			Text = Initials,
 			TextSize = 10,
@@ -448,8 +577,8 @@ function GlobalChat:Render(Messages)
 		}), 14)
 
 		local Meta = New("TextLabel", {
-			Position = UDim2.fromOffset(44, 5),
-			Size = UDim2.new(1, -52, 0, 14),
+			Position = UDim2.fromOffset(44, CompactJoin and 7 or 5),
+			Size = UDim2.new(1, CanJoin and -132 or -52, 0, 14),
 			Text = `{escapeRichText(DisplayName)}{Tag}  •  {escapeRichText(GameName)}  •  {Time}`,
 			RichText = true,
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -462,8 +591,8 @@ function GlobalChat:Render(Messages)
 		})
 
 		New("TextLabel", {
-			Position = UDim2.fromOffset(44, 19),
-			Size = UDim2.new(1, -52, 0, 18),
+			Position = UDim2.fromOffset(44, CompactJoin and 29 or 19),
+			Size = UDim2.new(1, CompactJoin and -132 or -52, 0, 18),
 			Text = safeString(Message.content, ""),
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -474,6 +603,24 @@ function GlobalChat:Render(Messages)
 			ThemeTag = { TextColor3 = "Text" },
 			Parent = Row,
 		})
+
+		if CanJoin then
+			local JoinButton = rounded(New("TextButton", {
+				Name = "JoinServer",
+				Text = "Join Server",
+				Position = UDim2.new(1, -82, 0, CompactJoin and 6 or 4),
+				Size = UDim2.fromOffset(76, CompactJoin and 28 or 17),
+				Font = Enum.Font.GothamBold,
+				TextSize = 9,
+				TextColor3 = Color3.fromRGB(105, 182, 255),
+				ZIndex = 94,
+				ThemeTag = { BackgroundColor3 = "DialogButton" },
+				Parent = Row,
+			}), 5)
+			JoinButton.MouseButton1Click:Connect(function()
+				self:ConfirmJoin(tostring(Message.playerId), PlayerName, GameName)
+			end)
+		end
 	end
 
 	task.defer(function()
@@ -494,7 +641,10 @@ function GlobalChat:Refresh()
 	local Messages = typeof(Result.messages) == "table" and Result.messages or {}
 	local MessageKeys = table.create(#Messages)
 	for Index, Message in ipairs(Messages) do
+		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
 		MessageKeys[Index] = tostring(Message.id or Index) .. "\0" .. safeString(Message.content, "")
+			.. "\0" .. tostring(JoinData and JoinData.placeId or "")
+			.. "\0" .. tostring(JoinData and JoinData.jobId or "")
 	end
 	local Signature = table.concat(MessageKeys, "\1")
 	if Signature ~= self.LastRenderedSignature then
@@ -549,6 +699,25 @@ function GlobalChat:StartPolling()
 			end
 		end
 	end)
+	task.spawn(function()
+		-- Clear any stale sharing left by an earlier script instance.
+		self.PresenceBusy = true
+		self:PublishPresence()
+		self.PresenceBusy = false
+		while not self.Destroyed and not (self.Config.Library and self.Config.Library.Unloaded) do
+			task.wait(20)
+			if self.AllowJoin and not self.PresenceBusy and not self.Destroyed then
+				self.PresenceBusy = true
+				local Success, Result = self:PublishPresence()
+				self.PresenceBusy = false
+				if not Success and not self.Destroyed then self:SetStatus(Result, true) end
+			end
+		end
+		if self.AllowJoin then
+			self.AllowJoin = false
+			self:PublishPresence()
+		end
+	end)
 end
 
 function GlobalChat:Destroy()
@@ -556,6 +725,13 @@ function GlobalChat:Destroy()
 		return
 	end
 	self.Destroyed = true
+	if self.AllowJoin then
+		self.AllowJoin = false
+		task.spawn(function()
+			while self.PresenceBusy do task.wait() end
+			self:PublishPresence()
+		end)
+	end
 	for _, Connection in ipairs(self.Connections) do
 		Connection:Disconnect()
 	end
