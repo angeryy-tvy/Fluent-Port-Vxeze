@@ -33,6 +33,21 @@ local function maskedPlayerName(Name)
 	return Prefix .. "*****"
 end
 
+local function formatChatTime(IsoTimestamp)
+	if typeof(IsoTimestamp) ~= "string" then
+		return ""
+	end
+	local Hour, Minute = IsoTimestamp:match("T(%d%d):(%d%d)")
+	if not Hour then
+		return ""
+	end
+	-- The chat API returns UTC ISO timestamps; display them in Vietnam time (UTC+7).
+	if IsoTimestamp:sub(-1) == "Z" then
+		Hour = string.format("%02d", (tonumber(Hour) + 7) % 24)
+	end
+	return Hour .. ":" .. Minute
+end
+
 local function rounded(Object, Radius)
 	New("UICorner", {
 		CornerRadius = UDim.new(0, Radius),
@@ -384,7 +399,7 @@ function GlobalChat:Render(Messages)
 		local Initials = safeString(Message.initials, initials(PlayerName))
 		local GameName = safeString(Message.gameName, "Unknown game")
 		local AvatarUrl = safeString(Message.avatarUrl, "")
-		local Time = typeof(Message.createdAt) == "string" and Message.createdAt:match("T(%d%d:%d%d)") or ""
+		local Time = formatChatTime(Message.createdAt)
 
 		local Row = rounded(New("Frame", {
 			Size = UDim2.new(1, -4, 0, 42),
