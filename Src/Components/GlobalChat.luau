@@ -14,8 +14,19 @@ local UserInputService = game:GetService("UserInputService")
 local GlobalChat = {}
 GlobalChat.__index = GlobalChat
 
+-- Display-only roles. The relay currently accepts client-supplied player IDs,
+-- so these badges must not be used as proof of identity or for permissions.
+local RoleTags = {
+	["11464210153"] = { Label = "ADMIN", Color = "#EF4444" }, -- OlwenThNek
+	["10611068537"] = { Label = "SUPPORT", Color = "#3B82F6" }, -- jwenvie04
+}
+
 local function safeString(Value, Fallback)
 	return typeof(Value) == "string" and Value ~= "" and Value or Fallback
+end
+
+local function escapeRichText(Value)
+	return Value:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 end
 
 local function initials(Name)
@@ -400,6 +411,8 @@ function GlobalChat:Render(Messages)
 		local GameName = safeString(Message.gameName, "Unknown game")
 		local AvatarUrl = safeString(Message.avatarUrl, "")
 		local Time = formatChatTime(Message.createdAt)
+		local Role = RoleTags[tostring(Message.playerId or "")]
+		local Tag = Role and `  <font color="{Role.Color}">[{Role.Label}]</font>` or ""
 
 		local Row = rounded(New("Frame", {
 			Size = UDim2.new(1, -4, 0, 42),
@@ -437,7 +450,8 @@ function GlobalChat:Render(Messages)
 		local Meta = New("TextLabel", {
 			Position = UDim2.fromOffset(44, 5),
 			Size = UDim2.new(1, -52, 0, 14),
-			Text = `{DisplayName}  •  {GameName}  •  {Time}`,
+			Text = `{escapeRichText(DisplayName)}{Tag}  •  {escapeRichText(GameName)}  •  {Time}`,
+			RichText = true,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.GothamBold,
