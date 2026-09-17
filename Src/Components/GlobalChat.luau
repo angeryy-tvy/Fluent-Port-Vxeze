@@ -98,7 +98,7 @@ function GlobalChat.new(Config)
 		Destroyed = false,
 		Open = Config.Inline == true or Config.Open ~= false,
 		Connections = {},
-		KnownMessages = {},
+		LastRenderedSignature = nil,
 		Player = Player,
 		PlayerId = tostring(Config.PlayerId or (Player and Player.UserId) or "guest"),
 		PlayerName = PlayerName,
@@ -367,6 +367,10 @@ function GlobalChat:Request(Method, Payload)
 end
 
 function GlobalChat:Render(Messages)
+	local PreviousPosition = self.Messages.CanvasPosition.Y
+	local PreviousMax = math.max(0, self.Messages.CanvasSize.Y.Offset - self.Messages.AbsoluteWindowSize.Y)
+	local FollowLatest = PreviousMax - PreviousPosition <= 24
+
 	for _, Child in next, self.Messages:GetChildren() do
 		if Child ~= self.MessageLayout and Child ~= self.EmptyState then
 			Child:Destroy()
@@ -444,8 +448,9 @@ function GlobalChat:Render(Messages)
 	end
 
 	task.defer(function()
-		if self.Messages.Parent then
-			self.Messages.CanvasPosition = Vector2.new(0, math.max(0, self.MessageLayout.AbsoluteContentSize.Y))
+		if not self.Destroyed and self.Messages.Parent then
+			local NewMax = math.max(0, self.MessageLayout.AbsoluteContentSize.Y + 6 - self.Messages.AbsoluteWindowSize.Y)
+			self.Messages.CanvasPosition = Vector2.new(0, FollowLatest and NewMax or math.min(PreviousPosition, NewMax))
 		end
 	end)
 end
@@ -458,7 +463,15 @@ function GlobalChat:Refresh()
 	end
 
 	local Messages = typeof(Result.messages) == "table" and Result.messages or {}
-	self:Render(Messages)
+	local MessageKeys = table.create(#Messages)
+	for Index, Message in ipairs(Messages) do
+		MessageKeys[Index] = tostring(Message.id or Index) .. "\0" .. safeString(Message.content, "")
+	end
+	local Signature = table.concat(MessageKeys, "\1")
+	if Signature ~= self.LastRenderedSignature then
+		self:Render(Messages)
+		self.LastRenderedSignature = Signature
+	end
 	local OnlineCount = tonumber(Result.onlineCount) or 0
 	self:SetStatus(`{OnlineCount} online`, false)
 end
