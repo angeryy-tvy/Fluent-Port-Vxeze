@@ -11,6 +11,7 @@ local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 local GlobalChat = {}
 GlobalChat.__index = GlobalChat
@@ -136,6 +137,7 @@ function GlobalChat.new(Config)
 		Open = Config.Inline == true or Config.Open ~= false,
 		Connections = {},
 		LastRenderedSignature = nil,
+		RenderGeneration = 0,
 		AllowJoin = false,
 		PresenceBusy = false,
 		ReplyingTo = nil,
@@ -602,6 +604,8 @@ function GlobalChat:Render(Messages)
 	local PreviousPosition = self.Messages.CanvasPosition.Y
 	local PreviousMax = math.max(0, self.Messages.CanvasSize.Y.Offset - self.Messages.AbsoluteWindowSize.Y)
 	local FollowLatest = PreviousMax - PreviousPosition <= 24
+	self.RenderGeneration += 1
+	local Generation = self.RenderGeneration
 	self.OpenMenu = nil
 
 	for _, Child in next, self.Messages:GetChildren() do
@@ -787,11 +791,19 @@ function GlobalChat:Render(Messages)
 		end)
 	end
 
-	task.defer(function()
-		if not self.Destroyed and self.Messages.Parent then
-			local NewMax = math.max(0, self.MessageLayout.AbsoluteContentSize.Y + 6 - self.Messages.AbsoluteWindowSize.Y)
-			self.Messages.CanvasPosition = Vector2.new(0, FollowLatest and NewMax or math.min(PreviousPosition, NewMax))
+	task.spawn(function()
+		-- UIListLayout can still report zero during the first defer. Wait until its
+		-- height is stable so the initial render reliably opens at the latest chat.
+		local LastHeight = -1
+		for _ = 1, 5 do
+			RunService.Heartbeat:Wait()
+			if self.Destroyed or Generation ~= self.RenderGeneration or not self.Messages.Parent then return end
+			local Height = self.MessageLayout.AbsoluteContentSize.Y
+			if Height == LastHeight then break end
+			LastHeight = Height
 		end
+		local NewMax = math.max(0, self.MessageLayout.AbsoluteContentSize.Y + 6 - self.Messages.AbsoluteWindowSize.Y)
+		self.Messages.CanvasPosition = Vector2.new(0, FollowLatest and NewMax or math.min(PreviousPosition, NewMax))
 	end)
 end
 
