@@ -114,6 +114,16 @@ local function resolveHttpRequest(Config)
 	return nil
 end
 
+local function resolveClipboard(Config)
+	if typeof(Config.SetClipboard) == "function" then return Config.SetClipboard end
+	if typeof(setclipboard) == "function" then return setclipboard end
+	if typeof(toclipboard) == "function" then return toclipboard end
+	if typeof(Clipboard) == "table" and typeof(Clipboard.set) == "function" then
+		return function(Text) Clipboard.set(Text) end
+	end
+	return nil
+end
+
 function GlobalChat.new(Config)
 	Config = Config or {}
 	assert(Config.Parent, "GlobalChat requires a Parent GuiObject or ScreenGui")
@@ -128,6 +138,8 @@ function GlobalChat.new(Config)
 		LastRenderedSignature = nil,
 		AllowJoin = false,
 		PresenceBusy = false,
+		ReplyingTo = nil,
+		OpenMenu = nil,
 		Player = Player,
 		PlayerId = tostring(Config.PlayerId or (Player and Player.UserId) or "guest"),
 		PlayerName = PlayerName,
@@ -136,6 +148,7 @@ function GlobalChat.new(Config)
 		Endpoint = safeString(Config.Endpoint, ""),
 		ApiKey = safeString(Config.ApiKey, ""),
 		HttpRequest = resolveHttpRequest(Config),
+		SetClipboard = resolveClipboard(Config),
 		PollInterval = math.max(tonumber(Config.PollInterval) or 3, 2),
 		MaxMessages = math.clamp(tonumber(Config.MaxMessages) or 50, 10, 100),
 	}, GlobalChat)
@@ -157,6 +170,7 @@ function GlobalChat:Build(Parent)
 	local ComposerGap = Compact and 6 or 8
 	local HorizontalInset = Compact and 8 or 10
 	local SendWidth = Compact and 72 or 62
+	local ReplyBarHeight = Compact and 28 or 24
 	local JoinToggleWidth = Compact and 88 or 110
 	local JoinToggleRight = Inline and 8 or 42
 
@@ -279,6 +293,7 @@ function GlobalChat:Build(Parent)
 		ZIndex = 91,
 		Parent = self.Panel,
 	})
+	self.MessagesBaseSize = self.Messages.Size
 
 	self.MessageLayout = New("UIListLayout", {
 		Padding = UDim.new(0, 5),
@@ -308,6 +323,42 @@ function GlobalChat:Build(Parent)
 		ThemeTag = { BackgroundColor3 = "DialogInput" },
 		Parent = self.Panel,
 	}), 7)
+
+	self.ReplyBar = rounded(New("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, HorizontalInset, 1, -(BottomInset + ComposerHeight + 4)),
+		Size = UDim2.new(1, -HorizontalInset * 2, 0, ReplyBarHeight),
+		Visible = false,
+		ZIndex = 96,
+		ThemeTag = { BackgroundColor3 = "DialogHolder" },
+		Parent = self.Panel,
+	}), 6)
+
+	self.ReplyLabel = New("TextLabel", {
+		Position = UDim2.fromOffset(8, 0),
+		Size = UDim2.new(1, -38, 1, 0),
+		Text = "",
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		BackgroundTransparency = 1,
+		ZIndex = 97,
+		ThemeTag = { TextColor3 = "SubText" },
+		Parent = self.ReplyBar,
+	})
+
+	self.CancelReply = New("TextButton", {
+		Text = "×",
+		Position = UDim2.new(1, -28, 0, 0),
+		Size = UDim2.fromOffset(28, ReplyBarHeight),
+		Font = Enum.Font.GothamBold,
+		TextSize = 16,
+		BackgroundTransparency = 1,
+		ZIndex = 98,
+		ThemeTag = { TextColor3 = "SubText" },
+		Parent = self.ReplyBar,
+	})
 
 	self.Input = New("TextBox", {
 		Position = UDim2.fromOffset(10, 0),
@@ -349,6 +400,9 @@ function GlobalChat:Build(Parent)
 	end))
 	table.insert(self.Connections, self.JoinToggle.MouseButton1Click:Connect(function()
 		self:SetAllowJoin(not self.AllowJoin)
+	end))
+	table.insert(self.Connections, self.CancelReply.MouseButton1Click:Connect(function()
+		self:ClearReply()
 	end))
 	table.insert(self.Connections, self.Input.FocusLost:Connect(function(EnterPressed)
 		if EnterPressed then
@@ -425,6 +479,34 @@ function GlobalChat:Request(Method, Payload, Path)
 		return false, "Invalid chat response"
 	end
 	return true, Data
+end
+
+function GlobalChat:ClearReply()
+	self.ReplyingTo = nil
+	if self.ReplyBar then self.ReplyBar.Visible = false end
+	if self.Messages and self.MessagesBaseSize then self.Messages.Size = self.MessagesBaseSize end
+end
+
+function GlobalChat:SetReply(Message)
+	local Id = tostring(Message.id or "")
+	if Id == "" then return end
+	local PlayerName = safeString(Message.playerName, "Guest")
+	local Content = safeString(Message.content, "")
+	self.ReplyingTo = { id = Id, playerName = PlayerName, content = Content }
+	self.ReplyLabel.Text = `Replying to {maskedPlayerName(PlayerName)}: {Content}`
+	self.ReplyBar.Visible = true
+	local Base = self.MessagesBaseSize
+	self.Messages.Size = UDim2.new(Base.X.Scale, Base.X.Offset, Base.Y.Scale, Base.Y.Offset - self.ReplyBar.Size.Y.Offset - 4)
+	pcall(function() self.Input:CaptureFocus() end)
+end
+
+function GlobalChat:CopyMessage(Content)
+	if not self.SetClipboard then
+		self:SetStatus("Clipboard is unavailable in this executor", true)
+		return
+	end
+	local Success, Error = pcall(self.SetClipboard, Content)
+	self:SetStatus(Success and "message copied" or ("Copy failed: " .. tostring(Error)), not Success)
 end
 
 function GlobalChat:UpdateJoinToggle()
@@ -520,6 +602,7 @@ function GlobalChat:Render(Messages)
 	local PreviousPosition = self.Messages.CanvasPosition.Y
 	local PreviousMax = math.max(0, self.Messages.CanvasSize.Y.Offset - self.Messages.AbsoluteWindowSize.Y)
 	local FollowLatest = PreviousMax - PreviousPosition <= 24
+	self.OpenMenu = nil
 
 	for _, Child in next, self.Messages:GetChildren() do
 		if Child ~= self.MessageLayout and Child ~= self.EmptyState then
@@ -540,8 +623,15 @@ function GlobalChat:Render(Messages)
 		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
 		local CanJoin = JoinData and tostring(Message.playerId or "") ~= self.PlayerId
 			and tonumber(JoinData.placeId) and typeof(JoinData.jobId) == "string" and JoinData.jobId ~= ""
-		local CompactJoin = CanJoin and UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-		local RowHeight = CompactJoin and 52 or 42
+		local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		local Reply = typeof(Message.reply) == "table" and Message.reply or nil
+		local HasReply = Reply and safeString(Reply.content, "") ~= ""
+		local BaseRowHeight = Compact and 52 or 42
+		local ReplyHeight = HasReply and 16 or 0
+		local RowHeight = BaseRowHeight + ReplyHeight
+		local MetaY = Compact and 7 or 5
+		local BodyY = (Compact and 29 or 19) + ReplyHeight
+		local RightInset = CanJoin and 164 or 76
 
 		local Row = rounded(New("Frame", {
 			Size = UDim2.new(1, -4, 0, RowHeight),
@@ -577,8 +667,8 @@ function GlobalChat:Render(Messages)
 		}), 14)
 
 		local Meta = New("TextLabel", {
-			Position = UDim2.fromOffset(44, CompactJoin and 7 or 5),
-			Size = UDim2.new(1, CanJoin and -132 or -52, 0, 14),
+			Position = UDim2.fromOffset(44, MetaY),
+			Size = UDim2.new(1, -RightInset, 0, 14),
 			Text = `{escapeRichText(DisplayName)}{Tag}  •  {escapeRichText(GameName)}  •  {Time}`,
 			RichText = true,
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -590,9 +680,25 @@ function GlobalChat:Render(Messages)
 			Parent = Row,
 		})
 
+		if HasReply then
+			New("TextLabel", {
+				Position = UDim2.fromOffset(44, Compact and 29 or 19),
+				Size = UDim2.new(1, -RightInset, 0, 14),
+				Text = `↪ {maskedPlayerName(safeString(Reply.playerName, "Guest"))}: {safeString(Reply.content, "")}`,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Font = Enum.Font.Gotham,
+				TextSize = 9,
+				BackgroundTransparency = 1,
+				ZIndex = 93,
+				ThemeTag = { TextColor3 = "SubText" },
+				Parent = Row,
+			})
+		end
+
 		New("TextLabel", {
-			Position = UDim2.fromOffset(44, CompactJoin and 29 or 19),
-			Size = UDim2.new(1, CompactJoin and -132 or -52, 0, 18),
+			Position = UDim2.fromOffset(44, BodyY),
+			Size = UDim2.new(1, -RightInset, 0, 18),
 			Text = safeString(Message.content, ""),
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -608,8 +714,8 @@ function GlobalChat:Render(Messages)
 			local JoinButton = rounded(New("TextButton", {
 				Name = "JoinServer",
 				Text = "Join Server",
-				Position = UDim2.new(1, -82, 0, CompactJoin and 6 or 4),
-				Size = UDim2.fromOffset(76, CompactJoin and 28 or 17),
+				Position = UDim2.new(1, -112, 0, Compact and 6 or 4),
+				Size = UDim2.fromOffset(76, Compact and 28 or 17),
 				Font = Enum.Font.GothamBold,
 				TextSize = 9,
 				TextColor3 = Color3.fromRGB(105, 182, 255),
@@ -621,6 +727,64 @@ function GlobalChat:Render(Messages)
 				self:ConfirmJoin(tostring(Message.playerId), PlayerName, GameName)
 			end)
 		end
+
+		local Menu = rounded(New("Frame", {
+			Name = "MessageActions",
+			Position = UDim2.new(1, -118, 0, Compact and 6 or 4),
+			Size = UDim2.fromOffset(112, Compact and 28 or 22),
+			Visible = false,
+			ZIndex = 98,
+			ThemeTag = { BackgroundColor3 = "DialogButton" },
+			Parent = Row,
+		}), 5)
+		local Copy = New("TextButton", {
+			Text = "Copy",
+			Size = UDim2.new(0.5, 0, 1, 0),
+			Font = Enum.Font.GothamBold,
+			TextSize = 9,
+			BackgroundTransparency = 1,
+			ZIndex = 99,
+			ThemeTag = { TextColor3 = "Text" },
+			Parent = Menu,
+		})
+		local ReplyButton = New("TextButton", {
+			Text = "Reply",
+			Position = UDim2.fromScale(0.5, 0),
+			Size = UDim2.new(0.5, 0, 1, 0),
+			Font = Enum.Font.GothamBold,
+			TextSize = 9,
+			BackgroundTransparency = 1,
+			ZIndex = 99,
+			ThemeTag = { TextColor3 = "Text" },
+			Parent = Menu,
+		})
+		local More = New("TextButton", {
+			Name = "MoreActions",
+			Text = "•••",
+			Position = UDim2.new(1, -30, 0, Compact and 6 or 4),
+			Size = UDim2.fromOffset(24, Compact and 28 or 17),
+			Font = Enum.Font.GothamBold,
+			TextSize = 10,
+			BackgroundTransparency = 1,
+			ZIndex = 95,
+			ThemeTag = { TextColor3 = "SubText" },
+			Parent = Row,
+		})
+		More.MouseButton1Click:Connect(function()
+			if self.OpenMenu and self.OpenMenu ~= Menu then self.OpenMenu.Visible = false end
+			Menu.Visible = not Menu.Visible
+			self.OpenMenu = Menu.Visible and Menu or nil
+		end)
+		Copy.MouseButton1Click:Connect(function()
+			Menu.Visible = false
+			self.OpenMenu = nil
+			self:CopyMessage(safeString(Message.content, ""))
+		end)
+		ReplyButton.MouseButton1Click:Connect(function()
+			Menu.Visible = false
+			self.OpenMenu = nil
+			self:SetReply(Message)
+		end)
 	end
 
 	task.defer(function()
@@ -668,6 +832,7 @@ function GlobalChat:SendMessage()
 		gameName = self.GameName,
 		avatarUrl = self.AvatarUrl,
 		content = Content,
+		replyToId = self.ReplyingTo and self.ReplyingTo.id or nil,
 	})
 	self.Send.Active = true
 
@@ -677,6 +842,7 @@ function GlobalChat:SendMessage()
 	end
 
 	self.Input.Text = ""
+	self:ClearReply()
 	self:SetStatus("message sent", false)
 	task.spawn(function()
 		task.wait(0.1)
