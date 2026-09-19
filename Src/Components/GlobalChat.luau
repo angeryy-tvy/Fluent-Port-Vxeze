@@ -144,6 +144,8 @@ function GlobalChat.new(Config)
 		OpenMenu = nil,
 		ChatJoinPending = false,
 		ChatJoinAttempt = 0,
+		RefreshInProgress = false,
+		StatusToken = 0,
 		Player = Player,
 		PlayerId = tostring(Config.PlayerId or (Player and Player.UserId) or "guest"),
 		PlayerName = PlayerName,
@@ -420,7 +422,7 @@ function GlobalChat:Build(Parent)
 		if Player == self.Player and self.ChatJoinPending and not self.Destroyed then
 			self.ChatJoinPending = false
 			self.ChatJoinAttempt += 1
-			self:SetStatus("Join failed: " .. tostring(ErrorMessage), true)
+			self:SetTransientStatus("Join failed: " .. tostring(ErrorMessage), true, 3)
 		end
 	end))
 	if self.Config.Library and self.Config.Library.OnUnload then
@@ -443,8 +445,30 @@ function GlobalChat:Toggle()
 end
 
 function GlobalChat:SetStatus(Text, IsError)
+	self.StatusToken += 1
 	self.Status.Text = IsError and ("●  " .. Text) or ("●  " .. Text)
 	self.Status.TextColor3 = IsError and Color3.fromRGB(255, 130, 130) or Creator.GetThemeProperty("SubText")
+end
+
+function GlobalChat:SetTransientStatus(Text, IsError, Duration)
+	self:SetStatus(Text, IsError)
+	local Token = self.StatusToken
+	task.delay(Duration or 3, function()
+		if not self.Destroyed and self.StatusToken == Token then
+			self:SafeRefresh()
+		end
+	end)
+end
+
+function GlobalChat:SafeRefresh()
+	if self.Destroyed or self.RefreshInProgress then return end
+	self.RefreshInProgress = true
+	local Success, Error = pcall(self.Refresh, self)
+	self.RefreshInProgress = false
+	if not Success and not self.Destroyed then
+		self:SetStatus("Chat refresh failed; retrying…", true)
+		warn("[GlobalChat] Refresh failed: " .. tostring(Error))
+	end
 end
 
 function GlobalChat:Request(Method, Payload, Path)
@@ -585,7 +609,7 @@ function GlobalChat:JoinServer(PlayerId)
 	local Teleported, Error = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, PlaceId, JobId, self.Player)
 	if not Teleported then
 		self.ChatJoinPending = false
-		self:SetStatus("Join failed: " .. tostring(Error), true)
+		self:SetTransientStatus("Join failed: " .. tostring(Error), true, 3)
 	else
 		task.delay(15, function()
 			if not self.Destroyed and self.ChatJoinAttempt == Attempt then
@@ -872,7 +896,7 @@ function GlobalChat:SendMessage()
 	self:SetStatus("message sent", false)
 	task.spawn(function()
 		task.wait(0.1)
-		self:Refresh()
+		self:SafeRefresh()
 	end)
 end
 
@@ -883,11 +907,11 @@ function GlobalChat:StartPolling()
 	end
 
 	task.spawn(function()
-		self:Refresh()
+		self:SafeRefresh()
 		while not self.Destroyed and not (self.Config.Library and self.Config.Library.Unloaded) do
 			task.wait(self.PollInterval)
 			if not self.Destroyed then
-				self:Refresh()
+				self:SafeRefresh()
 			end
 		end
 	end)
