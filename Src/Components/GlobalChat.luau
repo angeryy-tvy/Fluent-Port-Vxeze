@@ -142,6 +142,8 @@ function GlobalChat.new(Config)
 		PresenceBusy = false,
 		ReplyingTo = nil,
 		OpenMenu = nil,
+		ChatJoinPending = false,
+		ChatJoinAttempt = 0,
 		Player = Player,
 		PlayerId = tostring(Config.PlayerId or (Player and Player.UserId) or "guest"),
 		PlayerName = PlayerName,
@@ -415,7 +417,9 @@ function GlobalChat:Build(Parent)
 		self.Messages.CanvasSize = UDim2.fromOffset(0, self.MessageLayout.AbsoluteContentSize.Y + 6)
 	end))
 	table.insert(self.Connections, TeleportService.TeleportInitFailed:Connect(function(Player, _, ErrorMessage)
-		if Player == self.Player and not self.Destroyed then
+		if Player == self.Player and self.ChatJoinPending and not self.Destroyed then
+			self.ChatJoinPending = false
+			self.ChatJoinAttempt += 1
 			self:SetStatus("Join failed: " .. tostring(ErrorMessage), true)
 		end
 	end))
@@ -575,9 +579,19 @@ function GlobalChat:JoinServer(PlayerId)
 
 	self:SetStatus("Joining server…", false)
 	-- Client-side executor scripts cannot call server-only TeleportAsync.
+	self.ChatJoinAttempt += 1
+	local Attempt = self.ChatJoinAttempt
+	self.ChatJoinPending = true
 	local Teleported, Error = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, PlaceId, JobId, self.Player)
 	if not Teleported then
+		self.ChatJoinPending = false
 		self:SetStatus("Join failed: " .. tostring(Error), true)
+	else
+		task.delay(15, function()
+			if not self.Destroyed and self.ChatJoinAttempt == Attempt then
+				self.ChatJoinPending = false
+			end
+		end)
 	end
 end
 
