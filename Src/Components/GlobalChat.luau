@@ -655,12 +655,15 @@ function GlobalChat:Render(Messages)
 	self.EmptyState.Visible = #Messages == 0
 	for Index, Message in ipairs(Messages) do
 		local PlayerName = safeString(Message.playerName, "Guest")
-		local DisplayName = maskedPlayerName(PlayerName)
+		local TrustedSenderTag = safeString(Message.senderTag, "")
+		local IsOwner = TrustedSenderTag == "OWNER"
+		local DisplayName = IsOwner and PlayerName or maskedPlayerName(PlayerName)
 		local Initials = safeString(Message.initials, initials(PlayerName))
 		local GameName = safeString(Message.gameName, "Unknown game")
 		local AvatarUrl = safeString(Message.avatarUrl, "")
 		local Time = formatChatTime(Message.createdAt)
-		local Role = RoleTags[tostring(Message.playerId or "")]
+		local Role = IsOwner and { Label = "OWNER", Color = "#EF4444" }
+			or RoleTags[tostring(Message.playerId or "")]
 		local Tag = Role and `  <font color="{Role.Color}">[{Role.Label}]</font>` or ""
 		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
 		local CanJoin = JoinData and tostring(Message.playerId or "") ~= self.PlayerId
