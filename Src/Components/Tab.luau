@@ -331,6 +331,9 @@ function TabModule:SelectItem(TabIndex, Item)
 	if not Tab or not Item or not Item.Frame or Item.Frame.Visible == false then
 		return
 	end
+	if Window.SetCompactChatMode then
+		Window:SetCompactChatMode(Item.ContainerFrame:FindFirstChild("GlobalChat") ~= nil)
+	end
 
 	TabModule.SelectedTab = TabIndex
 	TabModule.SelectedItem = Item

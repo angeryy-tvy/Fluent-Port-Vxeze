@@ -1709,6 +1709,25 @@ return function(Config)
 	Creator.AddSignal(Window.PlayerCardButton.MouseButton1Click, OpenProfileDialog)
 
 	local TabModule = require(Components.Tab):Init(Window)
+	-- On phones, keep tab icons available while giving the inline chat most of the window.
+	function Window:SetCompactChatMode(Enabled)
+		if not Layout.Compact then return end
+		local ChatFocused = Enabled == true
+		SidebarShell.Position = UDim2.fromOffset(ChatFocused and 4 or 12, ChatFocused and 48 or 54)
+		SidebarShell.Size = ChatFocused and UDim2.new(0, 42, 1, -52)
+			or UDim2.new(0, Window.TabWidth + 24, 1, -66)
+		ContentShell.Position = ChatFocused and UDim2.fromOffset(50, 48)
+			or UDim2.fromOffset(Window.TabWidth + 36, 54)
+		ContentShell.Size = ChatFocused and UDim2.new(1, -54, 1, -52)
+			or UDim2.new(1, -Window.TabWidth - 48, 1, -66)
+		Window.SearchBox.Frame.Visible = not ChatFocused
+		Window.PlayerCard.Visible = not ChatFocused and not PlayerCardDismissed
+		Window.TabHolder.Position = ChatFocused and UDim2.fromOffset(0, 0)
+			or UDim2.fromOffset(0, SearchBarHeight + SearchBarPadding)
+		Window.TabHolder.Size = ChatFocused and UDim2.fromScale(1, 1)
+			or UDim2.new(1, 0, 1, -(SearchBarHeight + SearchBarPadding + (PlayerCardDismissed and 0 or UserCardHeight + UserCardPadding)))
+		SelectorOffsetY = ChatFocused and Layout.TabHeight / 2 or SearchBarHeight + SearchBarPadding + Layout.TabHeight / 2
+	end
 	local SearchDebounceDelay = 0.15
 	local SearchRequestId = 0
 
