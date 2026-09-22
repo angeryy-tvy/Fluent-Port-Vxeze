@@ -169,11 +169,11 @@ function GlobalChat:Build(Parent)
 	local Accent = Color3.fromRGB(82, 201, 255)
 	local Inline = self.Config.Inline == true
 	local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-	local HeaderHeight = Compact and 36 or 48
+	local HeaderHeight = Compact and 32 or 48
 	local ContentTop = HeaderHeight + (Compact and 2 or 4)
-	local ComposerHeight = Compact and 38 or 34
-	local BottomInset = Compact and 5 or 12
-	local ComposerGap = Compact and 4 or 8
+	local ComposerHeight = Compact and 36 or 34
+	local BottomInset = Compact and 4 or 12
+	local ComposerGap = Compact and 3 or 8
 	local HorizontalInset = Compact and 5 or 10
 	local SendWidth = Compact and 64 or 62
 	local ReplyBarHeight = 24
@@ -231,8 +231,8 @@ function GlobalChat:Build(Parent)
 
 	New("TextLabel", {
 		Text = safeString(self.Config.Title, "Global Chat"),
-		Position = UDim2.fromOffset(Compact and 10 or 16, Compact and 4 or 9),
-		Size = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight + 20), 0, 18),
+		Position = UDim2.fromOffset(Compact and 10 or 16, Compact and 2 or 9),
+		Size = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight + 20), 0, Compact and 16 or 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Font = Enum.Font.GothamBold,
 		TextSize = 14,
@@ -244,7 +244,7 @@ function GlobalChat:Build(Parent)
 
 	self.Status = New("TextLabel", {
 		Text = "●  connecting…",
-		Position = UDim2.fromOffset(Compact and 10 or 16, Compact and 21 or 27),
+		Position = UDim2.fromOffset(Compact and 10 or 16, Compact and 18 or 27),
 		Size = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight + 20), 0, 14),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Font = Enum.Font.Gotham,
@@ -272,7 +272,7 @@ function GlobalChat:Build(Parent)
 	self.JoinToggle = rounded(New("TextButton", {
 		Name = "AllowJoinSetting",
 		Text = Compact and "Join: OFF" or "Allow Join: OFF",
-		Position = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight), 0, Compact and 5 or 10),
+		Position = UDim2.new(1, -(JoinToggleWidth + JoinToggleRight), 0, Compact and 4 or 10),
 		Size = UDim2.fromOffset(JoinToggleWidth, Compact and 24 or 26),
 		Font = Enum.Font.GothamBold,
 		TextSize = Compact and 9 or 10,
@@ -671,11 +671,11 @@ function GlobalChat:Render(Messages)
 		local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 		local Reply = typeof(Message.reply) == "table" and Message.reply or nil
 		local HasReply = Reply and safeString(Reply.content, "") ~= ""
-		local BaseRowHeight = Compact and 44 or 42
+		local BaseRowHeight = 42
 		local ReplyHeight = HasReply and (Compact and 14 or 16) or 0
 		local RowHeight = BaseRowHeight + ReplyHeight
 		local MetaY = Compact and 4 or 5
-		local BodyY = (Compact and 21 or 19) + ReplyHeight
+		local BodyY = (Compact and 20 or 19) + ReplyHeight
 		local RightInset = CanJoin and 164 or 76
 		local AvatarSize = Compact and 24 or 28
 		local AvatarX = Compact and 5 or 7
@@ -730,7 +730,7 @@ function GlobalChat:Render(Messages)
 
 		if HasReply then
 			New("TextLabel", {
-				Position = UDim2.fromOffset(TextX, Compact and 21 or 19),
+				Position = UDim2.fromOffset(TextX, Compact and 20 or 19),
 				Size = UDim2.new(1, -RightInset, 0, 14),
 				Text = `↪ {maskedPlayerName(safeString(Reply.playerName, "Guest"))}: {safeString(Reply.content, "")}`,
 				TextTruncate = Enum.TextTruncate.AtEnd,
