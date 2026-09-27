@@ -347,6 +347,9 @@ function GlobalChat:Build(Parent)
 	})
 	self.MessagesBaseSize = self.Messages.Size
 	self.MessagesBasePosition = self.Messages.Position
+	self.PinnedBaseHeight = PinnedHeight
+	self.PinnedGap = Compact and 3 or 5
+	self.PinnedLineHeight = Compact and 11 or 13
 	self.PinnedOffset = PinnedHeight + (Compact and 3 or 5)
 
 	self.MessageLayout = New("UIListLayout", {
@@ -585,9 +588,16 @@ function GlobalChat:UpdatePinnedMessage(Pinned)
 	self.PinnedActive = Active
 	self.PinnedFrame.Visible = Active
 	if Active then
-		self.PinnedText.Text = safeString(Pinned.content, "")
+		local Content = safeString(Pinned.content, "")
+		local _, BreakCount = Content:gsub("\n", "")
+		local VisibleLines = math.clamp(BreakCount + 1, 1, 3)
+		local Height = self.PinnedBaseHeight + (VisibleLines - 1) * self.PinnedLineHeight
+		self.PinnedFrame.Size = UDim2.new(self.PinnedFrame.Size.X.Scale, self.PinnedFrame.Size.X.Offset, 0, Height)
+		self.PinnedOffset = Height + self.PinnedGap
+		self.PinnedText.Text = Content
 		self.PinnedMeta.Text = `📌  PINNED • {safeString(Pinned.updatedByName, "OWNER")}`
 	else
+		self.PinnedOffset = self.PinnedBaseHeight + self.PinnedGap
 		self.PinnedText.Text = ""
 	end
 	self:ApplyMessagesLayout()
@@ -752,9 +762,13 @@ function GlobalChat:Render(Messages)
 		local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 		local Reply = typeof(Message.reply) == "table" and Message.reply or nil
 		local HasReply = Reply and safeString(Reply.content, "") ~= ""
+		local Content = safeString(Message.content, "")
+		local _, BreakCount = Content:gsub("\n", "")
+		local VisibleLines = math.clamp(BreakCount + 1, 1, 3)
+		local ExtraBodyHeight = (VisibleLines - 1) * (Compact and 12 or 14)
 		local BaseRowHeight = 42
 		local ReplyHeight = HasReply and (Compact and 14 or 16) or 0
-		local RowHeight = BaseRowHeight + ReplyHeight
+		local RowHeight = BaseRowHeight + ReplyHeight + ExtraBodyHeight
 		local MetaY = Compact and 4 or 5
 		local BodyY = (Compact and 20 or 19) + ReplyHeight
 		local RightInset = CanJoin and 164 or 76
@@ -827,11 +841,11 @@ function GlobalChat:Render(Messages)
 
 		New("TextLabel", {
 			Position = UDim2.fromOffset(TextX, BodyY),
-			Size = UDim2.new(1, -RightInset, 0, 18),
-			Text = safeString(Message.content, ""),
+			Size = UDim2.new(1, -RightInset, 0, 18 + ExtraBodyHeight),
+			Text = Content,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
+			TextYAlignment = VisibleLines > 1 and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center,
 			Font = Enum.Font.Gotham,
 			TextSize = 11,
 			ZIndex = 93,
