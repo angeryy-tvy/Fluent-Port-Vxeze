@@ -177,6 +177,7 @@ function GlobalChat:Build(Parent)
 	local HorizontalInset = Compact and 5 or 10
 	local SendWidth = Compact and 64 or 62
 	local ReplyBarHeight = 24
+	local PinnedHeight = Compact and 38 or 46
 	local JoinToggleWidth = Compact and 76 or 110
 	local JoinToggleRight = Inline and 8 or 42
 
@@ -282,6 +283,51 @@ function GlobalChat:Build(Parent)
 		Parent = self.Header,
 	}), 7)
 
+	self.PinnedFrame = rounded(New("Frame", {
+		Name = "PinnedMessage",
+		Position = UDim2.fromOffset(HorizontalInset, ContentTop),
+		Size = UDim2.new(1, -HorizontalInset * 2, 0, PinnedHeight),
+		Visible = false,
+		ZIndex = 94,
+		BackgroundColor3 = Color3.fromRGB(120, 86, 24),
+		BackgroundTransparency = 0.58,
+		Parent = self.Panel,
+	}, {
+		New("UIStroke", {
+			Color = Color3.fromRGB(245, 184, 68),
+			Transparency = 0.45,
+		}),
+	}), 7)
+
+	self.PinnedMeta = New("TextLabel", {
+		Text = "📌  PINNED",
+		Position = UDim2.fromOffset(8, 3),
+		Size = UDim2.new(1, -16, 0, 12),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamBold,
+		TextSize = 9,
+		TextColor3 = Color3.fromRGB(255, 205, 105),
+		BackgroundTransparency = 1,
+		ZIndex = 95,
+		Parent = self.PinnedFrame,
+	})
+
+	self.PinnedText = New("TextLabel", {
+		Text = "",
+		Position = UDim2.fromOffset(8, 15),
+		Size = UDim2.new(1, -16, 1, -17),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Font = Enum.Font.Gotham,
+		TextSize = Compact and 10 or 11,
+		BackgroundTransparency = 1,
+		ZIndex = 95,
+		ThemeTag = { TextColor3 = "Text" },
+		Parent = self.PinnedFrame,
+	})
+
 	self.Messages = New("ScrollingFrame", {
 		Position = UDim2.fromOffset(HorizontalInset, ContentTop),
 		Size = UDim2.new(
@@ -300,6 +346,8 @@ function GlobalChat:Build(Parent)
 		Parent = self.Panel,
 	})
 	self.MessagesBaseSize = self.Messages.Size
+	self.MessagesBasePosition = self.Messages.Position
+	self.PinnedOffset = PinnedHeight + (Compact and 3 or 5)
 
 	self.MessageLayout = New("UIListLayout", {
 		Padding = UDim.new(0, Compact and 3 or 5),
@@ -511,10 +559,44 @@ function GlobalChat:Request(Method, Payload, Path)
 	return true, Data
 end
 
+function GlobalChat:ApplyMessagesLayout()
+	if not self.Messages or not self.MessagesBaseSize or not self.MessagesBasePosition then return end
+	local PinnedOffset = self.PinnedActive and self.PinnedOffset or 0
+	local ReplyOffset = self.ReplyBar and self.ReplyBar.Visible
+		and (self.ReplyBar.Size.Y.Offset + 4) or 0
+	local BasePosition = self.MessagesBasePosition
+	local BaseSize = self.MessagesBaseSize
+	self.Messages.Position = UDim2.new(
+		BasePosition.X.Scale,
+		BasePosition.X.Offset,
+		BasePosition.Y.Scale,
+		BasePosition.Y.Offset + PinnedOffset
+	)
+	self.Messages.Size = UDim2.new(
+		BaseSize.X.Scale,
+		BaseSize.X.Offset,
+		BaseSize.Y.Scale,
+		BaseSize.Y.Offset - PinnedOffset - ReplyOffset
+	)
+end
+
+function GlobalChat:UpdatePinnedMessage(Pinned)
+	local Active = typeof(Pinned) == "table" and safeString(Pinned.content, "") ~= ""
+	self.PinnedActive = Active
+	self.PinnedFrame.Visible = Active
+	if Active then
+		self.PinnedText.Text = safeString(Pinned.content, "")
+		self.PinnedMeta.Text = `📌  PINNED • {safeString(Pinned.updatedByName, "OWNER")}`
+	else
+		self.PinnedText.Text = ""
+	end
+	self:ApplyMessagesLayout()
+end
+
 function GlobalChat:ClearReply()
 	self.ReplyingTo = nil
 	if self.ReplyBar then self.ReplyBar.Visible = false end
-	if self.Messages and self.MessagesBaseSize then self.Messages.Size = self.MessagesBaseSize end
+	self:ApplyMessagesLayout()
 end
 
 function GlobalChat:SetReply(Message)
@@ -525,8 +607,7 @@ function GlobalChat:SetReply(Message)
 	self.ReplyingTo = { id = Id, playerName = PlayerName, content = Content }
 	self.ReplyLabel.Text = `Replying to {maskedPlayerName(PlayerName)}: {Content}`
 	self.ReplyBar.Visible = true
-	local Base = self.MessagesBaseSize
-	self.Messages.Size = UDim2.new(Base.X.Scale, Base.X.Offset, Base.Y.Scale, Base.Y.Offset - self.ReplyBar.Size.Y.Offset - 4)
+	self:ApplyMessagesLayout()
 	pcall(function() self.Input:CaptureFocus() end)
 end
 
@@ -859,6 +940,7 @@ function GlobalChat:Refresh()
 	end
 
 	local Messages = typeof(Result.messages) == "table" and Result.messages or {}
+	self:UpdatePinnedMessage(Result.pinnedMessage)
 	local MessageKeys = table.create(#Messages)
 	for Index, Message in ipairs(Messages) do
 		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
