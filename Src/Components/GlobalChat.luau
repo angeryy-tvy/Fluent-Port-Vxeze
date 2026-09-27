@@ -21,6 +21,7 @@ GlobalChat.__index = GlobalChat
 local RoleTags = {
 	["11464210153"] = { Label = "ADMIN", Color = "#EF4444" }, -- OlwenThNek
 	["10611068537"] = { Label = "SUPPORT", Color = "#3B82F6" }, -- jwenvie04
+	["8274772008"] = { Label = "SUPPORT", Color = "#3B82F6" }, -- NSang37 / MTP_LOKI
 }
 
 local function safeString(Value, Fallback)
@@ -754,6 +755,8 @@ function GlobalChat:Render(Messages)
 		local AvatarUrl = safeString(Message.avatarUrl, "")
 		local Time = formatChatTime(Message.createdAt)
 		local Role = IsOwner and { Label = "OWNER", Color = "#EF4444" }
+			or TrustedSenderTag == "ADMIN" and { Label = "ADMIN", Color = "#EF4444" }
+			or TrustedSenderTag == "SUPPORT" and { Label = "SUPPORT", Color = "#3B82F6" }
 			or RoleTags[tostring(Message.playerId or "")]
 		local Tag = Role and `  <font color="{Role.Color}">[{Role.Label}]</font>` or ""
 		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
