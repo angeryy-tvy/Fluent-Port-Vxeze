@@ -142,6 +142,8 @@ function GlobalChat.new(Config)
 		AllowJoin = false,
 		PresenceBusy = false,
 		ReplyingTo = nil,
+		ReportingMessage = nil,
+		ReportBusy = false,
 		OpenMenu = nil,
 		ChatJoinPending = false,
 		ChatJoinAttempt = 0,
@@ -445,6 +447,100 @@ function GlobalChat:Build(Parent)
 		Parent = self.InputFrame,
 	}), 6)
 
+	self.ReportOverlay = New("Frame", {
+		Name = "ReportOverlay",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundTransparency = 0.25,
+		Visible = false,
+		ZIndex = 150,
+		Parent = self.Panel,
+	})
+
+	self.ReportCard = rounded(New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -24, 0, Compact and 156 or 172),
+		ZIndex = 151,
+		ThemeTag = { BackgroundColor3 = "Dialog" },
+		Parent = self.ReportOverlay,
+	}, {
+		New("UIStroke", { Transparency = 0.25, ThemeTag = { Color = "DialogBorder" } }),
+	}), 8)
+
+	New("TextLabel", {
+		Text = "Report chat / user",
+		Position = UDim2.fromOffset(12, 9),
+		Size = UDim2.new(1, -24, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		BackgroundTransparency = 1,
+		ZIndex = 152,
+		ThemeTag = { TextColor3 = "Text" },
+		Parent = self.ReportCard,
+	})
+
+	self.ReportTarget = New("TextLabel", {
+		Text = "",
+		Position = UDim2.fromOffset(12, 28),
+		Size = UDim2.new(1, -24, 0, 14),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		BackgroundTransparency = 1,
+		ZIndex = 152,
+		ThemeTag = { TextColor3 = "SubText" },
+		Parent = self.ReportCard,
+	})
+
+	self.ReportInput = rounded(New("TextBox", {
+		Text = "",
+		PlaceholderText = "Enter report reason…",
+		ClearTextOnFocus = false,
+		MultiLine = true,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Position = UDim2.fromOffset(12, 48),
+		Size = UDim2.new(1, -24, 0, Compact and 58 or 70),
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		ZIndex = 152,
+		ThemeTag = { TextColor3 = "Text", PlaceholderColor3 = "SubText", BackgroundColor3 = "DialogInput" },
+		Parent = self.ReportCard,
+	}, {
+		New("UIPadding", {
+			PaddingTop = UDim.new(0, 7),
+			PaddingBottom = UDim.new(0, 7),
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+		}),
+	}), 6)
+
+	self.ReportCancel = rounded(New("TextButton", {
+		Text = "Cancel",
+		Position = UDim2.new(0.5, -90, 1, -36),
+		Size = UDim2.fromOffset(84, 27),
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		ZIndex = 152,
+		ThemeTag = { TextColor3 = "Text", BackgroundColor3 = "DialogButton" },
+		Parent = self.ReportCard,
+	}), 6)
+
+	self.ReportSubmit = rounded(New("TextButton", {
+		Text = "Send report",
+		Position = UDim2.new(0.5, 6, 1, -36),
+		Size = UDim2.fromOffset(84, 27),
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		ZIndex = 152,
+		ThemeTag = { TextColor3 = "Text", BackgroundColor3 = "Accent" },
+		Parent = self.ReportCard,
+	}), 6)
+
 	if not Inline then
 		table.insert(self.Connections, self.ToggleButton.MouseButton1Click:Connect(function()
 			self:Toggle()
@@ -461,6 +557,12 @@ function GlobalChat:Build(Parent)
 	end))
 	table.insert(self.Connections, self.CancelReply.MouseButton1Click:Connect(function()
 		self:ClearReply()
+	end))
+	table.insert(self.Connections, self.ReportCancel.MouseButton1Click:Connect(function()
+		self:CloseReport()
+	end))
+	table.insert(self.Connections, self.ReportSubmit.MouseButton1Click:Connect(function()
+		task.spawn(function() self:SubmitReport() end)
 	end))
 	table.insert(self.Connections, self.Input.FocusLost:Connect(function(EnterPressed)
 		if EnterPressed then
@@ -552,11 +654,15 @@ function GlobalChat:Request(Method, Payload, Path)
 	else
 		Success, Response = pcall(HttpService.RequestAsync, HttpService, Request)
 	end
-	if not Success or typeof(Response) ~= "table" or not Response.Success then
-		return false, (Success and typeof(Response) == "table" and (Response.StatusMessage or "Request failed") or tostring(Response))
+	if not Success or typeof(Response) ~= "table" then
+		return false, tostring(Response)
 	end
 
-	local DecodeSuccess, Data = pcall(HttpService.JSONDecode, HttpService, Response.Body)
+	local DecodeSuccess, Data = pcall(HttpService.JSONDecode, HttpService, Response.Body or "")
+	if not Response.Success then
+		local ServerError = DecodeSuccess and typeof(Data) == "table" and safeString(Data.error, "") or ""
+		return false, ServerError ~= "" and ServerError or (Response.StatusMessage or "Request failed")
+	end
 	if not DecodeSuccess or typeof(Data) ~= "table" then
 		return false, "Invalid chat response"
 	end
@@ -629,6 +735,53 @@ function GlobalChat:CopyMessage(Content)
 	end
 	local Success, Error = pcall(self.SetClipboard, Content)
 	self:SetStatus(Success and "message copied" or ("Copy failed: " .. tostring(Error)), not Success)
+end
+
+function GlobalChat:OpenReport(Message)
+	local PlayerId = tostring(Message.playerId or "")
+	if not PlayerId:match("^%d+$") or PlayerId == self.PlayerId then
+		self:SetStatus("This message cannot be reported", true)
+		return
+	end
+	self.ReportingMessage = Message
+	self.ReportTarget.Text = `Reporting {maskedPlayerName(safeString(Message.playerName, "Guest"))}`
+	self.ReportInput.Text = ""
+	self.ReportOverlay.Visible = true
+	pcall(function() self.ReportInput:CaptureFocus() end)
+end
+
+function GlobalChat:CloseReport()
+	if self.ReportBusy then return end
+	self.ReportingMessage = nil
+	self.ReportInput.Text = ""
+	self.ReportOverlay.Visible = false
+end
+
+function GlobalChat:SubmitReport()
+	if self.ReportBusy or not self.ReportingMessage then return end
+	local Reason = self.ReportInput.Text:gsub("^%s+", ""):gsub("%s+$", "")
+	if Reason == "" then
+		self:SetStatus("Enter a report reason", true)
+		return
+	end
+	self.ReportBusy = true
+	self.ReportSubmit.Active = false
+	self.ReportSubmit.Text = "Sending…"
+	local Success, Result = self:Request("POST", {
+		reporterPlayerId = self.PlayerId,
+		reporterPlayerName = self.PlayerName,
+		messageId = tostring(self.ReportingMessage.id or ""),
+		reason = Reason,
+	}, "/report")
+	self.ReportBusy = false
+	self.ReportSubmit.Active = true
+	self.ReportSubmit.Text = "Send report"
+	if not Success then
+		self:SetStatus(Result, true)
+		return
+	end
+	self:CloseReport()
+	self:SetTransientStatus("Report sent to website admins", false, 3)
 end
 
 function GlobalChat:UpdateJoinToggle()
@@ -760,6 +913,8 @@ function GlobalChat:Render(Messages)
 			or RoleTags[tostring(Message.playerId or "")]
 		local Tag = Role and `  <font color="{Role.Color}">[{Role.Label}]</font>` or ""
 		local JoinData = typeof(Message.joinServer) == "table" and Message.joinServer or nil
+		local CanReport = tostring(Message.playerId or ""):match("^%d+$") ~= nil
+			and tostring(Message.playerId or "") ~= self.PlayerId
 		local CanJoin = JoinData and tostring(Message.playerId or "") ~= self.PlayerId
 			and tonumber(JoinData.placeId) and typeof(JoinData.jobId) == "string" and JoinData.jobId ~= ""
 		local Compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -874,10 +1029,12 @@ function GlobalChat:Render(Messages)
 			end)
 		end
 
+		local ActionCount = CanReport and 3 or 2
+		local MenuWidth = CanReport and 156 or 112
 		local Menu = rounded(New("Frame", {
 			Name = "MessageActions",
-			Position = UDim2.new(1, -118, 0, Compact and 6 or 4),
-			Size = UDim2.fromOffset(112, Compact and 28 or 22),
+			Position = UDim2.new(1, -(MenuWidth + 6), 0, Compact and 6 or 4),
+			Size = UDim2.fromOffset(MenuWidth, Compact and 28 or 22),
 			Visible = false,
 			ZIndex = 98,
 			ThemeTag = { BackgroundColor3 = "DialogButton" },
@@ -885,7 +1042,7 @@ function GlobalChat:Render(Messages)
 		}), 5)
 		local Copy = New("TextButton", {
 			Text = "Copy",
-			Size = UDim2.new(0.5, 0, 1, 0),
+			Size = UDim2.new(1 / ActionCount, 0, 1, 0),
 			Font = Enum.Font.GothamBold,
 			TextSize = 9,
 			BackgroundTransparency = 1,
@@ -895,8 +1052,8 @@ function GlobalChat:Render(Messages)
 		})
 		local ReplyButton = New("TextButton", {
 			Text = "Reply",
-			Position = UDim2.fromScale(0.5, 0),
-			Size = UDim2.new(0.5, 0, 1, 0),
+			Position = UDim2.fromScale(1 / ActionCount, 0),
+			Size = UDim2.new(1 / ActionCount, 0, 1, 0),
 			Font = Enum.Font.GothamBold,
 			TextSize = 9,
 			BackgroundTransparency = 1,
@@ -904,6 +1061,20 @@ function GlobalChat:Render(Messages)
 			ThemeTag = { TextColor3 = "Text" },
 			Parent = Menu,
 		})
+		local ReportButton
+		if CanReport then
+			ReportButton = New("TextButton", {
+				Text = "Report",
+				Position = UDim2.fromScale(2 / ActionCount, 0),
+				Size = UDim2.new(1 / ActionCount, 0, 1, 0),
+				Font = Enum.Font.GothamBold,
+				TextSize = 9,
+				TextColor3 = Color3.fromRGB(255, 130, 130),
+				BackgroundTransparency = 1,
+				ZIndex = 99,
+				Parent = Menu,
+			})
+		end
 		local More = New("TextButton", {
 			Name = "MoreActions",
 			Text = "•••",
@@ -931,6 +1102,13 @@ function GlobalChat:Render(Messages)
 			self.OpenMenu = nil
 			self:SetReply(Message)
 		end)
+		if ReportButton then
+			ReportButton.MouseButton1Click:Connect(function()
+				Menu.Visible = false
+				self.OpenMenu = nil
+				self:OpenReport(Message)
+			end)
+		end
 	end
 
 	task.spawn(function()
