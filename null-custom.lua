@@ -3835,28 +3835,79 @@ function NullUI:CreateWindow(opts)
 		end
 	end))
 
-	if IsMobileDevice then
-		local mobileToggle = Instance.new("ImageButton")
-		mobileToggle.Name = "MobileToggleButton"
-		mobileToggle.BackgroundColor3 = Color3.fromRGB(1, 1, 1)
-		mobileToggle.BackgroundTransparency = 1
+	-- Floating launcher (same idea as FluentCustom's round button): a draggable ring that
+	-- shows/hides the window on every platform. Pass LauncherButton = false to disable it,
+	-- LauncherImage for a custom picture and TogglePosition to place it.
+	local showLauncher = opts.LauncherButton
+	if showLauncher == nil then
+		showLauncher = true
+	end
+	if showLauncher then
+		local mobileToggle = Instance.new("Frame")
+		mobileToggle.Name = "LauncherButton"
+		mobileToggle.Active = true
+		mobileToggle.BackgroundColor3 = Color3.new(1, 1, 1)
+		mobileToggle.BackgroundTransparency = 0
 		mobileToggle.BorderSizePixel = 0
-		-- Alinhado com a barra do Roblox: a ScreenGui comeca abaixo do inset, entao
-		-- subir inset.Y coloca o botao na mesma faixa das pilulas do topo.
-		local topInset = GuiService:GetGuiInset().Y
-		local toggleSize = 45
-		local bandY = -(topInset / GetUIScale()) + ((topInset / GetUIScale()) - toggleSize) / 2
+		local toggleSize = 52
+		local defaultPos = UDim2.fromOffset(50, 50)
+		if IsMobileDevice then
+			-- Align with the Roblox top bar: the ScreenGui starts below the inset, so
+			-- moving up by the inset puts the button in the same strip as the top pills.
+			local topInset = GuiService:GetGuiInset().Y
+			local bandY = -(topInset / GetUIScale()) + ((topInset / GetUIScale()) - toggleSize) / 2
+			defaultPos = UDim2.fromOffset(300, math.floor(bandY))
+		end
 
 		mobileToggle.AnchorPoint = Vector2.new(0, 0)
-		mobileToggle.Position = opts.TogglePosition or UDim2.fromOffset(300, math.floor(bandY))
+		mobileToggle.Position = opts.TogglePosition or defaultPos
 		mobileToggle.Size = UDim2.fromOffset(toggleSize, toggleSize)
-		mobileToggle.Image = "rbxassetid://136834285051667"
 		mobileToggle.ZIndex = Z.Toast
 		mobileToggle.Parent = root
 
 		local mobileToggleCorner = Instance.new("UICorner")
 		mobileToggleCorner.CornerRadius = UDim.new(1, 0)
 		mobileToggleCorner.Parent = mobileToggle
+
+		local ringStroke = Instance.new("UIStroke")
+		ringStroke.Color = Color3.fromRGB(0, 255, 255)
+		ringStroke.Thickness = 2
+		ringStroke.Parent = mobileToggle
+
+		-- Glows while the window is hidden, like Fluent's button.
+		local glowStroke = Instance.new("UIStroke")
+		glowStroke.Color = Color3.fromRGB(0, 255, 255)
+		glowStroke.Thickness = 4
+		glowStroke.Transparency = 0.55
+		glowStroke.Enabled = false
+		glowStroke.Parent = mobileToggle
+
+		local launcherImage = Instance.new("ImageLabel")
+		launcherImage.Name = "Picture"
+		launcherImage.BackgroundTransparency = 1
+		launcherImage.AnchorPoint = Vector2.new(0.5, 0.5)
+		launcherImage.Position = UDim2.fromScale(0.5, 0.5)
+		launcherImage.Size = UDim2.new(1, -4, 1, -4)
+		launcherImage.Image = opts.LauncherImage or "rbxassetid://87167480222237"
+		launcherImage.ZIndex = Z.Toast + 1
+		launcherImage.Parent = mobileToggle
+		local launcherImageCorner = Instance.new("UICorner")
+		launcherImageCorner.CornerRadius = UDim.new(1, 0)
+		launcherImageCorner.Parent = launcherImage
+
+		jan:Add(mobileToggle.MouseEnter:Connect(function()
+			Tween(launcherImage, { Size = UDim2.new(1, 2, 1, 2) }, 0.2)
+		end))
+		jan:Add(mobileToggle.MouseLeave:Connect(function()
+			Tween(launcherImage, { Size = UDim2.new(1, -4, 1, -4) }, 0.2)
+		end))
+
+		SafeSpawn(function()
+			while not self._destroyed and mobileToggle.Parent do
+				glowStroke.Enabled = self._state ~= "open"
+				task.wait(0.15)
+			end
+		end)
 
 		-- Draggable is deprecated and swallows touch input (Activated never fires),
 		-- so drive the drag by hand and treat a touch that barely moved as a tap.
@@ -3911,7 +3962,9 @@ function NullUI:CreateWindow(opts)
 		end))
 
 		jan:Add(mobileToggle)
-	elseif toggleKey then
+	end
+
+	if not IsMobileDevice and toggleKey then
 		NullUI:Notify({
 			Title = "Minimize Keybind",
 			Text = "Press " .. toggleKey.Name .. " to minimize or open this panel.",
