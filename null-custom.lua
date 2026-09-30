@@ -8118,7 +8118,7 @@ function Window:AddGlobalChatPanel(opts)
 		PadR = IsMobileDevice and 10 or 18,
 		RowGap = IsMobileDevice and 5 or 8,
 		Text = IsMobileDevice and 12 or 13,
-		PinText = IsMobileDevice and 13 or 14,
+		PinText = IsMobileDevice and 12 or 14,
 		HPad = IsMobileDevice and 8 or 10,
 		VPad = IsMobileDevice and 5 or 8,
 		Avatar = IsMobileDevice and 22 or 26,
@@ -8453,9 +8453,16 @@ function Window:AddGlobalChatPanel(opts)
 		end
 		local s = GetUIScale()
 		local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
-		local _, textH = MeasureText(pin.Text.Text, C.PinText, availW)
-		local natural = 28 + textH + 10
-		local cap = math.max(76, (content.AbsoluteSize.Y / s) * (C.Mobile and 0.3 or 0.4))
+		-- Prefer the rendered height (handles explicit line breaks); measure as a fallback.
+		local textH = pin.Text.AbsoluteSize.Y / s
+		if textH <= 0 then
+			local _, measured = MeasureText(pin.Text.Text, C.PinText, availW)
+			textH = measured
+		end
+		local natural = 28 + textH + 12
+		-- Show the whole notice, but always leave room for ~2 chat messages.
+		local panelH = content.AbsoluteSize.Y / s
+		local cap = math.max(76, math.min(panelH * 0.55, panelH - HEADER_H - INPUT_H - C.TopGap - 130))
 		return math.min(natural, cap)
 	end
 	local function applyLayout()
@@ -8559,6 +8566,7 @@ function Window:AddGlobalChatPanel(opts)
 		pin.SetCollapsed(not pin.Collapsed)
 	end))
 	jan:Add(content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
+	jan:Add(pin.Text:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
 
 	-- Reply bar above the composer.
 	local replyBar = Instance.new("Frame")
@@ -8862,6 +8870,8 @@ function Window:AddGlobalChatPanel(opts)
 		rowLayout.HorizontalAlignment = isOwn and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
 		rowLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 		rowLayout.Padding = UDim.new(0, C.RowGap)
+		-- Default sort is by Name, which put the action icons before the avatar.
+		rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		rowLayout.Parent = row
 
 		local isAnon = not msg.UserId or msg.UserId == 0
