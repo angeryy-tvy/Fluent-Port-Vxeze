@@ -17627,9 +17627,29 @@ function NullUI:GetLanguage()
 	return Translator.lang
 end
 
+-- Turn auto-translation on/off at runtime. Turning it off restores the original text.
+function NullUI:SetAutoTranslate(enabled)
+	Translator.enabled = enabled == true
+	if not Translator.enabled then
+		for label, original in pairs(Translator.source) do
+			if original and label.Parent and Translator.applied[label] then
+				label.Text = original
+			end
+		end
+	end
+end
+
 do
 	Translator.lang = TranslatorLanguage()
-	if Translator.lang ~= "en" and NullUI._Root then
+	-- Set `getgenv().NullUI_NoTranslate = true` before loading to skip the translator entirely.
+	local disabled = false
+	pcall(function()
+		disabled = getgenv().NullUI_NoTranslate == true
+	end)
+	if disabled then
+		Translator.enabled = false
+	end
+	if not disabled and Translator.lang ~= "en" and NullUI._Root then
 		TranslatorLoadCache()
 		Translator.pending = setmetatable({}, { __mode = "k" })
 		NullUI._Root.DescendantAdded:Connect(function(object)
