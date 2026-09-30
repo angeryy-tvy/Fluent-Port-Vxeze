@@ -8458,10 +8458,11 @@ function Window:AddGlobalChatPanel(opts)
 		local lines = 0
 		for line in (pin.Text.Text .. "\n"):gmatch("(.-)\n") do
 			local w = line == "" and 0 or MeasureText(line, C.PinText, 100000)
-			lines += math.max(1, math.ceil(w / availW))
+			-- MeasureText pads widths by MEASURE_FUDGE for safety; undo it so lines aren't over-counted.
+			lines += math.max(1, math.ceil(w / MEASURE_FUDGE / availW - 0.03))
 		end
-		local textH = lines * (C.PinText + 4)
-		local natural = 28 + textH + 12
+		local textH = lines * math.ceil(C.PinText * 1.18)
+		local natural = 26 + textH + 6
 		-- Show the whole notice; it only stops growing at 60% of the panel (scrolls past that).
 		-- Collapsing it from the header gives the chat list the space back.
 		local panelH = content.AbsoluteSize.Y / s
