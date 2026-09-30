@@ -3932,7 +3932,14 @@ function NullUI:CreateWindow(opts)
 
 		jan:Add(UserInputService.InputChanged:Connect(function(input)
 			LPH_ATTRIBUTES(VM(NONE))
-			if input ~= dragInput or not dragStart then
+			if not dragInput or not dragStart then
+				return
+			end
+			-- A touch keeps one InputObject for the whole gesture, but a held mouse button
+			-- does not: its movement arrives as separate MouseMovement objects.
+			local isMouseDrag = dragInput.UserInputType == Enum.UserInputType.MouseButton1
+				and input.UserInputType == Enum.UserInputType.MouseMovement
+			if input ~= dragInput and not isMouseDrag then
 				return
 			end
 			local delta = input.Position - dragStart
@@ -3952,7 +3959,11 @@ function NullUI:CreateWindow(opts)
 		end))
 
 		jan:Add(UserInputService.InputEnded:Connect(function(input)
-			if input ~= dragInput then
+			if not dragInput then
+				return
+			end
+			-- Release of the same touch/button that started the drag.
+			if input ~= dragInput and input.UserInputType ~= dragInput.UserInputType then
 				return
 			end
 			dragInput, dragStart = nil, nil
