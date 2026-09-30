@@ -8460,9 +8460,10 @@ function Window:AddGlobalChatPanel(opts)
 			textH = measured
 		end
 		local natural = 28 + textH + 12
-		-- Show the whole notice, but always leave room for ~2 chat messages.
+		-- Show the whole notice; it only stops growing at 60% of the panel (scrolls past that).
+		-- Collapsing it from the header gives the chat list the space back.
 		local panelH = content.AbsoluteSize.Y / s
-		local cap = math.max(76, math.min(panelH * 0.55, panelH - HEADER_H - INPUT_H - C.TopGap - 130))
+		local cap = math.max(110, panelH * 0.6)
 		return math.min(natural, cap)
 	end
 	local function applyLayout()
