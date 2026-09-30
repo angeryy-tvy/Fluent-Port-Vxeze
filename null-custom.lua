@@ -3850,18 +3850,16 @@ function NullUI:CreateWindow(opts)
 		mobileToggle.BackgroundTransparency = 0
 		mobileToggle.BorderSizePixel = 0
 		local toggleSize = 52
-		local defaultPos = UDim2.fromOffset(50, 50)
-		if IsMobileDevice then
-			-- Align with the Roblox top bar: the ScreenGui starts below the inset, so
-			-- moving up by the inset puts the button in the same strip as the top pills.
-			local topInset = GuiService:GetGuiInset().Y
-			local bandY = -(topInset / GetUIScale()) + ((topInset / GetUIScale()) - toggleSize) / 2
-			defaultPos = UDim2.fromOffset(300, math.floor(bandY))
+		-- The root is scaled by GlobalScale, so divide by it: the button is then 52px at
+		-- (50, 50) on screen on every device, exactly like FluentCustom's.
+		local launcherMoved = false
+		local function launcherPx(n)
+			return n / GetUIScale()
 		end
 
 		mobileToggle.AnchorPoint = Vector2.new(0, 0)
-		mobileToggle.Position = opts.TogglePosition or defaultPos
-		mobileToggle.Size = UDim2.fromOffset(toggleSize, toggleSize)
+		mobileToggle.Position = opts.TogglePosition or UDim2.fromOffset(launcherPx(50), launcherPx(50))
+		mobileToggle.Size = UDim2.fromOffset(launcherPx(toggleSize), launcherPx(toggleSize))
 		mobileToggle.ZIndex = Z.Toast
 		mobileToggle.Parent = root
 
@@ -3894,6 +3892,14 @@ function NullUI:CreateWindow(opts)
 		local launcherImageCorner = Instance.new("UICorner")
 		launcherImageCorner.CornerRadius = UDim.new(1, 0)
 		launcherImageCorner.Parent = launcherImage
+
+		-- Auto-scale can change after load; keep the size and, until it is dragged, the spot.
+		jan:Add(GlobalScale:GetPropertyChangedSignal("Scale"):Connect(function()
+			mobileToggle.Size = UDim2.fromOffset(launcherPx(toggleSize), launcherPx(toggleSize))
+			if not launcherMoved and not opts.TogglePosition then
+				mobileToggle.Position = UDim2.fromOffset(launcherPx(50), launcherPx(50))
+			end
+		end))
 
 		jan:Add(mobileToggle.MouseEnter:Connect(function()
 			Tween(launcherImage, { Size = UDim2.new(1, 2, 1, 2) }, 0.2)
@@ -3945,6 +3951,7 @@ function NullUI:CreateWindow(opts)
 			local delta = input.Position - dragStart
 			if not dragged and delta.Magnitude > DRAG_SLOP then
 				dragged = true
+				launcherMoved = true
 			end
 			if not dragged then
 				return
@@ -8104,7 +8111,19 @@ function Window:AddGlobalChatPanel(opts)
 		end
 	end)
 
-	local INPUT_H, HEADER_H = 38, 38
+	-- Phones get a denser layout so 3-4 messages fit next to the pinned notice.
+	local C = {
+		Mobile = IsMobileDevice,
+		TopGap = IsMobileDevice and 4 or 9,
+		PadR = IsMobileDevice and 10 or 18,
+		RowGap = IsMobileDevice and 5 or 8,
+		Text = IsMobileDevice and 12 or 13,
+		PinText = IsMobileDevice and 13 or 14,
+		HPad = IsMobileDevice and 8 or 10,
+		VPad = IsMobileDevice and 5 or 8,
+		Avatar = IsMobileDevice and 22 or 26,
+	}
+	local INPUT_H, HEADER_H = IsMobileDevice and 34 or 38, IsMobileDevice and 30 or 38
 
 	local panel = Instance.new("Frame")
 	panel.Name = "GlobalChatPanel"
@@ -8330,8 +8349,8 @@ function Window:AddGlobalChatPanel(opts)
 	local msgScroll = Instance.new("ScrollingFrame")
 	msgScroll.BackgroundTransparency = 1
 	msgScroll.BorderSizePixel = 0
-	msgScroll.Position = UDim2.fromOffset(0, HEADER_H + 9)
-	msgScroll.Size = UDim2.new(1, 0, 1, -(HEADER_H + 9 + INPUT_H + 10))
+	msgScroll.Position = UDim2.fromOffset(0, HEADER_H + C.TopGap)
+	msgScroll.Size = UDim2.new(1, 0, 1, -(HEADER_H + C.TopGap + INPUT_H + 10))
 	msgScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 	msgScroll.ScrollBarThickness = 0
 	msgScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -8340,11 +8359,11 @@ function Window:AddGlobalChatPanel(opts)
 	msgScroll.Parent = content
 
 	local msgPad = Instance.new("UIPadding")
-	msgPad.PaddingRight = UDim.new(0, 18)
+	msgPad.PaddingRight = UDim.new(0, C.PadR)
 	msgPad.Parent = msgScroll
 
 	local msgLayout = Instance.new("UIListLayout")
-	msgLayout.Padding = UDim.new(0, 8)
+	msgLayout.Padding = UDim.new(0, C.Mobile and 4 or 8)
 	msgLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	msgLayout.Parent = msgScroll
 
@@ -8397,7 +8416,7 @@ function Window:AddGlobalChatPanel(opts)
 		end)
 	end
 
-	local AVATAR = 26
+	local AVATAR = C.Avatar
 
 	-- Display-only role badges; the relay's SenderTag is the trusted source when present.
 	local ChatRoleTags = opts.RoleTags or {}
@@ -8419,55 +8438,127 @@ function Window:AddGlobalChatPanel(opts)
 	end
 
 	-- Layout: pinned notice and reply bar shrink the message list.
-	local PINNED_H, REPLY_H = 40, 24
+	local PINNED_COLLAPSED_H, REPLY_H = 30, 24
 	local pinnedActive, replyingTo = false, nil
+	local pin = { Collapsed = false }
+	local GOLD = Color3.fromRGB(245, 184, 68)
+
+	-- Tall enough for the whole text, capped so the chat list keeps most of the panel.
+	local function pinnedHeight()
+		if not pinnedActive then
+			return 0
+		end
+		if pin.Collapsed then
+			return PINNED_COLLAPSED_H
+		end
+		local s = GetUIScale()
+		local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
+		local _, textH = MeasureText(pin.Text.Text, C.PinText, availW)
+		local natural = 28 + textH + 10
+		local cap = math.max(76, (content.AbsoluteSize.Y / s) * (C.Mobile and 0.3 or 0.4))
+		return math.min(natural, cap)
+	end
 	local function applyLayout()
-		local top = HEADER_H + 9 + (pinnedActive and (PINNED_H + 6) or 0)
+		local ph = pinnedHeight()
+		local top = HEADER_H + C.TopGap + (pinnedActive and (ph + 6) or 0)
 		local bottom = INPUT_H + 10 + (replyingTo and (REPLY_H + 4) or 0)
+		if pinnedActive then
+			pin.Frame.Size = UDim2.new(1, 0, 0, ph)
+		end
 		msgScroll.Position = UDim2.fromOffset(0, top)
 		msgScroll.Size = UDim2.new(1, 0, 1, -(top + bottom))
 	end
 
-	local pinnedFrame = Instance.new("Frame")
-	pinnedFrame.Name = "PinnedNotice"
-	pinnedFrame.BackgroundColor3 = Color3.fromRGB(245, 184, 68)
-	pinnedFrame.BackgroundTransparency = 0.85
-	pinnedFrame.BorderSizePixel = 0
-	pinnedFrame.Visible = false
-	pinnedFrame.Position = UDim2.fromOffset(0, HEADER_H + 9)
-	pinnedFrame.Size = UDim2.new(1, 0, 0, PINNED_H)
-	pinnedFrame.ZIndex = BASE_Z + 1
-	pinnedFrame.Parent = content
-	Corner(pinnedFrame, 8)
-	Stroke(pinnedFrame, Color3.fromRGB(245, 184, 68), 1, 0.6)
+	pin.Frame = Instance.new("Frame")
+	pin.Frame.Name = "PinnedNotice"
+	pin.Frame.BackgroundColor3 = GOLD
+	pin.Frame.BackgroundTransparency = 0.78
+	pin.Frame.BorderSizePixel = 0
+	pin.Frame.ClipsDescendants = true
+	pin.Frame.Visible = false
+	pin.Frame.Position = UDim2.fromOffset(0, HEADER_H + C.TopGap)
+	pin.Frame.Size = UDim2.new(1, 0, 0, PINNED_COLLAPSED_H)
+	pin.Frame.ZIndex = BASE_Z + 1
+	pin.Frame.Parent = content
+	Corner(pin.Frame, 9)
+	Stroke(pin.Frame, GOLD, 1.5, 0.3)
 
-	local pinnedMeta = Instance.new("TextLabel")
-	pinnedMeta.BackgroundTransparency = 1
-	pinnedMeta.FontFace = NullUI.Theme.Font
-	pinnedMeta.Text = "PINNED"
-	pinnedMeta.TextColor3 = Color3.fromRGB(255, 205, 105)
-	pinnedMeta.TextSize = 9
-	pinnedMeta.TextXAlignment = Enum.TextXAlignment.Left
-	pinnedMeta.Position = UDim2.fromOffset(8, 3)
-	pinnedMeta.Size = UDim2.new(1, -16, 0, 12)
-	pinnedMeta.ZIndex = BASE_Z + 2
-	pinnedMeta.Parent = pinnedFrame
+	local pinnedBar = Instance.new("Frame")
+	pinnedBar.BackgroundColor3 = GOLD
+	pinnedBar.BorderSizePixel = 0
+	pinnedBar.Size = UDim2.new(0, 4, 1, 0)
+	pinnedBar.ZIndex = BASE_Z + 2
+	pinnedBar.Parent = pin.Frame
 
-	local pinnedText = Instance.new("TextLabel")
-	pinnedText.BackgroundTransparency = 1
-	pinnedText.FontFace = NullUI.Theme.FontRegular
-	pinnedText.Text = ""
-	pinnedText.TextColor3 = NullUI.Theme.Text
-	Role(pinnedText, "Text")
-	pinnedText.TextSize = 11
-	pinnedText.TextWrapped = true
-	pinnedText.TextTruncate = Enum.TextTruncate.AtEnd
-	pinnedText.TextXAlignment = Enum.TextXAlignment.Left
-	pinnedText.TextYAlignment = Enum.TextYAlignment.Top
-	pinnedText.Position = UDim2.fromOffset(8, 15)
-	pinnedText.Size = UDim2.new(1, -16, 1, -17)
-	pinnedText.ZIndex = BASE_Z + 2
-	pinnedText.Parent = pinnedFrame
+	pin.Meta = Instance.new("TextLabel")
+	pin.Meta.BackgroundTransparency = 1
+	pin.Meta.FontFace = NullUI.Theme.Font
+	pin.Meta.Text = "📌  PINNED"
+	pin.Meta.TextColor3 = Color3.fromRGB(255, 214, 120)
+	pin.Meta.TextSize = 12
+	pin.Meta.TextTruncate = Enum.TextTruncate.AtEnd
+	pin.Meta.TextXAlignment = Enum.TextXAlignment.Left
+	pin.Meta.Position = UDim2.fromOffset(14, 0)
+	pin.Meta.Size = UDim2.new(1, -42, 0, PINNED_COLLAPSED_H)
+	pin.Meta.ZIndex = BASE_Z + 3
+	pin.Meta.Parent = pin.Frame
+
+	pin.Chevron = Instance.new("ImageLabel")
+	pin.Chevron.BackgroundTransparency = 1
+	pin.Chevron.Image = ResolveIcon("chevron-up")
+	pin.Chevron.ImageColor3 = Color3.fromRGB(255, 214, 120)
+	pin.Chevron.AnchorPoint = Vector2.new(1, 0)
+	pin.Chevron.Position = UDim2.new(1, -10, 0, (PINNED_COLLAPSED_H - 14) / 2)
+	pin.Chevron.Size = UDim2.fromOffset(14, 14)
+	pin.Chevron.ZIndex = BASE_Z + 3
+	pin.Chevron.Parent = pin.Frame
+
+	pin.Header = Instance.new("TextButton")
+	pin.Header.Text = ""
+	pin.Header.AutoButtonColor = false
+	pin.Header.BackgroundTransparency = 1
+	pin.Header.Size = UDim2.new(1, 0, 0, PINNED_COLLAPSED_H)
+	pin.Header.ZIndex = BASE_Z + 4
+	pin.Header.Parent = pin.Frame
+
+	pin.Body = Instance.new("ScrollingFrame")
+	pin.Body.BackgroundTransparency = 1
+	pin.Body.BorderSizePixel = 0
+	pin.Body.ScrollingDirection = Enum.ScrollingDirection.Y
+	pin.Body.ScrollBarThickness = 3
+	pin.Body.ScrollBarImageColor3 = GOLD
+	pin.Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	pin.Body.CanvasSize = UDim2.new(0, 0, 0, 0)
+	pin.Body.Position = UDim2.fromOffset(14, 26)
+	pin.Body.Size = UDim2.new(1, -22, 1, -32)
+	pin.Body.ZIndex = BASE_Z + 2
+	pin.Body.Parent = pin.Frame
+
+	pin.Text = Instance.new("TextLabel")
+	pin.Text.BackgroundTransparency = 1
+	pin.Text.FontFace = NullUI.Theme.FontRegular
+	pin.Text.Text = ""
+	pin.Text.TextColor3 = NullUI.Theme.Text
+	Role(pin.Text, "Text")
+	pin.Text.TextSize = C.PinText
+	pin.Text.TextWrapped = true
+	pin.Text.TextXAlignment = Enum.TextXAlignment.Left
+	pin.Text.TextYAlignment = Enum.TextYAlignment.Top
+	pin.Text.AutomaticSize = Enum.AutomaticSize.Y
+	pin.Text.Size = UDim2.new(1, -6, 0, 0)
+	pin.Text.ZIndex = BASE_Z + 3
+	pin.Text.Parent = pin.Body
+
+	function pin.SetCollapsed(collapsed)
+		pin.Collapsed = collapsed == true
+		pin.Body.Visible = not pin.Collapsed
+		pin.Chevron.Image = ResolveIcon(pin.Collapsed and "chevron-down" or "chevron-up")
+		applyLayout()
+	end
+	jan:Add(pin.Header.MouseButton1Click:Connect(function()
+		pin.SetCollapsed(not pin.Collapsed)
+	end))
+	jan:Add(content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
 
 	-- Reply bar above the composer.
 	local replyBar = Instance.new("Frame")
@@ -8537,10 +8628,18 @@ function Window:AddGlobalChatPanel(opts)
 		end
 		local pinned = type(meta.Pinned) == "table" and tostring(meta.Pinned.Content or "") ~= "" and meta.Pinned or nil
 		pinnedActive = pinned ~= nil
-		pinnedFrame.Visible = pinnedActive
+		pin.Frame.Visible = pinnedActive
 		if pinned then
-			pinnedText.Text = tostring(pinned.Content)
-			pinnedMeta.Text = "PINNED • " .. tostring(pinned.UpdatedByName or "OWNER")
+			local pinnedContent = tostring(pinned.Content)
+			pin.Meta.Text = "📌  PINNED • " .. tostring(pinned.UpdatedByName or "OWNER")
+			if pin.Content ~= pinnedContent then
+				-- New pinned text: show it expanded again so it gets noticed.
+				pin.Content = pinnedContent
+				pin.Text.Text = pinnedContent
+				pin.Collapsed = false
+				pin.Body.Visible = true
+				pin.Chevron.Image = ResolveIcon("chevron-up")
+			end
 		end
 		applyLayout()
 		local online = tonumber(meta.OnlineCount)
@@ -8762,7 +8861,7 @@ function Window:AddGlobalChatPanel(opts)
 		rowLayout.FillDirection = Enum.FillDirection.Horizontal
 		rowLayout.HorizontalAlignment = isOwn and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
 		rowLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-		rowLayout.Padding = UDim.new(0, 8)
+		rowLayout.Padding = UDim.new(0, C.RowGap)
 		rowLayout.Parent = row
 
 		local isAnon = not msg.UserId or msg.UserId == 0
@@ -8815,15 +8914,18 @@ function Window:AddGlobalChatPanel(opts)
 			end)
 		end
 
-		local H_PAD, V_PAD = 10, 8
+		local H_PAD, V_PAD = C.HPad, C.VPad
 		local BUBBLE_MAX_WIDTH = 240
 
 		local MIN_BUBBLE_WIDTH = 64
-		local naturalW = MeasureText(text, 13, 10000)
+		local actionCount = (msg.Id and service) and (isOwn and 2 or 3) or 0
+		local actionsW = actionCount > 0 and (actionCount * 20 + (actionCount - 1) * 2 + C.RowGap) or 0
+		local naturalW = MeasureText(text, C.Text, 10000)
 		local bubbleWidth = math.min(naturalW, BUBBLE_MAX_WIDTH - H_PAD * 2) + H_PAD * 2
 		bubbleWidth = math.max(bubbleWidth, MIN_BUBBLE_WIDTH)
 		if msgScroll.AbsoluteSize.X > 0 then
-			bubbleWidth = math.min(bubbleWidth, math.max(160, msgScroll.AbsoluteSize.X - 20))
+			local avail = msgScroll.AbsoluteSize.X / GetUIScale() - C.PadR - AVATAR - C.RowGap - actionsW - 4
+			bubbleWidth = math.min(bubbleWidth, math.max(130, avail))
 		end
 
 		local bubble = Instance.new("Frame")
@@ -8911,11 +9013,11 @@ function Window:AddGlobalChatPanel(opts)
 		label.TextColor3 = NullUI.Theme.Text
 		Role(label, "Text")
 		label.TextTransparency = 1
-		label.TextSize = 13
+		label.TextSize = C.Text
 		label.TextWrapped = true
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextYAlignment = Enum.TextYAlignment.Top
-		label.LineHeight = 1.3
+		label.LineHeight = C.Mobile and 1.15 or 1.3
 		label.AutomaticSize = Enum.AutomaticSize.Y
 		label.Size = UDim2.new(1, 0, 0, 16)
 		label.LayoutOrder = 1
@@ -8929,10 +9031,10 @@ function Window:AddGlobalChatPanel(opts)
 			timeLbl.Text = os.date("%H:%M", math.floor(msg.CreatedAt / 1000))
 			timeLbl.TextColor3 = isOwn and Color3.new(1, 1, 1) or NullUI.Theme.TextDim
 			timeLbl.TextTransparency = isOwn and 0.5 or 0.4
-			timeLbl.TextSize = 10
+			timeLbl.TextSize = C.Mobile and 9 or 10
 			timeLbl.TextXAlignment = Enum.TextXAlignment.Left
 			timeLbl.AutomaticSize = Enum.AutomaticSize.Y
-			timeLbl.Size = UDim2.new(1, 0, 0, 12)
+			timeLbl.Size = UDim2.new(1, 0, 0, C.Mobile and 10 or 12)
 			timeLbl.LayoutOrder = 2
 			timeLbl.ZIndex = BASE_Z + 3
 
@@ -8941,92 +9043,84 @@ function Window:AddGlobalChatPanel(opts)
 			table.insert(timestampLabels, timeLbl)
 		end
 
-		if not isOwn and msg.Id and service then
-			local reportBtn = Instance.new("TextButton")
-			reportBtn.Text = ""
-			reportBtn.AutoButtonColor = false
-			reportBtn.BackgroundColor3 = Color3.new(1, 1, 1)
-			reportBtn.BackgroundTransparency = 1
-			reportBtn.BorderSizePixel = 0
-			reportBtn.Size = UDim2.fromOffset(20, 20)
-			reportBtn.LayoutOrder = 3
-			reportBtn.ZIndex = BASE_Z + 2
-			reportBtn.Parent = row
-			Corner(reportBtn, 6)
-
-			local reportIcon = Instance.new("ImageLabel")
-			reportIcon.BackgroundTransparency = 1
-			reportIcon.ImageTransparency = 1
-			reportIcon.Image = ResolveIcon("flag")
-			reportIcon.ImageColor3 = NullUI.Theme.TextDim
-			Role(reportIcon, "TextDim")
-			reportIcon.Size = UDim2.fromOffset(11, 11)
-			reportIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-			reportIcon.Position = UDim2.fromScale(0.5, 0.5)
-			reportIcon.ZIndex = BASE_Z + 3
-			reportIcon.Parent = reportBtn
-
-			jan:Add(row.MouseEnter:Connect(function()
-				Tween(reportIcon, { ImageTransparency = 0.3 }, 0.12)
-			end))
-			jan:Add(row.MouseLeave:Connect(function()
-				Tween(reportIcon, { ImageTransparency = 1 }, 0.12)
-			end))
-			jan:Add(reportBtn.MouseEnter:Connect(function()
-				Tween(reportBtn, { BackgroundTransparency = 0.88 }, 0.12)
-				Tween(reportIcon, { ImageColor3 = NullUI.Theme.Danger, ImageTransparency = 0 }, 0.12)
-			end))
-			jan:Add(reportBtn.MouseLeave:Connect(function()
-				Tween(reportBtn, { BackgroundTransparency = 1 }, 0.12)
-				Tween(reportIcon, { ImageColor3 = NullUI.Theme.TextDim }, 0.12)
-			end))
-			jan:Add(reportBtn.MouseButton1Click:Connect(function()
-				openReport(msg)
-			end))
-		end
-
 		if msg.Id and service then
-			local replyBtn = Instance.new("TextButton")
-			replyBtn.Text = ""
-			replyBtn.AutoButtonColor = false
-			replyBtn.BackgroundColor3 = Color3.new(1, 1, 1)
-			replyBtn.BackgroundTransparency = 1
-			replyBtn.BorderSizePixel = 0
-			replyBtn.Size = UDim2.fromOffset(20, 20)
-			replyBtn.LayoutOrder = isOwn and 0 or 4
-			replyBtn.ZIndex = BASE_Z + 2
-			replyBtn.Parent = row
-			Corner(replyBtn, 6)
+			local actions = Instance.new("Frame")
+			actions.Name = "Actions"
+			actions.BackgroundTransparency = 1
+			actions.AutomaticSize = Enum.AutomaticSize.XY
+			actions.Size = UDim2.fromOffset(0, 0)
+			actions.LayoutOrder = isOwn and 0 or 3
+			actions.ZIndex = BASE_Z + 2
+			actions.Parent = row
 
-			local replyIcon = Instance.new("ImageLabel")
-			replyIcon.BackgroundTransparency = 1
-			replyIcon.ImageTransparency = 1
-			replyIcon.Image = ResolveIcon("reply")
-			replyIcon.ImageColor3 = NullUI.Theme.TextDim
-			Role(replyIcon, "TextDim")
-			replyIcon.Size = UDim2.fromOffset(11, 11)
-			replyIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-			replyIcon.Position = UDim2.fromScale(0.5, 0.5)
-			replyIcon.ZIndex = BASE_Z + 3
-			replyIcon.Parent = replyBtn
+			local actionsLayout = Instance.new("UIListLayout")
+			actionsLayout.FillDirection = Enum.FillDirection.Horizontal
+			actionsLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+			actionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			actionsLayout.Padding = UDim.new(0, 2)
+			actionsLayout.Parent = actions
 
-			jan:Add(row.MouseEnter:Connect(function()
-				Tween(replyIcon, { ImageTransparency = 0.3 }, 0.12)
-			end))
-			jan:Add(row.MouseLeave:Connect(function()
-				Tween(replyIcon, { ImageTransparency = 1 }, 0.12)
-			end))
-			jan:Add(replyBtn.MouseEnter:Connect(function()
-				Tween(replyBtn, { BackgroundTransparency = 0.88 }, 0.12)
-				Tween(replyIcon, { ImageColor3 = NullUI.Theme.Text, ImageTransparency = 0 }, 0.12)
-			end))
-			jan:Add(replyBtn.MouseLeave:Connect(function()
-				Tween(replyBtn, { BackgroundTransparency = 1 }, 0.12)
-				Tween(replyIcon, { ImageColor3 = NullUI.Theme.TextDim }, 0.12)
-			end))
-			jan:Add(replyBtn.MouseButton1Click:Connect(function()
+			-- Icons stay visible (no hover needed, so they work on touch).
+			local function addAction(order, iconName, hoverColor, onClick)
+				local btn = Instance.new("TextButton")
+				btn.Text = ""
+				btn.AutoButtonColor = false
+				btn.BackgroundColor3 = Color3.new(1, 1, 1)
+				btn.BackgroundTransparency = 0.94
+				btn.BorderSizePixel = 0
+				btn.Size = UDim2.fromOffset(20, 20)
+				btn.LayoutOrder = order
+				btn.ZIndex = BASE_Z + 2
+				btn.Parent = actions
+				Corner(btn, 6)
+
+				local icon = Instance.new("ImageLabel")
+				icon.BackgroundTransparency = 1
+				icon.Image = ResolveIcon(iconName)
+				icon.ImageColor3 = NullUI.Theme.TextDim
+				Role(icon, "TextDim")
+				icon.ImageTransparency = 0.2
+				icon.Size = UDim2.fromOffset(12, 12)
+				icon.AnchorPoint = Vector2.new(0.5, 0.5)
+				icon.Position = UDim2.fromScale(0.5, 0.5)
+				icon.ZIndex = BASE_Z + 3
+				icon.Parent = btn
+
+				jan:Add(btn.MouseEnter:Connect(function()
+					Tween(btn, { BackgroundTransparency = 0.85 }, 0.12)
+					Tween(icon, { ImageColor3 = hoverColor, ImageTransparency = 0 }, 0.12)
+				end))
+				jan:Add(btn.MouseLeave:Connect(function()
+					Tween(btn, { BackgroundTransparency = 0.94 }, 0.12)
+					Tween(icon, { ImageColor3 = NullUI.Theme.TextDim, ImageTransparency = 0.2 }, 0.12)
+				end))
+				jan:Add(btn.MouseButton1Click:Connect(function()
+					onClick(icon)
+				end))
+			end
+
+			addAction(1, "copy", Color3.fromRGB(120, 220, 140), function(icon)
+				local setclipboard = hasFn("setclipboard")
+				if not setclipboard then
+					NullUI:Notify({ Title = "Chat", Text = "Clipboard is not available.", Type = "warning", Duration = 3 })
+					return
+				end
+				pcall(setclipboard, text)
+				icon.ImageColor3 = Color3.fromRGB(120, 220, 140)
+				SafeDelay(0.6, function()
+					if icon.Parent then
+						Tween(icon, { ImageColor3 = NullUI.Theme.TextDim }, 0.18)
+					end
+				end)
+			end)
+			addAction(2, "reply", NullUI.Theme.Text, function()
 				setReply(msg)
-			end))
+			end)
+			if not isOwn then
+				addAction(3, "flag", NullUI.Theme.Danger, function()
+					openReport(msg)
+				end)
+			end
 		end
 
 		local joinData = type(msg.JoinServer) == "table" and msg.JoinServer or nil
