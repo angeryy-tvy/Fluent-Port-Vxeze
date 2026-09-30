@@ -8444,7 +8444,7 @@ function Window:AddGlobalChatPanel(opts)
 	local pin = { Mode = "full" }
 	local GOLD = Color3.fromRGB(245, 184, 68)
 
-	-- Tall enough for the whole text, capped so the chat list keeps most of the panel.
+	-- Use the measured content height, not AutomaticSize inside a clipped viewport.
 	local function pinnedHeight()
 		if not pinnedActive then
 			return 0
@@ -8453,18 +8453,7 @@ function Window:AddGlobalChatPanel(opts)
 			return PINNED_COLLAPSED_H
 		end
 		local s = GetUIScale()
-		local lineH = math.ceil(C.PinText * 1.18)
-		-- Rendered height when the label has been laid out; otherwise estimate the line count.
-		local textH = pin.Text.AbsoluteSize.Y / s
-		if textH <= 0 then
-			local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
-			local lines = 0
-			for line in (pin.Text.Text .. "\n"):gmatch("(.-)\n") do
-				local w = line == "" and 0 or MeasureText(line, C.PinText, 100000)
-				lines += math.max(1, math.ceil(w / MEASURE_FUDGE / availW - 0.03))
-			end
-			textH = lines * lineH
-		end
+		local textH = pin.TextHeight or (C.PinText + 4)
 		local natural = PINNED_COLLAPSED_H - 2 + textH + 8
 		-- Never taller than half the panel (the body scrolls past that).
 		local panelH = content.AbsoluteSize.Y / s
@@ -8536,10 +8525,12 @@ function Window:AddGlobalChatPanel(opts)
 	pin.Body = Instance.new("ScrollingFrame")
 	pin.Body.BackgroundTransparency = 1
 	pin.Body.BorderSizePixel = 0
+	pin.Body.Active = true
+	pin.Body.ClipsDescendants = true
 	pin.Body.ScrollingDirection = Enum.ScrollingDirection.Y
 	pin.Body.ScrollBarThickness = 3
 	pin.Body.ScrollBarImageColor3 = GOLD
-	pin.Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	pin.Body.AutomaticCanvasSize = Enum.AutomaticSize.None
 	pin.Body.CanvasSize = UDim2.new(0, 0, 0, 0)
 	pin.Body.Position = UDim2.fromOffset(14, PINNED_COLLAPSED_H - 2)
 	pin.Body.Size = UDim2.new(1, -22, 1, -(PINNED_COLLAPSED_H + 4))
@@ -8556,10 +8547,60 @@ function Window:AddGlobalChatPanel(opts)
 	pin.Text.TextWrapped = true
 	pin.Text.TextXAlignment = Enum.TextXAlignment.Left
 	pin.Text.TextYAlignment = Enum.TextYAlignment.Top
-	pin.Text.AutomaticSize = Enum.AutomaticSize.Y
+	pin.Text.AutomaticSize = Enum.AutomaticSize.None
 	pin.Text.Size = UDim2.new(1, -6, 0, 0)
 	pin.Text.ZIndex = BASE_Z + 3
 	pin.Text.Parent = pin.Body
+
+	-- Measuring the full string preserves explicit newlines and word wrapping even
+	-- when the notice is hidden/collapsed or its scrolling viewport is much shorter.
+	local pinMeasureQueued = false
+	local function queuePinMeasure()
+		if pinMeasureQueued then
+			return
+		end
+		pinMeasureQueued = true
+		SafeDefer(function()
+			pinMeasureQueued = false
+			if not pin.Text.Parent then
+				return
+			end
+			local width = math.floor(pin.Text.AbsoluteSize.X / GetUIScale())
+			if width <= 0 then
+				return
+			end
+			local text, font, size = pin.Text.Text, pin.Text.FontFace, pin.Text.TextSize
+			if pin.MeasuredText == text and pin.MeasuredWidth == width
+				and pin.MeasuredFont == font and pin.MeasuredSize == size then
+				return
+			end
+			pin.MeasuredText, pin.MeasuredWidth = text, width
+			pin.MeasuredFont, pin.MeasuredSize = font, size
+			pin.MeasureId = (pin.MeasureId or 0) + 1
+			local measureId = pin.MeasureId
+			local params = Instance.new("GetTextBoundsParams")
+			params.Text, params.Font, params.Size, params.Width = text, font, size, width
+			local ok, bounds = pcall(function()
+				return TextService:GetTextBoundsAsync(params)
+			end)
+			params:Destroy()
+			if not pin.Text.Parent or pin.MeasureId ~= measureId or pin.Text.Text ~= text then
+				return
+			end
+			local textH
+			if ok then
+				textH = bounds.Y
+			else
+				-- Keep a wrapped fallback if the custom font cannot be loaded.
+				local _, fallbackH = MeasureText(text, size, width)
+				textH = fallbackH
+			end
+			pin.TextHeight = math.ceil(textH) + 4
+			pin.Text.Size = UDim2.new(1, -6, 0, pin.TextHeight)
+			pin.Body.CanvasSize = UDim2.fromOffset(0, pin.TextHeight + 2)
+			applyLayout()
+		end)
+	end
 
 	function pin.SetMode(mode)
 		pin.Mode = mode
@@ -8571,7 +8612,11 @@ function Window:AddGlobalChatPanel(opts)
 		pin.SetMode(pin.Mode == "collapsed" and "full" or "collapsed")
 	end))
 	jan:Add(content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
-	jan:Add(pin.Text:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
+	jan:Add(pin.Text:GetPropertyChangedSignal("AbsoluteSize"):Connect(queuePinMeasure))
+	jan:Add(pin.Text:GetPropertyChangedSignal("Text"):Connect(queuePinMeasure))
+	jan:Add(pin.Text:GetPropertyChangedSignal("FontFace"):Connect(queuePinMeasure))
+	jan:Add(pin.Text:GetPropertyChangedSignal("TextSize"):Connect(queuePinMeasure))
+	queuePinMeasure()
 
 	-- Reply bar above the composer.
 	local replyBar = Instance.new("Frame")
@@ -8649,6 +8694,7 @@ function Window:AddGlobalChatPanel(opts)
 				-- New pinned text: show it in full again so it gets noticed.
 				pin.Content = pinnedContent
 				pin.Text.Text = pinnedContent
+				pin.Body.CanvasPosition = Vector2.zero
 				pin.SetMode("full")
 			end
 		end
