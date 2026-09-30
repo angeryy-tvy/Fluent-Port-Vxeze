@@ -8118,7 +8118,7 @@ function Window:AddGlobalChatPanel(opts)
 		PadR = IsMobileDevice and 10 or 18,
 		RowGap = IsMobileDevice and 5 or 8,
 		Text = IsMobileDevice and 12 or 13,
-		PinText = IsMobileDevice and 11 or 14,
+		PinText = IsMobileDevice and 11 or 13,
 		HPad = IsMobileDevice and 8 or 10,
 		VPad = IsMobileDevice and 5 or 8,
 		Avatar = IsMobileDevice and 22 or 26,
@@ -8438,10 +8438,10 @@ function Window:AddGlobalChatPanel(opts)
 	end
 
 	-- Layout: pinned notice and reply bar shrink the message list.
-	local PINNED_COLLAPSED_H, REPLY_H = 30, 24
+	local PINNED_COLLAPSED_H, REPLY_H = (C.Mobile and 24 or 30), 24
 	local pinnedActive, replyingTo = false, nil
-	-- compact = about 3 lines (phones), full = whole text, collapsed = header only.
-	local pin = { Mode = C.Mobile and "compact" or "full" }
+	-- full = the whole notice, collapsed = header only (tap the header to switch).
+	local pin = { Mode = "full" }
 	local GOLD = Color3.fromRGB(245, 184, 68)
 
 	-- Tall enough for the whole text, capped so the chat list keeps most of the panel.
@@ -8465,13 +8465,10 @@ function Window:AddGlobalChatPanel(opts)
 			end
 			textH = lines * lineH
 		end
-		if pin.Mode == "compact" then
-			textH = math.min(textH, lineH * 3)
-		end
-		local natural = 26 + textH + 6
-		-- Full mode stops growing at 60% of the panel (the body scrolls past that).
+		local natural = PINNED_COLLAPSED_H - 2 + textH + 8
+		-- Never taller than half the panel (the body scrolls past that).
 		local panelH = content.AbsoluteSize.Y / s
-		return math.min(natural, math.max(110, panelH * 0.6))
+		return math.min(natural, math.max(90, panelH * 0.5))
 	end
 	local function applyLayout()
 		local ph = pinnedHeight()
@@ -8544,8 +8541,8 @@ function Window:AddGlobalChatPanel(opts)
 	pin.Body.ScrollBarImageColor3 = GOLD
 	pin.Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	pin.Body.CanvasSize = UDim2.new(0, 0, 0, 0)
-	pin.Body.Position = UDim2.fromOffset(14, 26)
-	pin.Body.Size = UDim2.new(1, -22, 1, -32)
+	pin.Body.Position = UDim2.fromOffset(14, PINNED_COLLAPSED_H - 2)
+	pin.Body.Size = UDim2.new(1, -22, 1, -(PINNED_COLLAPSED_H + 4))
 	pin.Body.ZIndex = BASE_Z + 2
 	pin.Body.Parent = pin.Frame
 
@@ -8570,10 +8567,8 @@ function Window:AddGlobalChatPanel(opts)
 		pin.Chevron.Image = ResolveIcon(mode == "collapsed" and "chevron-down" or "chevron-up")
 		applyLayout()
 	end
-	-- Tap the header: phones cycle compact -> full -> collapsed, PC toggles full <-> collapsed.
 	jan:Add(pin.Header.MouseButton1Click:Connect(function()
-		local nextMode = { compact = "full", full = "collapsed", collapsed = C.Mobile and "compact" or "full" }
-		pin.SetMode(nextMode[pin.Mode])
+		pin.SetMode(pin.Mode == "collapsed" and "full" or "collapsed")
 	end))
 	jan:Add(content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
 	jan:Add(pin.Text:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
@@ -8651,10 +8646,10 @@ function Window:AddGlobalChatPanel(opts)
 			local pinnedContent = tostring(pinned.Content)
 			pin.Meta.Text = "📌  PINNED • " .. tostring(pinned.UpdatedByName or "OWNER")
 			if pin.Content ~= pinnedContent then
-				-- New pinned text: show it again (compact on phones, full on PC) so it gets noticed.
+				-- New pinned text: show it in full again so it gets noticed.
 				pin.Content = pinnedContent
 				pin.Text.Text = pinnedContent
-				pin.SetMode(C.Mobile and "compact" or "full")
+				pin.SetMode("full")
 			end
 		end
 		applyLayout()
