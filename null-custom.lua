@@ -8453,12 +8453,14 @@ function Window:AddGlobalChatPanel(opts)
 		end
 		local s = GetUIScale()
 		local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
-		-- Prefer the rendered height (handles explicit line breaks); measure as a fallback.
-		local textH = pin.Text.AbsoluteSize.Y / s
-		if textH <= 0 then
-			local _, measured = MeasureText(pin.Text.Text, C.PinText, availW)
-			textH = measured
+		-- Count wrapped lines from the text itself (each explicit line break, plus wrapping),
+		-- like Fluent's pinned notice does, instead of trusting a size that is 0 while hidden.
+		local lines = 0
+		for line in (pin.Text.Text .. "\n"):gmatch("(.-)\n") do
+			local w = line == "" and 0 or MeasureText(line, C.PinText, 100000)
+			lines += math.max(1, math.ceil(w / availW))
 		end
+		local textH = lines * (C.PinText + 4)
 		local natural = 28 + textH + 12
 		-- Show the whole notice; it only stops growing at 60% of the panel (scrolls past that).
 		-- Collapsing it from the header gives the chat list the space back.
