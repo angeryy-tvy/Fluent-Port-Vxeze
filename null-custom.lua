@@ -8118,7 +8118,7 @@ function Window:AddGlobalChatPanel(opts)
 		PadR = IsMobileDevice and 10 or 18,
 		RowGap = IsMobileDevice and 5 or 8,
 		Text = IsMobileDevice and 12 or 13,
-		PinText = IsMobileDevice and 12 or 14,
+		PinText = IsMobileDevice and 11 or 14,
 		HPad = IsMobileDevice and 8 or 10,
 		VPad = IsMobileDevice and 5 or 8,
 		Avatar = IsMobileDevice and 22 or 26,
@@ -8440,7 +8440,8 @@ function Window:AddGlobalChatPanel(opts)
 	-- Layout: pinned notice and reply bar shrink the message list.
 	local PINNED_COLLAPSED_H, REPLY_H = 30, 24
 	local pinnedActive, replyingTo = false, nil
-	local pin = { Collapsed = false }
+	-- compact = about 3 lines (phones), full = whole text, collapsed = header only.
+	local pin = { Mode = C.Mobile and "compact" or "full" }
 	local GOLD = Color3.fromRGB(245, 184, 68)
 
 	-- Tall enough for the whole text, capped so the chat list keeps most of the panel.
@@ -8448,26 +8449,29 @@ function Window:AddGlobalChatPanel(opts)
 		if not pinnedActive then
 			return 0
 		end
-		if pin.Collapsed then
+		if pin.Mode == "collapsed" then
 			return PINNED_COLLAPSED_H
 		end
 		local s = GetUIScale()
-		local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
-		-- Count wrapped lines from the text itself (each explicit line break, plus wrapping),
-		-- like Fluent's pinned notice does, instead of trusting a size that is 0 while hidden.
-		local lines = 0
-		for line in (pin.Text.Text .. "\n"):gmatch("(.-)\n") do
-			local w = line == "" and 0 or MeasureText(line, C.PinText, 100000)
-			-- MeasureText pads widths by MEASURE_FUDGE for safety; undo it so lines aren't over-counted.
-			lines += math.max(1, math.ceil(w / MEASURE_FUDGE / availW - 0.03))
+		local lineH = math.ceil(C.PinText * 1.18)
+		-- Rendered height when the label has been laid out; otherwise estimate the line count.
+		local textH = pin.Text.AbsoluteSize.Y / s
+		if textH <= 0 then
+			local availW = math.max(content.AbsoluteSize.X / s - 34, 60)
+			local lines = 0
+			for line in (pin.Text.Text .. "\n"):gmatch("(.-)\n") do
+				local w = line == "" and 0 or MeasureText(line, C.PinText, 100000)
+				lines += math.max(1, math.ceil(w / MEASURE_FUDGE / availW - 0.03))
+			end
+			textH = lines * lineH
 		end
-		local textH = lines * math.ceil(C.PinText * 1.18)
+		if pin.Mode == "compact" then
+			textH = math.min(textH, lineH * 3)
+		end
 		local natural = 26 + textH + 6
-		-- Show the whole notice; it only stops growing at 60% of the panel (scrolls past that).
-		-- Collapsing it from the header gives the chat list the space back.
+		-- Full mode stops growing at 60% of the panel (the body scrolls past that).
 		local panelH = content.AbsoluteSize.Y / s
-		local cap = math.max(110, panelH * 0.6)
-		return math.min(natural, cap)
+		return math.min(natural, math.max(110, panelH * 0.6))
 	end
 	local function applyLayout()
 		local ph = pinnedHeight()
@@ -8560,14 +8564,16 @@ function Window:AddGlobalChatPanel(opts)
 	pin.Text.ZIndex = BASE_Z + 3
 	pin.Text.Parent = pin.Body
 
-	function pin.SetCollapsed(collapsed)
-		pin.Collapsed = collapsed == true
-		pin.Body.Visible = not pin.Collapsed
-		pin.Chevron.Image = ResolveIcon(pin.Collapsed and "chevron-down" or "chevron-up")
+	function pin.SetMode(mode)
+		pin.Mode = mode
+		pin.Body.Visible = mode ~= "collapsed"
+		pin.Chevron.Image = ResolveIcon(mode == "collapsed" and "chevron-down" or "chevron-up")
 		applyLayout()
 	end
+	-- Tap the header: phones cycle compact -> full -> collapsed, PC toggles full <-> collapsed.
 	jan:Add(pin.Header.MouseButton1Click:Connect(function()
-		pin.SetCollapsed(not pin.Collapsed)
+		local nextMode = { compact = "full", full = "collapsed", collapsed = C.Mobile and "compact" or "full" }
+		pin.SetMode(nextMode[pin.Mode])
 	end))
 	jan:Add(content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
 	jan:Add(pin.Text:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout))
@@ -8645,12 +8651,10 @@ function Window:AddGlobalChatPanel(opts)
 			local pinnedContent = tostring(pinned.Content)
 			pin.Meta.Text = "📌  PINNED • " .. tostring(pinned.UpdatedByName or "OWNER")
 			if pin.Content ~= pinnedContent then
-				-- New pinned text: show it expanded again so it gets noticed.
+				-- New pinned text: show it again (compact on phones, full on PC) so it gets noticed.
 				pin.Content = pinnedContent
 				pin.Text.Text = pinnedContent
-				pin.Collapsed = false
-				pin.Body.Visible = true
-				pin.Chevron.Image = ResolveIcon("chevron-up")
+				pin.SetMode(C.Mobile and "compact" or "full")
 			end
 		end
 		applyLayout()
