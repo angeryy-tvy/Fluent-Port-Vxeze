@@ -9233,10 +9233,24 @@ function Window:AddGlobalChatPanel(opts)
 
 	local seenIds = { [0] = true }
 	local lastSeenId = 0
+	-- The relay rejects a second message within 1.5s; Enter + the send button can
+	-- both fire for one message, so keep a single send in flight.
+	local SEND_COOLDOWN = 1.5
+	local sending, lastSendAt = false, 0
 
 	local function trySend()
 		local text = inputBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
-		if text == "" then
+		if text == "" or sending then
+			return
+		end
+		local wait = SEND_COOLDOWN - (os.clock() - lastSendAt)
+		if wait > 0 then
+			NullUI:Notify({
+				Title = "Chat",
+				Text = string.format("Slow down -- wait %.1fs.", wait),
+				Type = "warning",
+				Duration = 2,
+			})
 			return
 		end
 		if not service then
@@ -9253,13 +9267,23 @@ function Window:AddGlobalChatPanel(opts)
 		local playerName = anonymousMode and nil or maskedName(LocalPlayer.DisplayName or LocalPlayer.Name)
 		local replying = replyingTo
 		clearReply()
+		sending = true
 		SafeSpawn(function()
-			local result, err = service:SendChatMessage(sendUserId, text, {
+			local ok, result, err = pcall(service.SendChatMessage, service, sendUserId, text, {
 				PlayerName = playerName,
 				GameName = gameName,
 				ReplyToId = replying and replying.Id or nil,
 			})
+			sending = false
+			lastSendAt = os.clock()
+			if not ok then
+				result, err = nil, result
+			end
 			if not result then
+				-- Give the text back so a failed send doesn't lose the message.
+				if inputBox.Parent and inputBox.Text == "" then
+					inputBox.Text = text
+				end
 				NullUI:Notify({ Title = "Chat", Text = tostring(err), Type = "error", Duration = 3 })
 				return
 			end
@@ -9487,9 +9511,28 @@ function Window:AddGlobalChatPanel(opts)
 				end
 			end
 			applyMeta()
+			local failures = 0
 			while panel and panel.Parent do
-				task.wait(pollInterval)
-				local newMsgs = service:PollChatMessages(lastSeenId)
+				-- Poll at full speed only while the chat is on screen, and back off
+				-- while the relay is failing instead of hammering it.
+				local delay = (self._currentTab == tabObj) and pollInterval or math.max(pollInterval * 3, 8)
+				if failures > 0 then
+					delay = math.min(delay * 2 ^ math.min(failures, 3), 30)
+				end
+				local waited = 0
+				while waited < delay and panel and panel.Parent do
+					waited += task.wait(0.25)
+					-- Opening the chat cuts a slow background wait short.
+					if failures == 0 and waited >= pollInterval and self._currentTab == tabObj then
+						break
+					end
+				end
+				if not (panel and panel.Parent) then
+					break
+				end
+				local ok, newMsgs = pcall(service.PollChatMessages, service, lastSeenId)
+				newMsgs = ok and newMsgs or nil
+				failures = newMsgs and 0 or failures + 1
 				if newMsgs then
 					applyMeta()
 					for _, m in ipairs(newMsgs) do
