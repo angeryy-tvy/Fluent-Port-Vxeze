@@ -9296,7 +9296,8 @@ function Window:AddGlobalChatPanel(opts)
 				UserId = sendUserId,
 				PlayerName = playerName,
 				GameName = gameName,
-				Text = text,
+				-- Prefer the server's stored text: the relay may rewrite blocked content.
+				Text = type(result.Text) == "string" and result.Text or text,
 				CreatedAt = os.time() * 1000,
 				Reply = replying and { PlayerName = replying.PlayerName, Content = replying.Text } or nil,
 			}, true)
