@@ -8891,6 +8891,9 @@ function Window:AddGlobalChatPanel(opts)
 		})
 	end
 
+	-- Rendered rows by message id, so messages deleted by an admin can be removed.
+	local rowsById = {}
+
 	local function addBubble(msg, isOwn)
 		order = order + 1
 		local text = tostring(msg.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -8909,6 +8912,9 @@ function Window:AddGlobalChatPanel(opts)
 		row.LayoutOrder = order
 		row.ZIndex = BASE_Z + 1
 		row.Parent = msgScroll
+		if msg.Id then
+			rowsById[msg.Id] = row
+		end
 
 		local rowScale = Instance.new("UIScale")
 		rowScale.Scale = 0.92
@@ -9329,6 +9335,7 @@ function Window:AddGlobalChatPanel(opts)
 		end
 		table.clear(transcript)
 		table.clear(timestampLabels)
+		table.clear(rowsById)
 	end))
 	jan:Add(closeBtn.MouseButton1Click:Connect(function()
 		if self._currentTab == tabObj then
@@ -9536,6 +9543,16 @@ function Window:AddGlobalChatPanel(opts)
 				failures = newMsgs and 0 or failures + 1
 				if newMsgs then
 					applyMeta()
+					local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
+					if type(deletedIds) == "table" then
+						for _, id in ipairs(deletedIds) do
+							local row = rowsById[id]
+							if row then
+								rowsById[id] = nil
+								row:Destroy()
+							end
+						end
+					end
 					for _, m in ipairs(newMsgs) do
 						if not seenIds[m.Id] then
 							seenIds[m.Id] = true
