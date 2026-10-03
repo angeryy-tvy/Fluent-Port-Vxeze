@@ -8116,26 +8116,36 @@ local function censorForeignLoadstrings(text)
 			if ge then
 				i = ge + 1
 			end
+			-- A closed literal, or (to stop dodging the filter) an unclosed quote or
+			-- long bracket up to the end of the line, or unquoted text up to ")".
+			local lineEnd = (string.find(text, "\n", i, true) or (#text + 1)) - 1
 			local q = string.sub(text, i, i)
 			local litEnd, url
 			if q == '"' or q == "'" then
 				local close = string.find(text, q, i + 1, true)
-				local inner = close and string.sub(text, i + 1, close - 1)
-				if inner and not string.find(inner, "\n", 1, true) then
-					litEnd, url = close, inner
+				if close and close <= lineEnd then
+					litEnd, url = close, string.sub(text, i + 1, close - 1)
+				else
+					litEnd = lineEnd
 				end
 			elseif q == "[" then
 				local _, oe, eq = string.find(text, "^%[(=*)%[", i)
 				if oe then
 					local cs, ce = string.find(text, "]" .. eq .. "]", oe + 1, true)
-					if cs then
+					if cs and ce <= lineEnd then
 						litEnd, url = ce, string.sub(text, oe + 1, cs - 1)
+					else
+						litEnd = lineEnd
 					end
 				end
+			elseif q ~= "" and q ~= ")" and not string.find(q, "%s") then
+				local close = string.find(text, ")", i, true)
+				litEnd = (close and close - 1 <= lineEnd) and close - 1 or lineEnd
 			end
 			if litEnd then
-				local trimmed = url:gsub("^%s+", ""):gsub("%s+$", "")
-				if not ALLOWED_SCRIPT_URLS[trimmed] then
+				-- Only a properly closed literal can be the approved loader.
+				local trimmed = url and url:gsub("^%s+", ""):gsub("%s+$", "")
+				if not (trimmed and ALLOWED_SCRIPT_URLS[trimmed]) then
 					table.insert(parts, string.sub(text, pos, i - 1))
 					table.insert(parts, '"' .. FOREIGN_SCRIPT_WARNING .. '"')
 					pos = litEnd + 1
