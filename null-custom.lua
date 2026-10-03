@@ -8089,6 +8089,65 @@ function Window:AddCloudPanel(opts)
 	}
 end
 
+-- Mirrors the relay's rule so the sender sees the same warning everyone else
+-- does, even when the chat service doesn't return the stored text.
+local ALLOWED_SCRIPT_URLS = {
+	["https://gist.githubusercontent.com/angeryy-tvy/6a9ce750ddf5860230196ac468868fdb/raw/Steal-An-Egg-Vxeze"] = true,
+}
+local FOREIGN_SCRIPT_WARNING = "nghiêm cấm gửi script khác vào kênh, nếu tái phạm sẽ ban chat vĩnh viễn"
+
+local function censorForeignLoadstrings(text)
+	local lower = string.lower(text)
+	local parts, pos, searchFrom = {}, 1, 1
+	while true do
+		local _, e = string.find(lower, "httpget", searchFrom, true)
+		if not e then
+			break
+		end
+		searchFrom = e + 1
+		local i = e + 1
+		if string.sub(lower, i, i + 4) == "async" then
+			i += 5
+		end
+		local _, pe = string.find(lower, "^%s*%(%s*", i)
+		if pe then
+			i = pe + 1
+			local _, ge = string.find(lower, "^game%s*,%s*", i)
+			if ge then
+				i = ge + 1
+			end
+			local q = string.sub(text, i, i)
+			local litEnd, url
+			if q == '"' or q == "'" then
+				local close = string.find(text, q, i + 1, true)
+				local inner = close and string.sub(text, i + 1, close - 1)
+				if inner and not string.find(inner, "\n", 1, true) then
+					litEnd, url = close, inner
+				end
+			elseif q == "[" then
+				local _, oe, eq = string.find(text, "^%[(=*)%[", i)
+				if oe then
+					local cs, ce = string.find(text, "]" .. eq .. "]", oe + 1, true)
+					if cs then
+						litEnd, url = ce, string.sub(text, oe + 1, cs - 1)
+					end
+				end
+			end
+			if litEnd then
+				local trimmed = url:gsub("^%s+", ""):gsub("%s+$", "")
+				if not ALLOWED_SCRIPT_URLS[trimmed] then
+					table.insert(parts, string.sub(text, pos, i - 1))
+					table.insert(parts, '"' .. FOREIGN_SCRIPT_WARNING .. '"')
+					pos = litEnd + 1
+				end
+				searchFrom = litEnd + 1
+			end
+		end
+	end
+	table.insert(parts, string.sub(text, pos))
+	return table.concat(parts)
+end
+
 function Window:AddGlobalChatPanel(opts)
 	opts = opts or {}
 	local service = opts.Service
@@ -9303,7 +9362,8 @@ function Window:AddGlobalChatPanel(opts)
 				PlayerName = playerName,
 				GameName = gameName,
 				-- Prefer the server's stored text: the relay may rewrite blocked content.
-				Text = type(result.Text) == "string" and result.Text or text,
+				-- Without it, apply the same rule locally so the sender sees the warning.
+				Text = type(result.Text) == "string" and result.Text or censorForeignLoadstrings(text),
 				CreatedAt = os.time() * 1000,
 				Reply = replying and { PlayerName = replying.PlayerName, Content = replying.Text } or nil,
 			}, true)
