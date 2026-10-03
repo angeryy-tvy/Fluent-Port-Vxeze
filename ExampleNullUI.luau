@@ -144,6 +144,13 @@ local function CreateFluentChatService(config)
 			Pinned = pinned and { Content = pinned.content, UpdatedByName = pinned.updatedByName } or nil,
 			OnlineCount = tonumber(data.onlineCount) or 0,
 			DeletedIds = deletedIds,
+			-- Admin-pushed toast; NullUI shows it once per Id for RemainingMs.
+			Announcement = typeof(data.announcement) == "table" and {
+				Id = tostring(data.announcement.id),
+				Title = "Thông báo",
+				Content = data.announcement.content,
+				RemainingMs = tonumber(data.announcement.remainingMs) or 0,
+			} or nil,
 		}
 		return typeof(data.messages) == "table" and data.messages or {}
 	end

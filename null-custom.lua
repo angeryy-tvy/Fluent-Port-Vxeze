@@ -2279,6 +2279,203 @@ function NullUI:Notify(opts)
 	}
 end
 
+-- Global announcement toast: one at a time, centered near the top of the
+-- screen and outside every window. Width adapts to phone / PC viewports.
+function NullUI:Announce(opts)
+	opts = opts or {}
+	local text = tostring(opts.Text or "")
+	if text == "" then
+		return
+	end
+	local title = opts.Title or "Announcement"
+	local duration = math.max(tonumber(opts.Duration) or 6, 1)
+	local color = opts.Color or NullUI.Theme.Accent
+	local mobile = IsMobileDevice
+
+	if NullUI._ActiveAnnouncement then
+		NullUI._ActiveAnnouncement.Dismiss()
+	end
+
+	local function metrics()
+		local s = GetUIScale()
+		local view = ViewportSize()
+		local availW, availH = view.X / s, view.Y / s
+		local width = math.min(mobile and 320 or 400, math.max(availW - 32, 160))
+		local top = math.clamp(availH * 0.05, 14, 44)
+		return width, top
+	end
+
+	local width, top = metrics()
+	local card = Instance.new("Frame")
+	card.Name = "NullUIAnnouncement"
+	card.AnchorPoint = Vector2.new(0.5, 0)
+	card.Position = UDim2.new(0.5, 0, 0, top - 12)
+	card.Size = UDim2.fromOffset(width, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = NullUI.Theme.Surface
+	card.BackgroundTransparency = 1
+	card.BorderSizePixel = 0
+	card.ZIndex = Z.Toast + 20
+	card.Active = true
+	card.Parent = NullUI._Root
+	Corner(card, mobile and 12 or 14)
+	local stroke = Stroke(card, color, 1, 1)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, mobile and 8 or 10)
+	pad.PaddingBottom = UDim.new(0, mobile and 8 or 10)
+	pad.PaddingLeft = UDim.new(0, mobile and 10 or 12)
+	pad.PaddingRight = UDim.new(0, mobile and 10 or 12)
+	pad.Parent = card
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, mobile and 4 or 5)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = card
+
+	local header = Instance.new("Frame")
+	header.BackgroundTransparency = 1
+	header.AutomaticSize = Enum.AutomaticSize.XY
+	header.Size = UDim2.new(0, 0, 0, 0)
+	header.LayoutOrder = 1
+	header.ZIndex = card.ZIndex + 1
+	header.Parent = card
+
+	local headerLayout = Instance.new("UIListLayout")
+	headerLayout.FillDirection = Enum.FillDirection.Horizontal
+	headerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	headerLayout.Padding = UDim.new(0, 6)
+	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	headerLayout.Parent = header
+
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.Image = ResolveIcon(opts.Icon or "megaphone")
+	icon.ImageColor3 = color
+	icon.ImageTransparency = 1
+	icon.Size = UDim2.fromOffset(mobile and 13 or 15, mobile and 13 or 15)
+	icon.LayoutOrder = 1
+	icon.ZIndex = card.ZIndex + 1
+	icon.Parent = header
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.FontFace = NullUI.Theme.Font
+	titleLabel.Text = title
+	titleLabel.TextColor3 = color
+	titleLabel.TextTransparency = 1
+	titleLabel.TextSize = mobile and 12 or 13
+	titleLabel.AutomaticSize = Enum.AutomaticSize.XY
+	titleLabel.Size = UDim2.fromOffset(0, mobile and 12 or 13)
+	titleLabel.LayoutOrder = 2
+	titleLabel.ZIndex = card.ZIndex + 1
+	titleLabel.Parent = header
+
+	local body = Instance.new("TextLabel")
+	body.BackgroundTransparency = 1
+	body.FontFace = NullUI.Theme.FontRegular
+	body.Text = text
+	body.TextColor3 = NullUI.Theme.Text
+	Role(body, "Text")
+	body.TextTransparency = 1
+	body.TextSize = mobile and 12 or 14
+	body.TextWrapped = true
+	body.TextXAlignment = Enum.TextXAlignment.Left
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.Size = UDim2.new(1, 0, 0, 0)
+	body.LayoutOrder = 2
+	body.ZIndex = card.ZIndex + 1
+	body.Parent = card
+
+	local barHolder = Instance.new("Frame")
+	barHolder.BackgroundColor3 = color
+	barHolder.BackgroundTransparency = 1
+	barHolder.BorderSizePixel = 0
+	barHolder.Size = UDim2.new(1, 0, 0, 2)
+	barHolder.LayoutOrder = 3
+	barHolder.ZIndex = card.ZIndex + 1
+	barHolder.Parent = card
+	Corner(barHolder, 1)
+
+	local bar = Instance.new("Frame")
+	bar.BackgroundColor3 = color
+	bar.BackgroundTransparency = 1
+	bar.BorderSizePixel = 0
+	bar.Size = UDim2.fromScale(1, 1)
+	bar.ZIndex = card.ZIndex + 2
+	bar.Parent = barHolder
+	Corner(bar, 1)
+
+	local viewportConn
+	local cam = workspace.CurrentCamera
+	if cam then
+		viewportConn = cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			if card.Parent then
+				local w, t = metrics()
+				card.Size = UDim2.fromOffset(w, 0)
+				card.Position = UDim2.new(0.5, 0, 0, t)
+			end
+		end)
+	end
+
+	local dismissed = false
+	local handle = {}
+	function handle.Dismiss()
+		if dismissed then
+			return
+		end
+		dismissed = true
+		if NullUI._ActiveAnnouncement == handle then
+			NullUI._ActiveAnnouncement = nil
+		end
+		if viewportConn then
+			viewportConn:Disconnect()
+		end
+		if not card.Parent then
+			return
+		end
+		local _, t = metrics()
+		Tween(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, t - 12) }, 0.22)
+		Tween(stroke, { Transparency = 1 }, 0.22)
+		Tween(icon, { ImageTransparency = 1 }, 0.22)
+		Tween(titleLabel, { TextTransparency = 1 }, 0.22)
+		Tween(body, { TextTransparency = 1 }, 0.22)
+		Tween(barHolder, { BackgroundTransparency = 1 }, 0.22)
+		Tween(bar, { BackgroundTransparency = 1 }, 0.22)
+		SafeDelay(0.25, function()
+			if card then
+				card:Destroy()
+			end
+		end)
+	end
+	handle.Instance = card
+	NullUI._ActiveAnnouncement = handle
+
+	-- Tap / click to dismiss early.
+	card.InputBegan:Connect(function(input)
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+			handle.Dismiss()
+		end
+	end)
+
+	Tween(card, { BackgroundTransparency = 0.06, Position = UDim2.new(0.5, 0, 0, top) }, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	Tween(stroke, { Transparency = 0.55 }, 0.3)
+	Tween(icon, { ImageTransparency = 0 }, 0.3)
+	Tween(titleLabel, { TextTransparency = 0 }, 0.3)
+	Tween(body, { TextTransparency = 0 }, 0.3)
+	Tween(barHolder, { BackgroundTransparency = 0.85 }, 0.3)
+	Tween(bar, { BackgroundTransparency = 0 }, 0.3)
+	SafeDelay(0.05, function()
+		if bar.Parent and not dismissed then
+			Tween(bar, { Size = UDim2.fromScale(0, 1) }, duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+		end
+	end)
+	SafeDelay(duration, handle.Dismiss)
+
+	return handle
+end
+
 local function ComputeDialogCenter(anchorFrame)
 	local view = ViewportSize()
 	if not anchorFrame or anchorFrame.AbsoluteSize.X <= 0 then
@@ -9308,6 +9505,31 @@ function Window:AddGlobalChatPanel(opts)
 
 	local seenIds = { [0] = true }
 	local lastSeenId = 0
+	-- Relay announcements are shown once per id; an early removal by the admin
+	-- (announcement gone from the feed) dismisses the toast.
+	local lastAnnouncementId, announcementHandle = nil, nil
+	local function syncAnnouncement()
+		local a = service and service.ChatMeta and service.ChatMeta.Announcement
+		if type(a) ~= "table" or not a.Id then
+			if announcementHandle then
+				announcementHandle.Dismiss()
+				announcementHandle = nil
+			end
+			return
+		end
+		if a.Id == lastAnnouncementId then
+			return
+		end
+		lastAnnouncementId = a.Id
+		local remaining = (tonumber(a.RemainingMs) or 0) / 1000
+		if remaining > 0.5 then
+			announcementHandle = NullUI:Announce({
+				Title = a.Title,
+				Text = a.Content,
+				Duration = math.max(remaining, 3),
+			})
+		end
+	end
 	-- The relay rejects a second message within 1.5s; Enter + the send button can
 	-- both fire for one message, so keep a single send in flight.
 	local SEND_COOLDOWN = 1.5
@@ -9589,6 +9811,7 @@ function Window:AddGlobalChatPanel(opts)
 				end
 			end
 			applyMeta()
+			syncAnnouncement()
 			local failures = 0
 			while panel and panel.Parent do
 				-- Poll at full speed only while the chat is on screen, and back off
@@ -9613,6 +9836,7 @@ function Window:AddGlobalChatPanel(opts)
 				failures = newMsgs and 0 or failures + 1
 				if newMsgs then
 					applyMeta()
+					syncAnnouncement()
 					local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
 					if type(deletedIds) == "table" then
 						for _, id in ipairs(deletedIds) do
