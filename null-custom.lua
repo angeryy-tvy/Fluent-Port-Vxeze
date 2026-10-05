@@ -7662,6 +7662,10 @@ function Window:AddCloudPanel(opts)
 	local mineGrid, publicGrid, localGrid
 	local function relativeTime(timestamp)
 		local seconds = math.max(0, os.time() - tonumber(timestamp or os.time()))
+		-- Hosts can localize the age text (e.g. a hub with its own language setting).
+		if opts.FormatRelativeTime then
+			return opts.FormatRelativeTime(seconds)
+		end
 		if seconds < 60 then
 			return "updated just now"
 		end
@@ -7674,11 +7678,11 @@ function Window:AddCloudPanel(opts)
 		return "updated " .. math.floor(seconds / 86400) .. "d ago"
 	end
 
-	local CloudTabs = {
-		Local = tabObj:AddSubTab({ Name = "Local Configs", Icon = "Lucide:hard-drive" }),
-		Mine = tabObj:AddSubTab({ Name = "Publish Public Config", Icon = "Lucide:cloud-cog" }),
-		Explore = tabObj:AddSubTab({ Name = "Public Configs", Icon = "Lucide:cloud" }),
-	}
+	-- Public library first: it is what most players open the tab for.
+	local CloudTabs = {}
+	CloudTabs.Explore = tabObj:AddSubTab({ Name = "Public Configs", Icon = "Lucide:cloud" })
+	CloudTabs.Local = tabObj:AddSubTab({ Name = "Local Configs", Icon = "Lucide:hard-drive" })
+	CloudTabs.Mine = tabObj:AddSubTab({ Name = "Publish Public Config", Icon = "Lucide:cloud-cog" })
 
 	CloudTabs.Local:AddParagraph({
 		Title = "Local Library",
@@ -7933,6 +7937,7 @@ function Window:AddCloudPanel(opts)
 				end
 
 				table.insert(out, {
+					UserContent = true,
 					Title = cfg.Name,
 					Description = cfg.Description,
 					Byline = relativeTime(cfg.CreatedAt)
@@ -8080,6 +8085,7 @@ function Window:AddCloudPanel(opts)
 					})
 				end
 				table.insert(out, {
+					UserContent = true,
 					Title = cfg.Name,
 					Description = cfg.Description,
 					Byline = cfg.CreatedAtText or "",
@@ -8148,6 +8154,7 @@ function Window:AddCloudPanel(opts)
 					byline = byline .. " \226\128\162 " .. cfg.CreatedAtText
 				end
 				table.insert(out, {
+					UserContent = true,
 					Title = cfg.Name,
 					Description = cfg.Description,
 					Byline = byline,
@@ -16611,6 +16618,10 @@ function Tab:AddCardGrid(opts)
 	local function buildCard(item, animDelay)
 		local cell = Instance.new("Frame")
 		cell.Name = "GridCard"
+		-- Hosts that translate UI labels should leave player-written card text alone.
+		if item.UserContent then
+			cell:SetAttribute("UserContent", true)
+		end
 		cell.BackgroundColor3 = Color3.new(1, 1, 1)
 		cell.BackgroundTransparency = 1
 		cell.BorderSizePixel = 0
@@ -16781,6 +16792,7 @@ function Tab:AddCardGrid(opts)
 		local cursorY = 0
 
 		local titleLbl = Instance.new("TextLabel")
+		titleLbl.Name = "Title"
 		titleLbl.BackgroundTransparency = 1
 		titleLbl.FontFace = NullUI.Theme.Font
 		titleLbl.Text = item.Title or "Untitled"
@@ -16798,6 +16810,7 @@ function Tab:AddCardGrid(opts)
 
 		if item.Description and item.Description ~= "" then
 			local descLbl = Instance.new("TextLabel")
+			descLbl.Name = "Description"
 			descLbl.BackgroundTransparency = 1
 			descLbl.FontFace = NullUI.Theme.FontRegular
 			descLbl.Text = item.Description
@@ -16817,6 +16830,7 @@ function Tab:AddCardGrid(opts)
 
 		if item.Byline and item.Byline ~= "" then
 			local bylineLbl = Instance.new("TextLabel")
+			bylineLbl.Name = "Byline"
 			bylineLbl.BackgroundTransparency = 1
 			bylineLbl.FontFace = NullUI.Theme.FontRegular
 			bylineLbl.Text = item.Byline
