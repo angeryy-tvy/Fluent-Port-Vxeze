@@ -7660,6 +7660,24 @@ function Window:AddCloudPanel(opts)
 	end)
 
 	local mineGrid, publicGrid, localGrid
+	-- The last Apply/Load keeps its snapshot until the next one, so players can
+	-- still undo after the toast is gone.
+	local lastApplied = nil
+	local function rememberApplied(snapshot, name)
+		lastApplied = { Snapshot = snapshot, Name = tostring(name) }
+	end
+	local function undoApplied(snapshot)
+		if lastApplied and lastApplied.Snapshot == snapshot then
+			lastApplied = nil
+		end
+		NullUI:RestoreSnapshot(snapshot, false)
+		NullUI:Notify({
+			Title = "Reverted",
+			Text = "Your previous settings are back.",
+			Type = "info",
+			Duration = 3,
+		})
+	end
 	local function relativeTime(timestamp)
 		local seconds = math.max(0, os.time() - tonumber(timestamp or os.time()))
 		-- Hosts can localize the age text (e.g. a hub with its own language setting).
@@ -7814,16 +7832,17 @@ function Window:AddCloudPanel(opts)
 								})
 								return
 							end
+							rememberApplied(snapshot, cfg.Name)
 							NullUI:Notify({
 								Title = "Loaded",
-								Text = tostring(cfg.Name) .. " is now active.",
+								Text = '"' .. tostring(cfg.Name) .. '" is now active.',
 								Type = "success",
 								Duration = 6,
 								Actions = {
 									{
 										Text = "Undo",
 										Callback = function()
-											NullUI:RestoreSnapshot(snapshot, false)
+											undoApplied(snapshot)
 										end,
 									},
 								},
@@ -8114,6 +8133,24 @@ function Window:AddCloudPanel(opts)
 		Text = "Discover public configs, compare popularity and apply a setup with an instant undo snapshot.",
 	})
 
+	CloudTabs.Explore:AddButton({
+		Text = "Undo Last Applied Config",
+		Description = "Restore the settings you had before your last Apply",
+		Icon = "Lucide:undo-2",
+		Callback = function()
+			if not lastApplied then
+				NullUI:Notify({
+					Title = "Nothing to undo",
+					Text = "No config has been applied yet.",
+					Type = "info",
+					Duration = 3,
+				})
+				return
+			end
+			undoApplied(lastApplied.Snapshot)
+		end,
+	})
+
 	CloudTabs.Explore:AddSection("Browse Configs", "Lucide:layout-grid")
 
 	local SORT_MAP = { ["Top Rated"] = "top", ["Most Downloaded"] = "downloads", ["Newest"] = "new" }
@@ -8208,22 +8245,17 @@ function Window:AddCloudPanel(opts)
 								local snapshot = NullUI:CreateSnapshot()
 
 								NullUI:SetConfig(result.Data, false)
+								rememberApplied(snapshot, cfg.Name)
 								NullUI:Notify({
 									Title = "Applied",
-									Text = tostring(cfg.Name) .. " is now active.",
+									Text = '"' .. tostring(cfg.Name) .. '" is now active.',
 									Type = "success",
 									Duration = 6,
 									Actions = {
 										{
 											Text = "Undo",
 											Callback = function()
-												NullUI:RestoreSnapshot(snapshot, false)
-												NullUI:Notify({
-													Title = "Reverted",
-													Text = "Your previous settings are back.",
-													Type = "info",
-													Duration = 3,
-												})
+												undoApplied(snapshot)
 											end,
 										},
 									},
