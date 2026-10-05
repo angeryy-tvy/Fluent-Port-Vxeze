@@ -10233,6 +10233,54 @@ function Window:_RegisterSearchable(tabObj, title, instance)
 	table.insert(self._searchIndex, { title = title, instance = instance, tabObj = tabObj })
 end
 
+-- Labels may be translated after they are registered (e.g. a hub's own
+-- Vietnamese mode), so search the text shown on screen as well as the original,
+-- ignoring accents so "trung" finds "trứng".
+local SearchFoldMap = nil
+local function FoldSearchText(text)
+	if not SearchFoldMap then
+		SearchFoldMap = {}
+		local groups = {
+			a = "àáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬ",
+			e = "èéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆ",
+			i = "ìíỉĩịÌÍỈĨỊ",
+			o = "òóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢ",
+			u = "ùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰ",
+			y = "ỳýỷỹỵỲÝỶỸỴ",
+			d = "đĐ",
+		}
+		for base, chars in pairs(groups) do
+			for _, code in utf8.codes(chars) do
+				SearchFoldMap[code] = base
+			end
+		end
+	end
+	text = tostring(text or "")
+	local out = {}
+	local ok = pcall(function()
+		for _, code in utf8.codes(text) do
+			out[#out + 1] = SearchFoldMap[code] or utf8.char(code)
+		end
+	end)
+	return string.lower(ok and table.concat(out) or text)
+end
+
+local function SearchShownTitle(entry)
+	local shown = entry.instance and entry.instance:FindFirstChild("Title", true)
+	if shown and shown:IsA("TextLabel") and shown.Text ~= "" then
+		return shown.Text
+	end
+	return entry.title
+end
+
+local function SearchEntryMatches(entry, foldedQuery)
+	if foldedQuery == "" or FoldSearchText(entry.title):find(foldedQuery, 1, true) then
+		return true
+	end
+	local shown = SearchShownTitle(entry)
+	return shown ~= entry.title and FoldSearchText(shown):find(foldedQuery, 1, true) ~= nil
+end
+
 local function SearchEntryPath(tabObj)
 	if not tabObj then
 		return ""
@@ -10294,14 +10342,15 @@ function Window:JumpToElement(query)
 		return false, "No element name given"
 	end
 
-	local q = query:lower()
+	local q = FoldSearchText(query)
 	local best, bestScore = nil, 0
 	for _, entry in ipairs(self._searchIndex) do
-		local title = tostring(entry.title or ""):lower()
-		if title == q then
+		local title = FoldSearchText(entry.title)
+		local shown = FoldSearchText(SearchShownTitle(entry))
+		if title == q or shown == q then
 			best, bestScore = entry, math.huge
 			break
-		elseif title:find(q, 1, true) then
+		elseif title:find(q, 1, true) or shown:find(q, 1, true) then
 			local score = 1000 - math.abs(#title - #q)
 			if score > bestScore then
 				best, bestScore = entry, score
@@ -10539,11 +10588,11 @@ function Window:_OpenSearch()
 			end
 		end
 
-		local q = query:lower():match("^%s*(.-)%s*$")
+		local q = FoldSearchText(query:match("^%s*(.-)%s*$"))
 		local matches = {}
 		for _, entry in ipairs(self_._searchIndex) do
 			if entry.instance and entry.instance.Parent then
-				if q == "" or entry.title:lower():find(q, 1, true) then
+				if SearchEntryMatches(entry, q) then
 					table.insert(matches, entry)
 					if #matches >= 15 then
 						break
@@ -10574,7 +10623,7 @@ function Window:_OpenSearch()
 			local titleLbl = Instance.new("TextLabel")
 			titleLbl.BackgroundTransparency = 1
 			titleLbl.FontFace = NullUI.Theme.Font
-			titleLbl.Text = entry.title
+			titleLbl.Text = SearchShownTitle(entry)
 			titleLbl.TextColor3 = NullUI.Theme.Text
 			Role(titleLbl, "Text")
 			titleLbl.TextSize = 13
