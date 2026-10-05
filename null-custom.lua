@@ -8461,7 +8461,7 @@ function Window:AddGlobalChatPanel(opts)
 
 	local titleRow = Instance.new("Frame")
 	titleRow.BackgroundTransparency = 1
-	titleRow.Size = UDim2.new(1, -136, 1, 0)
+	titleRow.Size = UDim2.new(1, -162, 1, 0)
 	titleRow.ZIndex = BASE_Z + 1
 	titleRow.Parent = header
 
@@ -8499,7 +8499,7 @@ function Window:AddGlobalChatPanel(opts)
 	controls.BackgroundTransparency = 1
 	controls.AnchorPoint = Vector2.new(1, 0.5)
 	controls.Position = UDim2.new(1, 0, 0.5, 0)
-	controls.Size = UDim2.fromOffset(126, 22)
+	controls.Size = UDim2.fromOffset(152, 22)
 	controls.ZIndex = BASE_Z + 1
 	controls.Parent = header
 
@@ -8556,6 +8556,39 @@ function Window:AddGlobalChatPanel(opts)
 	local clearBtn, clearIcon = headerIconButton("trash-2", 3)
 	local settingsBtn, settingsIcon = headerIconButton("settings", 4)
 	local closeBtn, closeIcon = headerIconButton("x", 5)
+
+	-- Admin mailbox entry points: header button with a red dot, plus a short
+	-- notice next to the title while something is unread.
+	local hasMailbox = service ~= nil and type(service.GetMailbox) == "function"
+	local mailboxBtn = headerIconButton("mail", 0)
+	mailboxBtn.Visible = hasMailbox
+	local mailboxDot = Instance.new("Frame")
+	mailboxDot.Name = "MailboxDot"
+	mailboxDot.AnchorPoint = Vector2.new(0.5, 0.5)
+	mailboxDot.Position = UDim2.new(1, -4, 0, 4)
+	mailboxDot.Size = UDim2.fromOffset(7, 7)
+	mailboxDot.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+	mailboxDot.BorderSizePixel = 0
+	mailboxDot.Visible = false
+	mailboxDot.ZIndex = BASE_Z + 3
+	mailboxDot.Parent = mailboxBtn
+	Corner(mailboxDot, 4)
+
+	local mailboxNotice = Instance.new("TextButton")
+	mailboxNotice.Name = "MailboxNotice"
+	mailboxNotice.AutoButtonColor = false
+	mailboxNotice.BackgroundTransparency = 1
+	mailboxNotice.FontFace = NullUI.Theme.FontRegular
+	mailboxNotice.Text = ""
+	mailboxNotice.TextColor3 = Color3.fromRGB(239, 68, 68)
+	mailboxNotice.TextSize = 11
+	mailboxNotice.TextXAlignment = Enum.TextXAlignment.Left
+	mailboxNotice.AutomaticSize = Enum.AutomaticSize.X
+	mailboxNotice.Size = UDim2.fromOffset(0, 16)
+	mailboxNotice.LayoutOrder = 3
+	mailboxNotice.Visible = false
+	mailboxNotice.ZIndex = BASE_Z + 2
+	mailboxNotice.Parent = titleRow
 
 	local headerDivider = Instance.new("Frame")
 	headerDivider.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -9827,6 +9860,311 @@ function Window:AddGlobalChatPanel(opts)
 		end
 	end))
 
+	-- Admin mailbox: notices that stay until an admin deletes them. The feed only
+	-- carries {LatestId, Count}; the list is fetched when the popup opens. The
+	-- last opened id is stored on this device and drives the red dots.
+	local MAILBOX_SEEN_FILE = "NullUI/global_chat_mailbox_seen.txt"
+	local mailboxDefaults = {
+		Title = "Mailbox",
+		Notice = "New message from admin",
+		Empty = "The mailbox is empty.",
+		Loading = "Loading...",
+		Error = "Couldn't load the mailbox.",
+		Edited = "edited",
+		Open = "Open",
+	}
+	-- Hosts may pass strings or functions (e.g. to follow their own language).
+	local function mailboxText(key)
+		local value = opts.MailboxText and opts.MailboxText[key]
+		if type(value) == "function" then
+			value = value()
+		end
+		return value or mailboxDefaults[key]
+	end
+	local function mailboxAge(createdAtMs)
+		local seconds = math.max(0, os.time() - math.floor((tonumber(createdAtMs) or 0) / 1000))
+		local format = opts.MailboxText and opts.MailboxText.FormatAge
+		if format then
+			return format(seconds)
+		end
+		if seconds < 60 then
+			return "just now"
+		elseif seconds < 3600 then
+			return math.floor(seconds / 60) .. "m ago"
+		elseif seconds < 86400 then
+			return math.floor(seconds / 3600) .. "h ago"
+		end
+		return math.floor(seconds / 86400) .. "d ago"
+	end
+
+	local mailboxSeenId = 0
+	pcall(function()
+		if fn_isfile and fn_readfile and fn_isfile(MAILBOX_SEEN_FILE) then
+			mailboxSeenId = tonumber(fn_readfile(MAILBOX_SEEN_FILE)) or 0
+		end
+	end)
+	local mailboxLatestId, mailboxCount, mailboxNotifiedId = 0, 0, 0
+	local mailboxPopup, mailboxList = nil, nil
+
+	local tabDot = nil
+	if hasMailbox and tabObj._icon then
+		tabDot = Instance.new("Frame")
+		tabDot.Name = "MailboxDot"
+		tabDot.AnchorPoint = Vector2.new(0.5, 0.5)
+		tabDot.Position = UDim2.new(1, 0, 0, 1)
+		tabDot.Size = UDim2.fromOffset(7, 7)
+		tabDot.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+		tabDot.BorderSizePixel = 0
+		tabDot.Visible = false
+		tabDot.ZIndex = tabObj._icon.ZIndex + 1
+		tabDot.Parent = tabObj._icon
+		Corner(tabDot, 4)
+	end
+
+	local function setMailboxUnread(unread)
+		mailboxDot.Visible = unread
+		mailboxNotice.Text = mailboxText("Notice")
+		mailboxNotice.Visible = unread
+		if tabDot then
+			tabDot.Visible = unread
+		end
+	end
+
+	local function markMailboxSeen()
+		if mailboxLatestId > mailboxSeenId then
+			mailboxSeenId = mailboxLatestId
+			pcall(function()
+				if fn_isfolder and fn_makefolder and not fn_isfolder("NullUI") then
+					fn_makefolder("NullUI")
+				end
+				if fn_writefile then
+					fn_writefile(MAILBOX_SEEN_FILE, tostring(mailboxSeenId))
+				end
+			end)
+		end
+		setMailboxUnread(false)
+	end
+
+	local function mailboxLabel(parent, text, font, size, color, order)
+		local lbl = Instance.new("TextLabel")
+		lbl.BackgroundTransparency = 1
+		lbl.FontFace = font
+		lbl.Text = text
+		lbl.RichText = false
+		lbl.TextColor3 = color
+		lbl.TextSize = size
+		lbl.TextWrapped = true
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.AutomaticSize = Enum.AutomaticSize.Y
+		lbl.Size = UDim2.new(1, 0, 0, 0)
+		lbl.LayoutOrder = order
+		lbl.ZIndex = BASE_Z + 13
+		lbl.Parent = parent
+		return lbl
+	end
+
+	local function renderMailbox(items, failed)
+		if not mailboxList then
+			return
+		end
+		for _, child in ipairs(mailboxList:GetChildren()) do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		if not items or #items == 0 then
+			local key = failed and "Error" or (items and "Empty" or "Loading")
+			local note = mailboxLabel(mailboxList, mailboxText(key), NullUI.Theme.FontRegular, 12, NullUI.Theme.TextDim, 1)
+			note.TextXAlignment = Enum.TextXAlignment.Center
+			return
+		end
+		for index, item in ipairs(items) do
+			local card = Instance.new("Frame")
+			card.Name = "MailboxEntry"
+			card.BackgroundColor3 = Color3.new(1, 1, 1)
+			card.BackgroundTransparency = 0.95
+			card.BorderSizePixel = 0
+			card.AutomaticSize = Enum.AutomaticSize.Y
+			card.Size = UDim2.new(1, -6, 0, 0)
+			card.LayoutOrder = index
+			card.ZIndex = BASE_Z + 12
+			card.Parent = mailboxList
+			Corner(card, 8)
+			local cardPad = Instance.new("UIPadding")
+			cardPad.PaddingTop = UDim.new(0, 8)
+			cardPad.PaddingBottom = UDim.new(0, 8)
+			cardPad.PaddingLeft = UDim.new(0, 10)
+			cardPad.PaddingRight = UDim.new(0, 10)
+			cardPad.Parent = card
+			local cardLayout = Instance.new("UIListLayout")
+			cardLayout.Padding = UDim.new(0, 3)
+			cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			cardLayout.Parent = card
+
+			if item.Title and item.Title ~= "" then
+				mailboxLabel(card, item.Title, NullUI.Theme.Font, C.Text + 1, NullUI.Theme.Text, 1)
+			end
+			mailboxLabel(card, tostring(item.Content or ""), NullUI.Theme.FontRegular, C.Text, NullUI.Theme.Text, 2)
+			local meta = { tostring(item.Author or "Admin"), mailboxAge(item.CreatedAt) }
+			if item.Edited then
+				table.insert(meta, mailboxText("Edited"))
+			end
+			mailboxLabel(card, table.concat(meta, " \u{2022} "), NullUI.Theme.FontRegular, 10, NullUI.Theme.TextDim, 3)
+		end
+	end
+
+	local function loadMailbox()
+		local popup = mailboxPopup
+		SafeSpawn(function()
+			local ok, items = pcall(service.GetMailbox, service)
+			if mailboxPopup ~= popup then
+				return
+			end
+			if ok and type(items) == "table" then
+				renderMailbox(items, false)
+			else
+				renderMailbox(nil, true)
+			end
+		end)
+	end
+
+	local function closeMailboxPopup()
+		if mailboxPopup then
+			mailboxPopup:Destroy()
+			mailboxPopup, mailboxList = nil, nil
+		end
+	end
+
+	local function openMailboxPopup()
+		if not hasMailbox then
+			return
+		end
+		if mailboxPopup then
+			closeMailboxPopup()
+			return
+		end
+		closeSettingsPopup()
+
+		local popup = Instance.new("Frame")
+		popup.Name = "ChatMailboxPopup"
+		popup.BackgroundColor3 = NullUI.Theme.Surface
+		popup.BackgroundTransparency = 0.03
+		popup.BorderSizePixel = 0
+		popup.AnchorPoint = Vector2.new(1, 0)
+		popup.Position = UDim2.new(1, 0, 0, HEADER_H + 4)
+		popup.Size = UDim2.new(1, 0, 1, -(HEADER_H + 8))
+		popup.ZIndex = BASE_Z + 10
+		popup.Parent = panel
+		Corner(popup, 10)
+		Stroke(popup, Color3.new(1, 1, 1), 1, 0.88)
+		local popupPad = Instance.new("UIPadding")
+		popupPad.PaddingTop = UDim.new(0, 10)
+		popupPad.PaddingBottom = UDim.new(0, 10)
+		popupPad.PaddingLeft = UDim.new(0, 12)
+		popupPad.PaddingRight = UDim.new(0, 8)
+		popupPad.Parent = popup
+
+		local title = Instance.new("TextLabel")
+		title.BackgroundTransparency = 1
+		title.FontFace = NullUI.Theme.Font
+		title.Text = mailboxText("Title")
+		title.TextColor3 = NullUI.Theme.Text
+		title.TextSize = 13
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Size = UDim2.new(1, -28, 0, 22)
+		title.ZIndex = BASE_Z + 11
+		title.Parent = popup
+
+		local close = Instance.new("TextButton")
+		close.Text = ""
+		close.AutoButtonColor = false
+		close.BackgroundTransparency = 1
+		close.AnchorPoint = Vector2.new(1, 0)
+		close.Position = UDim2.new(1, 0, 0, 0)
+		close.Size = UDim2.fromOffset(22, 22)
+		close.ZIndex = BASE_Z + 11
+		close.Parent = popup
+		local closeIc = Instance.new("ImageLabel")
+		closeIc.BackgroundTransparency = 1
+		closeIc.Image = ResolveIcon("x")
+		closeIc.ImageColor3 = NullUI.Theme.TextDim
+		closeIc.Size = UDim2.fromOffset(13, 13)
+		closeIc.AnchorPoint = Vector2.new(0.5, 0.5)
+		closeIc.Position = UDim2.fromScale(0.5, 0.5)
+		closeIc.ZIndex = BASE_Z + 12
+		closeIc.Parent = close
+		close.MouseButton1Click:Connect(closeMailboxPopup)
+
+		local list = Instance.new("ScrollingFrame")
+		list.Name = "Entries"
+		list.BackgroundTransparency = 1
+		list.BorderSizePixel = 0
+		list.Position = UDim2.fromOffset(0, 30)
+		list.Size = UDim2.new(1, 0, 1, -30)
+		list.CanvasSize = UDim2.new()
+		list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		list.ScrollBarThickness = 3
+		list.ScrollBarImageTransparency = 0.6
+		list.ZIndex = BASE_Z + 11
+		list.Parent = popup
+		local listLayout = Instance.new("UIListLayout")
+		listLayout.Padding = UDim.new(0, 6)
+		listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		listLayout.Parent = list
+
+		mailboxPopup, mailboxList = popup, list
+		markMailboxSeen()
+		renderMailbox(nil, false)
+		loadMailbox()
+	end
+
+	if hasMailbox then
+		jan:Add(mailboxBtn.MouseButton1Click:Connect(openMailboxPopup))
+		jan:Add(mailboxNotice.MouseButton1Click:Connect(openMailboxPopup))
+	end
+
+	local function syncMailbox()
+		local meta = hasMailbox and service.ChatMeta and service.ChatMeta.Mailbox
+		if type(meta) ~= "table" then
+			return
+		end
+		local latest, count = tonumber(meta.LatestId) or 0, tonumber(meta.Count) or 0
+		local changed = latest ~= mailboxLatestId or count ~= mailboxCount
+		mailboxLatestId, mailboxCount = latest, count
+		if mailboxPopup then
+			markMailboxSeen()
+			if changed then
+				loadMailbox()
+			end
+			return
+		end
+		local unread = latest > mailboxSeenId
+		setMailboxUnread(unread)
+		if unread and latest > mailboxNotifiedId then
+			mailboxNotifiedId = latest
+			NullUI:Notify({
+				Title = mailboxText("Title"),
+				Text = mailboxText("Notice"),
+				Type = "info",
+				Icon = "mail",
+				Duration = 6,
+				Actions = {
+					{
+						Text = mailboxText("Open"),
+						Callback = function()
+							if tabObj._select then
+								tabObj._select()
+							end
+							if not mailboxPopup then
+								openMailboxPopup()
+							end
+						end,
+					},
+				},
+			})
+		end
+	end
+
 	local notifySoundInstance = Instance.new("Sound")
 	notifySoundInstance.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 	notifySoundInstance.Volume = 0.5
@@ -9851,6 +10189,7 @@ function Window:AddGlobalChatPanel(opts)
 			end
 			applyMeta()
 			syncAnnouncement()
+			syncMailbox()
 			local failures = 0
 			while panel and panel.Parent do
 				-- Poll at full speed only while the chat is on screen, and back off
@@ -9876,6 +10215,7 @@ function Window:AddGlobalChatPanel(opts)
 				if newMsgs then
 					applyMeta()
 					syncAnnouncement()
+					syncMailbox()
 					local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
 					if type(deletedIds) == "table" then
 						for _, id in ipairs(deletedIds) do

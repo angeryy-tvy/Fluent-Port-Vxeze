@@ -151,6 +151,11 @@ local function CreateFluentChatService(config)
 				Content = data.announcement.content,
 				RemainingMs = tonumber(data.announcement.remainingMs) or 0,
 			} or nil,
+			-- Admin mailbox: latest id and count; NullUI fetches the list on open.
+			Mailbox = typeof(data.mailbox) == "table" and {
+				LatestId = tonumber(data.mailbox.latestId) or 0,
+				Count = tonumber(data.mailbox.count) or 0,
+			} or nil,
 		}
 		return typeof(data.messages) == "table" and data.messages or {}
 	end
@@ -190,6 +195,25 @@ local function CreateFluentChatService(config)
 		local posted = typeof(data.message) == "table" and data.message or data
 		-- The relay may rewrite the content (e.g. blocked script links); show its copy.
 		return { Id = idFor(posted.id), Text = typeof(posted.content) == "string" and posted.content or nil }
+	end
+
+	function service:GetMailbox()
+		local data, err = call("GET", "/mailbox")
+		if not data then
+			return nil, err
+		end
+		local out = {}
+		for _, entry in ipairs(typeof(data.items) == "table" and data.items or {}) do
+			table.insert(out, {
+				Id = tonumber(entry.id) or 0,
+				Title = entry.title,
+				Content = entry.content,
+				Author = entry.createdByName,
+				CreatedAt = toMs(entry.createdAt),
+				Edited = typeof(entry.updatedAt) == "string",
+			})
+		end
+		return out
 	end
 
 	function service:ReportChatMessage(messageId, reason)
