@@ -87,12 +87,7 @@ local function CreateFluentChatService(config)
 	local service = { ChatMeta = { OnlineCount = 0 } }
 
 	local function call(method, path, body, query)
-		-- X-Player-Id: mailbox reactions are per player.
-		local headers = {
-			["Content-Type"] = "application/json",
-			["X-Global-Chat-Key"] = config.ApiKey,
-			["X-Player-Id"] = playerId,
-		}
+		local headers = { ["Content-Type"] = "application/json", ["X-Global-Chat-Key"] = config.ApiKey }
 		local url = endpoint .. (path or "") .. (query or "")
 		local ok, res = pcall(httpRequest, {
 			Url = url,
@@ -209,14 +204,6 @@ local function CreateFluentChatService(config)
 		return { Id = idFor(posted.id), Text = typeof(posted.content) == "string" and posted.content or nil }
 	end
 
-	local function toReactions(list)
-		local out = {}
-		for _, r in ipairs(typeof(list) == "table" and list or {}) do
-			table.insert(out, { Key = r.reaction, Count = tonumber(r.count) or 0, Mine = r.mine == true })
-		end
-		return out
-	end
-
 	function service:GetMailbox()
 		local data, err = call("GET", "/mailbox")
 		if not data then
@@ -231,19 +218,9 @@ local function CreateFluentChatService(config)
 				Author = entry.createdByName,
 				CreatedAt = toMs(entry.createdAt),
 				Edited = typeof(entry.updatedAt) == "string",
-				Reactions = toReactions(entry.reactions),
 			})
 		end
 		return out
-	end
-
-	-- Toggles one reaction; returns the entry's updated reactions.
-	function service:ReactMailbox(entryId, reaction)
-		local data, err = call("POST", "/mailbox/" .. tostring(entryId) .. "/react", { reaction = reaction })
-		if not data then
-			return nil, err
-		end
-		return toReactions(data.reactions)
 	end
 
 	function service:ReportChatMessage(messageId, reason)
