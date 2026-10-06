@@ -1,5 +1,6 @@
 -- Example: NullUI with tabs, sections and a Global Chat tab that talks to the
--- same relay (endpoint + protocol) as Fluent's GlobalChat component.
+-- same relay (endpoint + protocol) as Fluent's GlobalChat component, plus a Cloud
+-- tab where players share settings presets through vxezestudio.online.
 --
 -- NullUI's chat panel expects a "service" object (SendChatMessage / PollChatMessages / ...).
 -- Fluent's relay speaks a different JSON shape (camelCase, string ids, ISO timestamps,
@@ -13,6 +14,12 @@ local LocalPlayer = Players.LocalPlayer
 -- Same values as Example.luau. Any key shipped in a client script is public.
 local GLOBAL_CHAT_ENDPOINT = "https://vxezestudio.online/api/global-chat"
 local GLOBAL_CHAT_API_KEY = "olwenth05dzkhoaito"
+
+-- Shared config library (Cloud tab). Uses the same key as the chat; the script id
+-- picks which library and tags the server allows ("nullui-example" is demo-only,
+-- a real hub uses its own id, e.g. "steal-an-egg").
+local CLOUD_CONFIG_ENDPOINT = "https://vxezestudio.online/api/configs"
+local CLOUD_CONFIG_SCRIPT = "nullui-example"
 
 -- NullUI build that includes the Fluent-style global chat (role tags, pinned, reply, join, ...).
 local NULLUI_URL = "https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/null-custom.lua"
@@ -80,7 +87,12 @@ local function CreateFluentChatService(config)
 	local service = { ChatMeta = { OnlineCount = 0 } }
 
 	local function call(method, path, body, query)
-		local headers = { ["Content-Type"] = "application/json", ["X-Global-Chat-Key"] = config.ApiKey }
+		-- X-Player-Id: mailbox reactions are per player.
+		local headers = {
+			["Content-Type"] = "application/json",
+			["X-Global-Chat-Key"] = config.ApiKey,
+			["X-Player-Id"] = playerId,
+		}
 		local url = endpoint .. (path or "") .. (query or "")
 		local ok, res = pcall(httpRequest, {
 			Url = url,
@@ -197,6 +209,14 @@ local function CreateFluentChatService(config)
 		return { Id = idFor(posted.id), Text = typeof(posted.content) == "string" and posted.content or nil }
 	end
 
+	local function toReactions(list)
+		local out = {}
+		for _, r in ipairs(typeof(list) == "table" and list or {}) do
+			table.insert(out, { Key = r.reaction, Count = tonumber(r.count) or 0, Mine = r.mine == true })
+		end
+		return out
+	end
+
 	function service:GetMailbox()
 		local data, err = call("GET", "/mailbox")
 		if not data then
@@ -211,9 +231,19 @@ local function CreateFluentChatService(config)
 				Author = entry.createdByName,
 				CreatedAt = toMs(entry.createdAt),
 				Edited = typeof(entry.updatedAt) == "string",
+				Reactions = toReactions(entry.reactions),
 			})
 		end
 		return out
+	end
+
+	-- Toggles one reaction; returns the entry's updated reactions.
+	function service:ReactMailbox(entryId, reaction)
+		local data, err = call("POST", "/mailbox/" .. tostring(entryId) .. "/react", { reaction = reaction })
+		if not data then
+			return nil, err
+		end
+		return toReactions(data.reactions)
 	end
 
 	function service:ReportChatMessage(messageId, reason)
@@ -259,6 +289,135 @@ local ChatService = CreateFluentChatService({
 })
 
 --------------------------------------------------------------------------------
+-- Cloud config adapter
+--------------------------------------------------------------------------------
+
+-- AddCloudPanel calls List / ListMine / Publish / Delete / Like / Download.
+-- A config is NullUI:GetConfig(), i.e. the value of every control with a Flag.
+local function CreateCloudConfigService(config)
+	local endpoint = config.Endpoint:gsub("/+$", "")
+	local httpRequest = resolveRequest()
+	local scriptQuery = "script=" .. HttpService:UrlEncode(config.Script)
+
+	local function call(method, path, query, body)
+		local ok, res = pcall(httpRequest, {
+			Url = endpoint .. path .. "?" .. scriptQuery .. (query or ""),
+			Method = method,
+			Headers = {
+				["Content-Type"] = "application/json",
+				["X-Global-Chat-Key"] = config.ApiKey,
+				-- Ownership (publish, delete, likes) is tied to the Roblox UserId.
+				["X-Player-Id"] = tostring(LocalPlayer.UserId),
+			},
+			Body = body and HttpService:JSONEncode(body) or nil,
+		})
+		if not ok or typeof(res) ~= "table" then
+			return nil, tostring(res)
+		end
+		local decoded, data = pcall(HttpService.JSONDecode, HttpService, res.Body or "")
+		if not res.Success then
+			local msg = decoded and typeof(data) == "table" and data.error
+			return nil, msg or res.StatusMessage or "Request failed"
+		end
+		if not decoded or typeof(data) ~= "table" then
+			return nil, "Invalid config response"
+		end
+		return data
+	end
+
+	local function toCard(item)
+		local tags = typeof(item.tags) == "table" and item.tags or {}
+		return {
+			Id = tostring(item.id),
+			Name = item.name,
+			Description = item.description,
+			Tags = tags,
+			OwnerName = item.ownerName,
+			Likes = tonumber(item.likes) or 0,
+			Downloads = tonumber(item.downloads) or 0,
+			CreatedAtText = #tags > 0 and table.concat(tags, ", ") or nil,
+		}
+	end
+
+	local function toCards(items)
+		local out = {}
+		for _, item in ipairs(typeof(items) == "table" and items or {}) do
+			table.insert(out, toCard(item))
+		end
+		return out
+	end
+
+	local service = {}
+
+	function service:List(state)
+		state = state or {}
+		local query = "&sort=" .. HttpService:UrlEncode(state.Sort or "top")
+			.. "&limit=" .. tostring(math.min(state.PageSize or 20, 30))
+		if state.Query and state.Query ~= "" then
+			query ..= "&q=" .. HttpService:UrlEncode(state.Query)
+		end
+		if state.Cursor then
+			query ..= "&cursor=" .. HttpService:UrlEncode(tostring(state.Cursor))
+		end
+		local data, err = call("GET", "", query)
+		if not data then
+			return nil, err
+		end
+		return toCards(data.items), data.nextCursor
+	end
+
+	function service:ListMine()
+		local data, err = call("GET", "/mine")
+		if not data then
+			return nil, err
+		end
+		return toCards(data.items)
+	end
+
+	function service:Publish(meta, presetData)
+		meta = meta or {}
+		local data, err = call("POST", "", nil, {
+			script = config.Script,
+			name = meta.Name,
+			description = meta.Description or "",
+			tags = meta.Tags or {},
+			data = presetData or NullUI:GetConfig(),
+		})
+		if not data then
+			return nil, err
+		end
+		return toCard(data.item or {})
+	end
+
+	function service:Delete(id)
+		local data, err = call("DELETE", "/" .. HttpService:UrlEncode(tostring(id)))
+		return data ~= nil, err
+	end
+
+	-- Toggles: a second press removes the player's like.
+	function service:Like(id)
+		local data, err = call("POST", "/" .. HttpService:UrlEncode(tostring(id)) .. "/like")
+		return data ~= nil, err
+	end
+
+	function service:Download(id)
+		local data, err = call("POST", "/" .. HttpService:UrlEncode(tostring(id)) .. "/install")
+		if not data then
+			return nil, err
+		end
+		return { Data = data.data }
+	end
+
+	return service
+end
+
+local CloudService = CreateCloudConfigService({
+	Endpoint = CLOUD_CONFIG_ENDPOINT,
+	Script = CLOUD_CONFIG_SCRIPT,
+	ApiKey = GLOBAL_CHAT_API_KEY,
+})
+
+--------------------------------------------------------------------------------
 -- Window, tabs and sections
 --------------------------------------------------------------------------------
 
@@ -275,8 +434,10 @@ Main:AddParagraph({
 	Title = "Welcome",
 	Text = `Signed in as {LocalPlayer.DisplayName}. Open the Chat tab to talk with everyone using the script.`,
 })
+-- Controls with a Flag are what local and cloud configs save and restore.
 Main:AddToggle({
 	Text = "Auto farm",
+	Flag = "AutoFarm",
 	Description = "Example toggle",
 	Default = false,
 	Callback = function(value)
@@ -285,6 +446,7 @@ Main:AddToggle({
 })
 Main:AddSlider({
 	Text = "Walk speed",
+	Flag = "WalkSpeed",
 	Min = 16,
 	Max = 100,
 	Default = 16,
@@ -335,4 +497,15 @@ local Chat = Window:AddGlobalChatPanel({
 	},
 })
 
-return { Window = Window, Chat = Chat }
+-- Cloud tab: Public Configs (browse, like, apply with undo), Local Configs
+-- (saved on this device) and Publish (share the current settings, max 10 each).
+local Cloud = Window:AddCloudPanel({
+	Name = "Cloud",
+	Icon = "cloud",
+	Hidden = false,
+	Service = CloudService,
+	-- Shown in the publish form; the server keeps only tags it allows for this script.
+	TagsPlaceholder = "Farming, Event, AFK",
+})
+
+return { Window = Window, Chat = Chat, Cloud = Cloud }

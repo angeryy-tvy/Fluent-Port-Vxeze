@@ -9963,6 +9963,124 @@ function Window:AddGlobalChatPanel(opts)
 		return lbl
 	end
 
+	-- Reactions on mailbox entries. The service sends keys; hosts may remap emoji.
+	local canReact = type(service.ReactMailbox) == "function"
+	local reactionEmoji = {
+		like = "\u{1F44D}",
+		love = "\u{2764}\u{FE0F}",
+		haha = "\u{1F602}",
+		wow = "\u{1F62E}",
+		sad = "\u{1F622}",
+		fire = "\u{1F525}",
+	}
+	for key, emoji in pairs(opts.MailboxReactions or {}) do
+		reactionEmoji[key] = emoji
+	end
+
+	local function renderMailboxReactions(card, item)
+		local row = Instance.new("Frame")
+		row.Name = "Reactions"
+		row.BackgroundTransparency = 1
+		row.AutomaticSize = Enum.AutomaticSize.Y
+		row.Size = UDim2.new(1, 0, 0, 0)
+		row.LayoutOrder = 4
+		row.ZIndex = BASE_Z + 12
+		row.Parent = card
+		local rowLayout = Instance.new("UIListLayout")
+		rowLayout.FillDirection = Enum.FillDirection.Horizontal
+		rowLayout.Padding = UDim.new(0, 4)
+		rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		pcall(function()
+			rowLayout.Wraps = true
+		end)
+		rowLayout.Parent = row
+
+		local chips = {}
+		local busy = false
+		local function paint(state)
+			for _, entry in ipairs(state) do
+				local chip = chips[entry.Key]
+				if chip then
+					local count = tonumber(entry.Count) or 0
+					chip.Button.Text = reactionEmoji[entry.Key] .. (count > 0 and (" " .. count) or "")
+					chip.Button.BackgroundColor3 = entry.Mine and NullUI.Theme.Accent or Color3.new(1, 1, 1)
+					chip.Button.BackgroundTransparency = entry.Mine and 0.7 or 0.93
+					chip.Stroke.Transparency = entry.Mine and 0.4 or 1
+					chip.Button.TextColor3 = count > 0 and NullUI.Theme.Text or NullUI.Theme.TextDim
+				end
+			end
+		end
+
+		local state = {}
+		for index, entry in ipairs(item.Reactions) do
+			local key = tostring(entry.Key)
+			if reactionEmoji[key] then
+				table.insert(state, { Key = key, Count = tonumber(entry.Count) or 0, Mine = entry.Mine == true })
+				local chip = Instance.new("TextButton")
+				chip.Name = "Reaction_" .. key
+				chip.AutoButtonColor = false
+				chip.BorderSizePixel = 0
+				chip.FontFace = NullUI.Theme.FontRegular
+				chip.TextSize = 12
+				chip.AutomaticSize = Enum.AutomaticSize.X
+				chip.Size = UDim2.fromOffset(0, 22)
+				chip.LayoutOrder = index
+				chip.ZIndex = BASE_Z + 13
+				chip.Parent = row
+				Corner(chip, 11)
+				local chipPad = Instance.new("UIPadding")
+				chipPad.PaddingLeft = UDim.new(0, 7)
+				chipPad.PaddingRight = UDim.new(0, 7)
+				chipPad.Parent = chip
+				chips[key] = { Button = chip, Stroke = Stroke(chip, NullUI.Theme.Accent, 1, 1) }
+
+				chip.MouseButton1Click:Connect(function()
+					if busy then
+						return
+					end
+					busy = true
+					-- Optimistic toggle; the server's counts replace it when they arrive.
+					local before = {}
+					for i, current in ipairs(state) do
+						before[i] = { Key = current.Key, Count = current.Count, Mine = current.Mine }
+						if current.Key == key then
+							current.Count = math.max(0, current.Count + (current.Mine and -1 or 1))
+							current.Mine = not current.Mine
+						end
+					end
+					paint(state)
+					SafeSpawn(function()
+						local ok, result, err = pcall(service.ReactMailbox, service, item.Id, key)
+						if not chip.Parent then
+							return
+						end
+						if ok and type(result) == "table" then
+							for _, fresh in ipairs(result) do
+								for _, current in ipairs(state) do
+									if current.Key == tostring(fresh.Key) then
+										current.Count = tonumber(fresh.Count) or 0
+										current.Mine = fresh.Mine == true
+									end
+								end
+							end
+						else
+							state = before
+							NullUI:Notify({
+								Title = mailboxText("Title"),
+								Text = tostring(ok and err or result or "Request failed"),
+								Type = "error",
+								Duration = 3,
+							})
+						end
+						paint(state)
+						busy = false
+					end)
+				end)
+			end
+		end
+		paint(state)
+	end
+
 	local function renderMailbox(items, failed)
 		if not mailboxList then
 			return
@@ -10010,6 +10128,9 @@ function Window:AddGlobalChatPanel(opts)
 				table.insert(meta, mailboxText("Edited"))
 			end
 			mailboxLabel(card, table.concat(meta, " \u{2022} "), NullUI.Theme.FontRegular, 10, NullUI.Theme.TextDim, 3)
+			if canReact and type(item.Reactions) == "table" then
+				renderMailboxReactions(card, item)
+			end
 		end
 	end
 
