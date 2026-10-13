@@ -9232,6 +9232,8 @@ function Window:AddGlobalChatPanel(opts)
 	-- Rendered rows by message id, so messages deleted by an admin can be removed.
 	local rowsById = {}
 
+	local avatarCache = {}
+
 	local function addBubble(msg, isOwn)
 		order = order + 1
 		local text = tostring(msg.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -9303,18 +9305,27 @@ function Window:AddGlobalChatPanel(opts)
 			avatarImg.Parent = avatar
 			Corner(avatarImg, AVATAR / 2)
 			Tween(avatarImg, { ImageTransparency = 0 }, 0.18)
-			SafeSpawn(function()
-				local ok, content = pcall(
-					Players.GetUserThumbnailAsync,
-					Players,
-					msg.UserId,
-					Enum.ThumbnailType.HeadShot,
-					Enum.ThumbnailSize.Size100x100
-				)
-				if ok and content and avatarImg.Parent then
-					avatarImg.Image = content
-				end
-			end)
+			-- One thumbnail request per user: busy chats repeat the same senders constantly.
+			local cachedAvatar = avatarCache[msg.UserId]
+			if cachedAvatar then
+				avatarImg.Image = cachedAvatar
+			else
+				SafeSpawn(function()
+					local ok, content = pcall(
+						Players.GetUserThumbnailAsync,
+						Players,
+						msg.UserId,
+						Enum.ThumbnailType.HeadShot,
+						Enum.ThumbnailSize.Size100x100
+					)
+					if ok and content then
+						avatarCache[msg.UserId] = content
+						if avatarImg.Parent then
+							avatarImg.Image = content
+						end
+					end
+				end)
+			end
 		end
 
 		local H_PAD, V_PAD = C.HPad, C.VPad
@@ -10170,6 +10181,40 @@ function Window:AddGlobalChatPanel(opts)
 	notifySoundInstance.Volume = 0.5
 	notifySoundInstance.Parent = panel
 
+	-- Building a bubble is the expensive part of chat (dozens of instances, tweens, avatar
+	-- lookups), and a busy chat made the whole hub stutter. While the chat tab isn't open
+	-- new messages are only queued; they are drawn when the tab opens, and only the newest
+	-- ones, with a cap on how many rows are ever kept.
+	local MAX_ROWS, MAX_PENDING = 80, 40
+	local pending = {}
+	local function trimRows()
+		local rows = {}
+		for _, child in ipairs(msgScroll:GetChildren()) do
+			if child.Name == "ChatRow" then
+				rows[#rows + 1] = child
+			end
+		end
+		for i = 1, #rows - MAX_ROWS do
+			rows[i]:Destroy()
+		end
+	end
+	local function flushPending()
+		if #pending == 0 then
+			return
+		end
+		local queued = pending
+		pending = {}
+		for _, m in ipairs(queued) do
+			addBubble(m, m.UserId == LocalPlayer.UserId)
+		end
+		trimRows()
+	end
+	table.insert(self._tabChangeListeners, function(selected)
+		if selected == tabObj then
+			flushPending()
+		end
+	end)
+
 	if service then
 		SafeSpawn(function()
 			local backlog = service:PollChatMessages(0)
@@ -10226,11 +10271,22 @@ function Window:AddGlobalChatPanel(opts)
 							end
 						end
 					end
+					local onScreen = self._currentTab == tabObj
+					if onScreen then
+						flushPending()
+					end
 					for _, m in ipairs(newMsgs) do
 						if not seenIds[m.Id] then
 							seenIds[m.Id] = true
 							local isOwn = m.UserId == LocalPlayer.UserId
-							addBubble(m, isOwn)
+							if onScreen then
+								addBubble(m, isOwn)
+							else
+								pending[#pending + 1] = m
+								if #pending > MAX_PENDING then
+									table.remove(pending, 1)
+								end
+							end
 
 							if notifySound and not isOwn and notifySoundInstance.Parent then
 								notifySoundInstance:Play()
@@ -10239,6 +10295,9 @@ function Window:AddGlobalChatPanel(opts)
 						if m.Id > lastSeenId then
 							lastSeenId = m.Id
 						end
+					end
+					if onScreen then
+						trimRows()
 					end
 				end
 			end
