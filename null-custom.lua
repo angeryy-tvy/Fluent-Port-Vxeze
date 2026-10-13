@@ -10183,11 +10183,16 @@ function Window:AddGlobalChatPanel(opts)
 
 	-- Building a bubble is the expensive part of chat (dozens of instances, tweens, avatar
 	-- lookups), and a busy chat made the whole hub stutter. While the chat tab isn't open
-	-- new messages are only queued; they are drawn when the tab opens, and only the newest
-	-- ones, with a cap on how many rows are ever kept.
-	local MAX_ROWS, MAX_PENDING = 80, 40
+	-- new messages are only queued and drawn (in small batches) when the tab opens.
+	-- Nothing is ever dropped from under the reader: old rows are only trimmed while the
+	-- list is at the bottom, and the cap is high.
+	local MAX_ROWS, MAX_PENDING = 250, 150
 	local pending = {}
+	local flushing = false
 	local function trimRows()
+		if not pinnedToBottom then
+			return
+		end
 		local rows = {}
 		for _, child in ipairs(msgScroll:GetChildren()) do
 			if child.Name == "ChatRow" then
@@ -10199,19 +10204,24 @@ function Window:AddGlobalChatPanel(opts)
 		end
 	end
 	local function flushPending()
-		if #pending == 0 then
+		if flushing or #pending == 0 then
 			return
 		end
+		flushing = true
 		local queued = pending
 		pending = {}
-		for _, m in ipairs(queued) do
+		for i, m in ipairs(queued) do
 			addBubble(m, m.UserId == LocalPlayer.UserId)
+			if i % 8 == 0 then
+				task.wait()
+			end
 		end
+		flushing = false
 		trimRows()
 	end
 	table.insert(self._tabChangeListeners, function(selected)
 		if selected == tabObj then
-			flushPending()
+			SafeSpawn(flushPending)
 		end
 	end)
 
@@ -10271,7 +10281,9 @@ function Window:AddGlobalChatPanel(opts)
 							end
 						end
 					end
-					local onScreen = self._currentTab == tabObj
+					-- While the tab's own flush is still drawing, new messages queue behind it
+					-- so rows can't end up out of order.
+					local onScreen = self._currentTab == tabObj and not flushing
 					if onScreen then
 						flushPending()
 					end
