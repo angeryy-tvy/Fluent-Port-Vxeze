@@ -1995,6 +1995,9 @@ local NotifyColors = {
 	error = Color3.fromRGB(255, 105, 105),
 }
 
+-- Roblox UserId of the owner whose avatar appears on every notification (OlwenThNek).
+NullUI.NotifyAvatarUserId = 11464210153
+
 function NullUI:Notify(opts)
 	opts = opts or {}
 	local title = opts.Title or "Notification"
@@ -2054,6 +2057,30 @@ function NullUI:Notify(opts)
 	headerLayout.Padding = UDim.new(0, 7)
 	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	headerLayout.Parent = headerRow
+
+	-- Every toast carries the owner's avatar. Pass Avatar = false to hide it, or a UserId to
+	-- show someone else; NullUI.NotifyAvatarUserId changes the default for the whole script.
+	local avatarUserId = opts.Avatar
+	if avatarUserId == nil then
+		avatarUserId = NullUI.NotifyAvatarUserId
+	end
+	local avatar
+	if avatarUserId then
+		avatar = Instance.new("ImageLabel")
+		avatar.Name = "Avatar"
+		avatar.BackgroundColor3 = color
+		avatar.BackgroundTransparency = 1
+		avatar.ImageTransparency = 1
+		-- rbxthumb loads without yielding, unlike GetUserThumbnailAsync.
+		avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(avatarUserId) .. "&w=150&h=150"
+		avatar.ScaleType = Enum.ScaleType.Crop
+		avatar.Size = UDim2.fromOffset(22, 22)
+		avatar.LayoutOrder = 0
+		avatar.ZIndex = Z.Toast + 1
+		avatar.Parent = headerRow
+		Corner(avatar, 11)
+		Stroke(avatar, color, 1, 0.4)
+	end
 
 	local icon = Instance.new("ImageLabel")
 	icon.BackgroundTransparency = 1
@@ -2218,6 +2245,9 @@ function NullUI:Notify(opts)
 		Tween(stroke, { Transparency = 1 }, 0.18)
 		Tween(scale, { Scale = 0.9 }, 0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 		Tween(icon, { ImageTransparency = 1 }, 0.18)
+		if avatar then
+			Tween(avatar, { ImageTransparency = 1 }, 0.18)
+		end
 		Tween(titleLabel, { TextTransparency = 1 }, 0.18)
 		if textLabel then
 			Tween(textLabel, { TextTransparency = 1 }, 0.18)
@@ -2250,6 +2280,9 @@ function NullUI:Notify(opts)
 		Tween(stroke, { Transparency = 0.82 }, 0.26)
 		Tween(scale, { Scale = 1 }, 0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 		Tween(icon, { ImageTransparency = 0 }, 0.26)
+		if avatar then
+			Tween(avatar, { ImageTransparency = 0 }, 0.26)
+		end
 		Tween(titleLabel, { TextTransparency = 0 }, 0.26)
 		Tween(barHolder, { BackgroundTransparency = 0.88 }, 0.26)
 		Tween(bar, { BackgroundTransparency = 0 }, 0.26)
@@ -2348,6 +2381,29 @@ function NullUI:Announce(opts)
 	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	headerLayout.Parent = header
 
+	-- Owner avatar, same as on Notify (Avatar = false hides it, a UserId overrides it).
+	local avatarUserId = opts.Avatar
+	if avatarUserId == nil then
+		avatarUserId = NullUI.NotifyAvatarUserId
+	end
+	local avatar
+	if avatarUserId then
+		local avatarSize = mobile and 20 or 24
+		avatar = Instance.new("ImageLabel")
+		avatar.Name = "Avatar"
+		avatar.BackgroundColor3 = color
+		avatar.BackgroundTransparency = 1
+		avatar.ImageTransparency = 1
+		avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(avatarUserId) .. "&w=150&h=150"
+		avatar.ScaleType = Enum.ScaleType.Crop
+		avatar.Size = UDim2.fromOffset(avatarSize, avatarSize)
+		avatar.LayoutOrder = 0
+		avatar.ZIndex = card.ZIndex + 1
+		avatar.Parent = header
+		Corner(avatar, avatarSize / 2)
+		Stroke(avatar, color, 1, 0.4)
+	end
+
 	local icon = Instance.new("ImageLabel")
 	icon.BackgroundTransparency = 1
 	icon.Image = ResolveIcon(opts.Icon or "megaphone")
@@ -2438,6 +2494,9 @@ function NullUI:Announce(opts)
 		Tween(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, t - 12) }, 0.22)
 		Tween(stroke, { Transparency = 1 }, 0.22)
 		Tween(icon, { ImageTransparency = 1 }, 0.22)
+		if avatar then
+			Tween(avatar, { ImageTransparency = 1 }, 0.22)
+		end
 		Tween(titleLabel, { TextTransparency = 1 }, 0.22)
 		Tween(body, { TextTransparency = 1 }, 0.22)
 		Tween(barHolder, { BackgroundTransparency = 1 }, 0.22)
@@ -2462,6 +2521,9 @@ function NullUI:Announce(opts)
 	Tween(card, { BackgroundTransparency = 0.06, Position = UDim2.new(0.5, 0, 0, top) }, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	Tween(stroke, { Transparency = 0.55 }, 0.3)
 	Tween(icon, { ImageTransparency = 0 }, 0.3)
+	if avatar then
+		Tween(avatar, { ImageTransparency = 0 }, 0.3)
+	end
 	Tween(titleLabel, { TextTransparency = 0 }, 0.3)
 	Tween(body, { TextTransparency = 0 }, 0.3)
 	Tween(barHolder, { BackgroundTransparency = 0.85 }, 0.3)
