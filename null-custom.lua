@@ -1995,7 +1995,7 @@ local NotifyColors = {
 	error = Color3.fromRGB(255, 105, 105),
 }
 
--- Roblox UserId of the owner whose avatar appears on every notification (OlwenThNek).
+-- Roblox UserId of the owner whose avatar appears on global chat announcements (OlwenThNek).
 NullUI.NotifyAvatarUserId = 11464210153
 
 function NullUI:Notify(opts)
@@ -2058,12 +2058,8 @@ function NullUI:Notify(opts)
 	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	headerLayout.Parent = headerRow
 
-	-- Every toast carries the owner's avatar. Pass Avatar = false to hide it, or a UserId to
-	-- show someone else; NullUI.NotifyAvatarUserId changes the default for the whole script.
+	-- Plain UI toasts have no avatar; pass Avatar = <UserId> to add one to a specific toast.
 	local avatarUserId = opts.Avatar
-	if avatarUserId == nil then
-		avatarUserId = NullUI.NotifyAvatarUserId
-	end
 	local avatar
 	if avatarUserId then
 		avatar = Instance.new("ImageLabel")
@@ -2381,7 +2377,7 @@ function NullUI:Announce(opts)
 	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	headerLayout.Parent = header
 
-	-- Owner avatar, same as on Notify (Avatar = false hides it, a UserId overrides it).
+	-- Owner avatar for announcements only (Avatar = false hides it, a UserId overrides it).
 	local avatarUserId = opts.Avatar
 	if avatarUserId == nil then
 		avatarUserId = NullUI.NotifyAvatarUserId
