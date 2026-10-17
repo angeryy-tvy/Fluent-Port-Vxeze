@@ -10378,11 +10378,9 @@ function Window:AddGlobalChatPanel(opts)
 		SafeSpawn(function()
 			-- Clear any stale sharing left by an earlier script instance.
 			publishPresence()
-			-- Heartbeat for as long as the script is loaded, not only while sharing a join
-			-- link, so "online" counts everyone running the script and not just people who chat.
 			while panel and panel.Parent do
 				task.wait(20)
-				if panel and panel.Parent then
+				if allowJoin and panel and panel.Parent then
 					publishPresence()
 				end
 			end
