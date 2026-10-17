@@ -10374,25 +10374,16 @@ function Window:AddGlobalChatPanel(opts)
 		end)
 	end
 
-	if service and (service.PublishChatPresence or service.ChatHeartbeat) then
+	if service and service.PublishChatPresence then
 		SafeSpawn(function()
 			-- Clear any stale sharing left by an earlier script instance.
 			publishPresence()
-			-- Heartbeat for as long as the script is loaded, so "online" counts everyone running
-			-- it and not just people who chat. Join sharing keeps its own presence refresh.
-			local function beat()
-				if service.ChatHeartbeat then
-					pcall(service.ChatHeartbeat, service, LocalPlayer.UserId)
-				end
-			end
-			beat()
+			-- Heartbeat for as long as the script is loaded, not only while sharing a join
+			-- link, so "online" counts everyone running the script and not just people who chat.
 			while panel and panel.Parent do
 				task.wait(20)
 				if panel and panel.Parent then
-					beat()
-					if allowJoin then
-						publishPresence()
-					end
+					publishPresence()
 				end
 			end
 		end)
