@@ -9725,10 +9725,10 @@ function Window:AddGlobalChatPanel(opts)
 				NullUI:Notify({ Title = "Chat", Text = tostring(err), Type = "error", Duration = 3 })
 				return
 			end
+			-- Only remember the id so the poll doesn't draw this message twice. Moving
+			-- lastSeenId up to it would skip messages other people sent between the last
+			-- poll and this send (their ids are lower), and those would never appear.
 			seenIds[result.Id] = true
-			if result.Id > lastSeenId then
-				lastSeenId = result.Id
-			end
 			addBubble({
 				Id = result.Id,
 				UserId = sendUserId,
@@ -10269,7 +10269,8 @@ function Window:AddGlobalChatPanel(opts)
 		local queued = pending
 		pending = {}
 		for i, m in ipairs(queued) do
-			addBubble(m, m.UserId == LocalPlayer.UserId)
+			-- One bad message must not leave `flushing` stuck or stop the rest.
+			pcall(addBubble, m, m.UserId == LocalPlayer.UserId)
 			if i % 8 == 0 then
 				task.wait()
 			end
@@ -10350,7 +10351,7 @@ function Window:AddGlobalChatPanel(opts)
 							seenIds[m.Id] = true
 							local isOwn = m.UserId == LocalPlayer.UserId
 							if onScreen then
-								addBubble(m, isOwn)
+								pcall(addBubble, m, isOwn)
 							else
 								pending[#pending + 1] = m
 								if #pending > MAX_PENDING then
