@@ -1205,11 +1205,13 @@ function GlobalChat:StartPolling()
 		self.PresenceBusy = false
 		while not self.Destroyed and not (self.Config.Library and self.Config.Library.Unloaded) do
 			task.wait(20)
-			if self.AllowJoin and not self.PresenceBusy and not self.Destroyed then
+			-- Heartbeat for as long as the script runs, not only while sharing a join link,
+			-- so the online count covers everyone using the script, not just people who chat.
+			if not self.PresenceBusy and not self.Destroyed then
 				self.PresenceBusy = true
 				local Success, Result = self:PublishPresence()
 				self.PresenceBusy = false
-				if not Success and not self.Destroyed then self:SetStatus(Result, true) end
+				if not Success and self.AllowJoin and not self.Destroyed then self:SetStatus(Result, true) end
 			end
 		end
 		if self.AllowJoin then
