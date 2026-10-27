@@ -3438,6 +3438,7 @@ local function AddTitleDesc(card, x, rightReserve, title, description, baseHeigh
 
 	local lastWidth = -1
 	local lastReserve = -1
+	local lastExtra = -1
 
 	local function relayout()
 		local cardW = card.AbsoluteSize.X / GetUIScale()
@@ -3445,10 +3446,14 @@ local function AddTitleDesc(card, x, rightReserve, title, description, baseHeigh
 			return
 		end
 		local reserve = type(rightReserve) == "function" and rightReserve() or rightReserve
-		if math.abs(cardW - lastWidth) < 1 and reserve == lastReserve then
+		-- extraBottom may be a function when the content under the title grows
+		-- (inline dropdown chips wrap onto more rows as the card narrows).
+		local extra = type(extraBottom) == "function" and extraBottom() or extraBottom
+		if math.abs(cardW - lastWidth) < 1 and reserve == lastReserve and extra == lastExtra then
 			return
 		end
 		lastReserve = reserve
+		lastExtra = extra
 		titleLabel.Size = UDim2.new(1, -(x + reserve), 0, titleH)
 		lastWidth = cardW
 
@@ -3463,7 +3468,7 @@ local function AddTitleDesc(card, x, rightReserve, title, description, baseHeigh
 
 		local blockH = hasDesc and (titleH + gap + realDescH) or titleH
 		local topPortion = math.max(baseHeight, blockH + 16)
-		card.Size = UDim2.new(1, 0, 0, topPortion + extraBottom)
+		card.Size = UDim2.new(1, 0, 0, topPortion + extra)
 
 		local top = math.floor((topPortion - blockH) / 2)
 		titleLabel.Position = UDim2.fromOffset(x, top)
@@ -14663,8 +14668,243 @@ local function ComputePopupPosition(window, card, w, h, bounds)
 	return math.round(px / s), math.round(py / s)
 end
 
+-- Inline dropdown: the options sit under the title as wrapping chips instead of
+-- opening a popup. Same option API as AddDropdown (Set/Get/SetOptions/Refresh/
+-- OnChanged/Destroy, Flag, MultiSelect), so a caller can switch with Inline = true.
+-- A method rather than a local: the main chunk is close to the 200-local limit.
+function Tab:AddInlineDropdown(opts)
+	opts = opts or {}
+	local options = opts.Options or {}
+	local isMulti = opts.MultiSelect == true
+	local hasDesc = opts.Description and opts.Description ~= ""
+	local height = hasDesc and 54 or 40
+	local chipH = IsMobileDevice and 30 or 26
+	local gap, padX, padBottom = 6, 12, 10
+
+	local selected
+	if isMulti then
+		selected = {}
+		if type(opts.Default) == "table" then
+			for _, v in ipairs(opts.Default) do
+				selected[v] = true
+			end
+		end
+	else
+		selected = opts.Default or options[1]
+	end
+
+	local signal = MakeSignal()
+	local function fireChanged(newValue)
+		if opts.Callback then
+			SafeSpawn(opts.Callback, newValue)
+		end
+		signal.Fire(newValue)
+	end
+
+	local function getSelectedList()
+		local list = {}
+		for _, name in ipairs(options) do
+			if isMulti and selected[name] then
+				table.insert(list, name)
+			end
+		end
+		return list
+	end
+
+	local function isOptionSelected(name)
+		if isMulti then
+			return selected[name] == true
+		end
+		return name == selected
+	end
+
+	local card = BaseCard(self._page, height)
+	local textX = AddLeadingIcon(card, opts.Icon, height)
+	local chipsHeight = chipH
+	local _, _, relayout = AddTitleDesc(card, textX, 14, opts.Text or "Dropdown", opts.Description, height, function()
+		return chipsHeight + padBottom
+	end)
+	self._window:_RegisterSearchable(self, opts.Text or "Dropdown", card)
+
+	local holder = Instance.new("Frame")
+	holder.Name = "Chips"
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0, 1)
+	holder.Position = UDim2.new(0, padX, 1, -padBottom)
+	holder.Size = UDim2.new(1, -padX * 2, 0, chipsHeight)
+	holder.ZIndex = Z.Content + 1
+	holder.Parent = card
+
+	local chips = {}
+
+	local function paintChip(name, instant)
+		local entry = chips[name]
+		if not entry then
+			return
+		end
+		local sel = isOptionSelected(name)
+		local bgRole = sel and "Accent" or nil
+		entry.button:SetAttribute(ROLE_ATTR, bgRole)
+		RoleRegistry[entry.button] = bgRole
+		entry.label:SetAttribute(ROLE_ATTR, sel and "Background" or "TextDim")
+		RoleRegistry[entry.label] = sel and "Background" or "TextDim"
+		local goalButton = {
+			BackgroundColor3 = sel and NullUI.Theme.Accent or Color3.new(1, 1, 1),
+			BackgroundTransparency = sel and 0 or 0.92,
+		}
+		local goalLabel = { TextColor3 = sel and NullUI.Theme.Background or NullUI.Theme.TextDim }
+		if instant then
+			for k, v in pairs(goalButton) do
+				entry.button[k] = v
+			end
+			entry.label.TextColor3 = goalLabel.TextColor3
+		else
+			Tween(entry.button, goalButton, 0.12)
+			Tween(entry.label, goalLabel, 0.12)
+		end
+		entry.stroke.Transparency = sel and 1 or 0.88
+	end
+
+	local lastFlowWidth = -1
+	local function reflow(force)
+		local width = holder.AbsoluteSize.X / GetUIScale()
+		if width <= 0 or (not force and math.abs(width - lastFlowWidth) < 1) then
+			return
+		end
+		lastFlowWidth = width
+		local x, y = 0, 0
+		for _, name in ipairs(options) do
+			local entry = chips[name]
+			if entry then
+				local w = math.min(MeasureText(tostring(name), 13, 1000) + 24, width)
+				if x > 0 and x + w > width then
+					x, y = 0, y + chipH + gap
+				end
+				entry.button.Position = UDim2.fromOffset(x, y)
+				entry.button.Size = UDim2.fromOffset(w, chipH)
+				x = x + w + gap
+			end
+		end
+		chipsHeight = y + chipH
+		holder.Size = UDim2.new(1, -padX * 2, 0, chipsHeight)
+		relayout()
+	end
+
+	local function buildChips()
+		for _, entry in pairs(chips) do
+			entry.button:Destroy()
+		end
+		table.clear(chips)
+		for i, optionName in ipairs(options) do
+			local button = Instance.new("TextButton")
+			button.Name = "Chip"
+			button.Text = ""
+			button.AutoButtonColor = false
+			button.BorderSizePixel = 0
+			button.LayoutOrder = i
+			button.ZIndex = Z.Content + 2
+			button.Parent = holder
+			Corner(button, 8)
+			local stroke = Stroke(button, Color3.new(1, 1, 1), 1, 0.88)
+
+			local label = Instance.new("TextLabel")
+			label.BackgroundTransparency = 1
+			label.FontFace = NullUI.Theme.FontRegular
+			label.Text = tostring(optionName)
+			label.TextSize = 13
+			label.TextTruncate = Enum.TextTruncate.AtEnd
+			label.Size = UDim2.new(1, -12, 1, 0)
+			label.Position = UDim2.fromOffset(6, 0)
+			label.ZIndex = Z.Content + 3
+			label.Parent = button
+
+			chips[optionName] = { button = button, label = label, stroke = stroke }
+			paintChip(optionName, true)
+
+			button.MouseEnter:Connect(function()
+				if not isOptionSelected(optionName) then
+					Tween(button, { BackgroundTransparency = 0.86 }, 0.12)
+				end
+			end)
+			button.MouseLeave:Connect(function()
+				if not isOptionSelected(optionName) then
+					Tween(button, { BackgroundTransparency = 0.92 }, 0.12)
+				end
+			end)
+			button.MouseButton1Click:Connect(function()
+				if isMulti then
+					selected[optionName] = (not selected[optionName]) or nil
+					paintChip(optionName)
+					fireChanged(getSelectedList())
+				elseif selected ~= optionName then
+					local previous = selected
+					selected = optionName
+					paintChip(previous)
+					paintChip(optionName)
+					fireChanged(optionName)
+				end
+			end)
+		end
+		reflow(true)
+	end
+
+	holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		reflow(false)
+	end)
+	buildChips()
+	SafeDefer(function()
+		reflow(true)
+	end)
+
+	return RegisterFlag(opts, {
+		Instance = card,
+		Set = function(_, v, silent)
+			if isMulti then
+				selected = {}
+				if type(v) == "table" then
+					for _, name in ipairs(v) do
+						selected[name] = true
+					end
+				end
+			else
+				selected = v
+			end
+			for name in pairs(chips) do
+				paintChip(name)
+			end
+			if not silent then
+				fireChanged(isMulti and getSelectedList() or selected)
+			end
+		end,
+		Get = function()
+			if isMulti then
+				return getSelectedList()
+			end
+			return selected
+		end,
+		SetOptions = function(_, newOptions)
+			options = newOptions or {}
+			buildChips()
+		end,
+		Refresh = function(_, newOptions)
+			options = newOptions or options
+			buildChips()
+		end,
+		OnChanged = function(_, fn)
+			return signal.Connect(fn)
+		end,
+		Destroy = function()
+			signal.Clear()
+			card:Destroy()
+		end,
+	}, "Dropdown")
+end
+
 function Tab:AddDropdown(opts)
 	opts = opts or {}
+	if opts.Inline == true then
+		return self:AddInlineDropdown(opts)
+	end
 	local ownerTab = self
 	local options = opts.Options or {}
 	local isMulti = opts.MultiSelect == true
