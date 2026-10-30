@@ -282,7 +282,7 @@ local Library = (function()
 	end
 
 	local tbl6 = {Opt = {}, Keys = {}, Alias = {}, th = tbl2[1][1]}
-	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Ocean", Cfg = 2}
+	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Ocean", Cfg = 2, Lang = ""}
 	tbl6.State = state
 	local tbl7 = {}
 
@@ -936,6 +936,298 @@ local Library = (function()
 		return ScreenGui
 	end
 
+	-- Display language. Text is translated where it is shown (labels, buttons, placeholders);
+	-- the English strings stay the keys for configs, search and callbacks.
+	-- Rules are {luaPattern, replacement}: %1 keeps a capture as is, @1 translates it too.
+	local lang = {
+		code = "en",
+		dicts = {},
+		upper = {},
+		rules = {},
+		cache = {},
+		names = {en = "English"},
+		order = {"en"},
+		orig = setmetatable({}, {__mode = "k"}),
+		shown = setmetatable({}, {__mode = "k"}),
+		ph = setmetatable({}, {__mode = "k"}),
+		guis = {},
+		viUp = {},
+	}
+
+	do
+		local pairs_ = "àÀáÁảẢãÃạẠăĂằẰắẮẳẲẵẴặẶâÂầẦấẤẩẨẫẪậẬèÈéÉẻẺẽẼẹẸêÊềỀếẾểỂễỄệỆìÌíÍỉỈĩĨịỊòÒóÓỏỎõÕọỌôÔồỒốỐổỔỗỖộỘơƠờỜớỚởỞỡỠợỢùÙúÚủỦũŨụỤưƯừỪứỨửỬữỮựỰỳỲýÝỷỶỹỸỵỴđĐ"
+		local prev
+
+		for _, cp in utf8.codes(pairs_) do
+			local ch = utf8.char(cp)
+
+			if prev then
+				lang.viUp[prev] = ch
+				prev = nil
+			else
+				prev = ch
+			end
+		end
+	end
+
+	-- string.upper only knows ASCII; section headers are shown in capitals.
+	local function langUpper(s)
+		return (s:upper():gsub(utf8.charpattern, function(ch)
+			return lang.viUp[ch] or ch
+		end))
+	end
+
+	local function tr(text)
+		local code = lang.code
+
+		if code == "en" or type(text) ~= "string" or text == "" or not text:find("%a") then
+			return text
+		end
+
+		local cache = lang.cache[code]
+
+		if not cache then
+			cache = {n = 0}
+			lang.cache[code] = cache
+		end
+
+		local hit = cache[text]
+
+		if hit then
+			return hit
+		end
+
+		local dict = lang.dicts[code] or {}
+		local out = dict[text]
+
+		if not out then
+			local lead, core, trail = text:match("^(%s*)(.-)(%s*)$")
+			local found = dict[core] or (lang.upper[code] or {})[core]
+
+			if found then
+				out = lead .. found .. trail
+			else
+				for _, rule in ipairs(lang.rules[code] or {}) do
+					local caps = {core:match(rule[1])}
+
+					if caps[1] ~= nil then
+						out = lead .. (rule[2]:gsub("([%%@])(%d)", function(mark, i)
+							local cap = tostring(caps[tonumber(i)] or "")
+							return mark == "@" and tr(cap) or cap
+						end)) .. trail
+						break
+					end
+				end
+			end
+		end
+
+		out = out or text
+
+		if cache.n > 4000 then
+			cache = {n = 0}
+			lang.cache[code] = cache
+		end
+
+		cache[text] = out
+		cache.n = cache.n + 1
+		return out
+	end
+
+	-- Player content (chat bubbles, pinned notice, mailbox) is never translated.
+	local langSkip = {ChatRow = true, PinnedNotice = true, MailboxEntry = true}
+
+	local function langSkipped(inst)
+		if inst:GetAttribute("NoTr") then
+			return true
+		end
+
+		local p = inst.Parent
+
+		while p do
+			if langSkip[p.Name] or p:GetAttribute("NoTr") then
+				return true
+			end
+			p = p.Parent
+		end
+
+		return false
+	end
+
+	local function langApply(inst)
+		local en = lang.orig[inst]
+
+		if en then
+			local out = tr(en)
+
+			if inst.Text ~= out then
+				lang.shown[inst] = out
+				inst.Text = out
+			end
+		end
+
+		local ph = lang.ph[inst]
+
+		if ph then
+			local out = tr(ph)
+
+			if inst.PlaceholderText ~= out then
+				inst.PlaceholderText = out
+			end
+		end
+	end
+
+	local function langAttach(inst)
+		if inst:IsA("GuiBase2d") then
+			pcall(function()
+				-- Roblox's own auto-translation would translate the hub a second time.
+				inst.AutoLocalize = false
+			end)
+		end
+
+		local isBox = inst:IsA("TextBox")
+
+		if not (isBox or inst:IsA("TextLabel") or inst:IsA("TextButton")) or langSkipped(inst) then
+			return
+		end
+
+		if isBox then
+			lang.ph[inst] = inst.PlaceholderText
+
+			inst:GetPropertyChangedSignal("PlaceholderText"):Connect(function()
+				if inst.PlaceholderText ~= tr(lang.ph[inst]) then
+					lang.ph[inst] = inst.PlaceholderText
+					langApply(inst)
+				end
+			end)
+		else
+			lang.orig[inst] = inst.Text
+
+			inst:GetPropertyChangedSignal("Text"):Connect(function()
+				if inst.Text == lang.shown[inst] then
+					return
+				end
+				lang.orig[inst] = inst.Text
+				langApply(inst)
+			end)
+		end
+
+		langApply(inst)
+	end
+
+	local function langWatch(gui)
+		if not gui or lang.guis[gui] then
+			return
+		end
+
+		lang.guis[gui] = true
+		langAttach(gui)
+
+		for _, inst in ipairs(gui:GetDescendants()) do
+			langAttach(inst)
+		end
+
+		gui.DescendantAdded:Connect(langAttach)
+	end
+
+	-- The Roblox language setting picks the default ("vi-vn" -> "vi").
+	local function langFromGame()
+		local LocalizationService = fn("LocalizationService")
+		local id = ""
+
+		pcall(function()
+			id = LocalizationService.RobloxLocaleId
+
+			if id == "" then
+				id = LocalizationService.SystemLocaleId
+			end
+		end)
+
+		local code = tostring(id):lower():match("^(%a%a)")
+		return (code and lang.dicts[code]) and code or "en"
+	end
+
+	tbl6.T = function(arg, text)
+		return tr(text)
+	end
+
+	tbl6.AddTranslations = function(arg, code, dict, rules, name)
+		local d = lang.dicts[code]
+
+		if not d then
+			d = {}
+			lang.dicts[code] = d
+			lang.upper[code] = {}
+			lang.rules[code] = {}
+			lang.order[#lang.order + 1] = code
+		end
+
+		lang.names[code] = name or lang.names[code] or code
+
+		for k, v in next, dict or {} do
+			d[k] = v
+			lang.upper[code][k:upper()] = langUpper(v)
+		end
+
+		for _, rule in ipairs(rules or {}) do
+			table.insert(lang.rules[code], rule)
+		end
+
+		lang.cache[code] = nil
+
+		if lang.code == code then
+			for inst in next, lang.orig do
+				langApply(inst)
+			end
+		end
+	end
+
+	tbl6.Languages = function()
+		local out = {}
+
+		for i, code in ipairs(lang.order) do
+			out[i] = {code, lang.names[code]}
+		end
+
+		return out
+	end
+
+	tbl6.Language = function()
+		return lang.code
+	end
+
+	-- code = nil or "" follows the game language. The choice is kept in _state.json.
+	tbl6.SetLanguage = function(arg, code, save)
+		local choice = code or ""
+		code = choice ~= "" and lang.dicts[choice] and choice or (choice == "en" and "en") or langFromGame()
+
+		if save ~= false then
+			tbl6.State.Lang = choice
+			tbl6:Persist()
+		end
+
+		if code == lang.code then
+			return
+		end
+
+		lang.code = code
+
+		for inst in next, lang.orig do
+			langApply(inst)
+		end
+
+		for inst in next, lang.ph do
+			langApply(inst)
+		end
+
+		if tbl6.W and tbl6.W.langCard then
+			tbl6.W.langCard()
+		end
+	end
+
+	tbl6.WatchLanguage = function(arg, gui)
+		langWatch(gui)
+	end
+
 	tbl6.Window = function(arg, arg2)
 		arg2 = arg2 or {}
 		local w = {Tabs = {}, Key = arg2.Key or Enum.KeyCode.RightControl, us = 1, open = true}
@@ -1083,7 +1375,7 @@ local Library = (function()
 		local v17 = Frame({
 			Parent = v16,
 			Position = fn2(n2 + 6, 0),
-			Size = udim2(1, -n2 - 190, 1, 0),
+			Size = udim2(1, -n2 - 345, 1, 0),
 			ClipsDescendants = true,
 			(fn17(10, nil, center3, horizontal)),
 		})
@@ -1149,7 +1441,7 @@ local Library = (function()
 			TextColor3 = tbl.val,
 			LayoutOrder = 1,
 			TextTruncate = atEnd,
-			(fn7("UISizeConstraint", {MaxSize = vector2(270, 99)})),
+			(fn7("UISizeConstraint", {MaxSize = vector2(200, 99)})),
 		})
 
 		local v22 = Frame({
@@ -1198,6 +1490,113 @@ local Library = (function()
 
 		fn27(v23)
 		local search = fn35({Parent = v16, AnchorPoint = v4, Position = udim2(1, -44, 0.5, 0), Size = fn2(128, 26)}, "Search")
+
+		-- "Language: Name" card left of the search box; a tap opens the language list.
+		local langLabel = TextLabel({
+			Size = udim2(0, 0, 1, 0),
+			AutomaticSize = x,
+			FontFace = font2,
+			TextSize = 11,
+			TextTransparency = 0.1,
+		})
+
+		langLabel:SetAttribute("NoTr", true)
+
+		local langBtn = TextButton({
+			Parent = v16,
+			AnchorPoint = v4,
+			Position = udim2(1, -180, 0.5, 0),
+			Size = fn2(0, 26),
+			AutomaticSize = x,
+			BackgroundTransparency = 0.92,
+			fn12(9),
+			fn13(0.86),
+			fn16(0, 10),
+			langLabel,
+		})
+
+		fn20(langBtn, 0.86, 0.92)
+
+		local langList = Frame({
+			Parent = v10,
+			AnchorPoint = v7,
+			Position = udim2(1, -180, 0, n - 2),
+			Size = fn2(190, 0),
+			AutomaticSize = y,
+			Visible = false,
+			ZIndex = 16,
+			BackgroundTransparency = 0.02,
+			BackgroundColor3 = tbl.pn,
+			fn12(12),
+			fn13(0.82),
+			fn16(6),
+			(fn17(2)),
+		})
+
+		local function langRows()
+			fn37(langList)
+			local choice = state.Lang or ""
+			local rows = {{"", tr("Auto (game language)")}}
+
+			for _, v40 in ipairs(tbl6:Languages()) do
+				rows[#rows + 1] = v40
+			end
+
+			for i, row in ipairs(rows) do
+				local on = row[1] == choice
+
+				local v40 = TextButton({
+					Parent = langList,
+					LayoutOrder = i,
+					Size = udim2(1, 0, 0, 32),
+					ZIndex = 17,
+					BackgroundTransparency = on and 0.86 or 1,
+					BackgroundColor3 = on and tbl.a1 or tbl.wh,
+					fn12(9),
+					(TextLabel({
+						Position = fn2(10, 0),
+						Size = udim2(1, -36, 1, 0),
+						ZIndex = 17,
+						Text = row[2],
+						FontFace = on and font2 or font,
+						TextTransparency = on and 0 or 0.2,
+					})),
+				})
+
+				v40:SetAttribute("NoTr", true)
+
+				if on then
+					fn10("check", 14, tbl.a1).Parent = v40
+					v40:FindFirstChildOfClass("ImageLabel").Position = udim2(1, -16, 0.5, 0)
+					v40:FindFirstChildOfClass("ImageLabel").ZIndex = 17
+				else
+					fn20(v40, 0.94)
+				end
+
+				fn25(v40, function()
+					langList.Visible = false
+					tbl6:SetLanguage(row[1])
+				end)
+			end
+		end
+
+		w.langCard = function()
+			langLabel.Text = tr("Language") .. ": " .. (lang.names[lang.code] or lang.code)
+
+			if langList.Visible then
+				langRows()
+			end
+		end
+
+		fn25(langBtn, function()
+			langList.Visible = not langList.Visible
+
+			if langList.Visible then
+				langRows()
+			end
+		end)
+
+		w.langCard()
 		local v24 = Frame
 
 		local tbl15 = {
@@ -2279,7 +2678,7 @@ local Library = (function()
 			local n6 = 0
 
 			for _, v40 in ipairs(all) do
-				if n6 < 8 and v40.n:find(str2, 1, true) then
+				if n6 < 8 and (v40.n:find(str2, 1, true) or tr(v40.title):lower():find(str2, 1, true)) then
 					local layoutOrder = n6 + 1
 
 					local v41 = TextButton({
@@ -4221,6 +4620,10 @@ local Library = (function()
 		end
 
 		tbl6:Boot()
+		langWatch(v8)
+		langWatch(w.nt and w.nt.Parent)
+		tbl6:SetLanguage(state.Lang, false)
+		w.langCard()
 		w:Show(true)
 		return w
 	end
@@ -6297,6 +6700,224 @@ local Library = (function()
 		end)
 	end
 
+	-- Roblox UserId whose avatar shows on admin announcements (OlwenThNek).
+	tbl6.AnnounceAvatarUserId = 11464210153
+
+	-- Centered banner at the top of the screen (from NullUI:Announce). Tap to dismiss.
+	tbl6.Announce = function(arg, opts)
+		opts = opts or {}
+		local w = tbl6.W
+		local text = tostring(opts.Text or "")
+
+		if text == "" or not (w and w.nt and w.nt.Parent) then
+			return {Dismiss = function() end}
+		end
+
+		local title = opts.Title or "Announcement"
+		local duration = math.max(tonumber(opts.Duration) or 6, 1)
+		local accent = opts.Color or tbl.a1
+		local mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+
+		if tbl6.activeAnnounce then
+			tbl6.activeAnnounce.Dismiss()
+		end
+
+		local function metrics()
+			local view = workspace.CurrentCamera.ViewportSize
+			local width = math.min(mobile and 320 or 400, math.max(view.X - 32, 160))
+			return width, math.clamp(view.Y * 0.05, 14, 44)
+		end
+
+		local width, top = metrics()
+
+		local card = fn7("Frame", {
+			AnchorPoint = vector2(0.5, 0),
+			Position = udim2(0.5, 0, 0, top - 12),
+			Size = fn2(width, 0),
+			AutomaticSize = y,
+			BackgroundColor3 = tbl.pn,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 50,
+			Active = true,
+			fn12(mobile and 12 or 14),
+			fn16(mobile and 8 or 10, mobile and 10 or 12),
+			(fn17(mobile and 4 or 5)),
+		})
+
+		local stroke = fn13(1, accent)
+		stroke.Parent = card
+
+		local header = Frame({
+			Parent = card,
+			LayoutOrder = 1,
+			AutomaticSize = Enum.AutomaticSize.XY,
+			ZIndex = 51,
+			(fn17(6, nil, center3, horizontal)),
+		})
+
+		local avatarUserId = opts.Avatar
+
+		if avatarUserId == nil then
+			avatarUserId = tbl6.AnnounceAvatarUserId
+		end
+
+		local avatar
+
+		if avatarUserId then
+			local size = mobile and 20 or 24
+
+			avatar = fn7("ImageLabel", {
+				Parent = header,
+				BackgroundTransparency = 1,
+				ImageTransparency = 1,
+				Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(avatarUserId) .. "&w=150&h=150",
+				ScaleType = Enum.ScaleType.Crop,
+				Size = fn2(size, size),
+				ZIndex = 51,
+				fn12(),
+				(fn13(0.4, accent)),
+			})
+		end
+
+		local icon = fn7("ImageLabel", {
+			Parent = header,
+			LayoutOrder = 1,
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://104747300280187",
+			ImageColor3 = accent,
+			ImageTransparency = 1,
+			Size = fn2(mobile and 13 or 15, mobile and 13 or 15),
+			ZIndex = 51,
+		})
+
+		local titleLabel = fn7("TextLabel", {
+			Parent = header,
+			LayoutOrder = 2,
+			BackgroundTransparency = 1,
+			FontFace = font2,
+			Text = title,
+			TextColor3 = accent,
+			TextTransparency = 1,
+			TextSize = mobile and 12 or 13,
+			AutomaticSize = Enum.AutomaticSize.XY,
+			Size = fn2(0, mobile and 12 or 13),
+			ZIndex = 51,
+		})
+
+		local body = fn7("TextLabel", {
+			Parent = card,
+			LayoutOrder = 2,
+			BackgroundTransparency = 1,
+			FontFace = font,
+			Text = text,
+			TextColor3 = tbl.tx,
+			TextTransparency = 1,
+			TextSize = mobile and 12 or 14,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			AutomaticSize = y,
+			Size = v5,
+			ZIndex = 51,
+		})
+
+		-- Admin text is shown as written.
+		body:SetAttribute("NoTr", true)
+
+		local barHolder = Frame2({
+			Parent = card,
+			LayoutOrder = 3,
+			BackgroundColor3 = accent,
+			BackgroundTransparency = 1,
+			Size = udim2(1, 0, 0, 2),
+			ZIndex = 51,
+			(fn12(1)),
+		})
+
+		local bar = Frame2({
+			Parent = barHolder,
+			BackgroundColor3 = accent,
+			BackgroundTransparency = 1,
+			Size = v,
+			ZIndex = 52,
+			(fn12(1)),
+		})
+
+		card.Parent = w.nt.Parent
+
+		local viewportConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			local width2, top2 = metrics()
+			card.Size = fn2(width2, 0)
+			card.Position = udim2(0.5, 0, 0, top2)
+		end)
+
+		local dismissed = false
+		local handle = {Instance = card}
+
+		handle.Dismiss = function()
+			if dismissed then
+				return
+			end
+
+			dismissed = true
+
+			if tbl6.activeAnnounce == handle then
+				tbl6.activeAnnounce = nil
+			end
+
+			viewportConn:Disconnect()
+
+			if not card.Parent then
+				return
+			end
+
+			local _, top2 = metrics()
+			fn19(card, {BackgroundTransparency = 1, Position = udim2(0.5, 0, 0, top2 - 12)}, 0.22)
+			fn19(stroke, {Transparency = 1}, 0.22)
+			fn19(icon, {ImageTransparency = 1}, 0.22)
+
+			if avatar then
+				fn19(avatar, {ImageTransparency = 1}, 0.22)
+			end
+
+			fn19(titleLabel, {TextTransparency = 1}, 0.22)
+			fn19(body, {TextTransparency = 1}, 0.22)
+			fn19(barHolder, {BackgroundTransparency = 1}, 0.22)
+			fn19(bar, {BackgroundTransparency = 1}, 0.22)
+			task.delay(0.25, card.Destroy, card)
+		end
+
+		tbl6.activeAnnounce = handle
+
+		card.InputBegan:Connect(function(input)
+			if fn23(input) then
+				handle.Dismiss()
+			end
+		end)
+
+		fn19(card, {BackgroundTransparency = 0.06, Position = udim2(0.5, 0, 0, top)}, 0.3)
+		fn19(stroke, {Transparency = 0.55}, 0.3)
+		fn19(icon, {ImageTransparency = 0}, 0.3)
+
+		if avatar then
+			fn19(avatar, {ImageTransparency = 0}, 0.3)
+		end
+
+		fn19(titleLabel, {TextTransparency = 0}, 0.3)
+		fn19(body, {TextTransparency = 0}, 0.3)
+		fn19(barHolder, {BackgroundTransparency = 0.85}, 0.3)
+		fn19(bar, {BackgroundTransparency = 0}, 0.3)
+
+		task.delay(0.05, function()
+			if bar.Parent and not dismissed then
+				fn19(bar, {Size = udim2(0, 0, 1, 0)}, duration, Enum.EasingStyle.Linear)
+			end
+		end)
+
+		task.delay(duration, handle.Dismiss)
+		return handle
+	end
+
 	local function fn58()
 		return "VxezeHub/" .. (game.GameId ~= 0 and game.GameId or game.PlaceId) .. (tbl6.Id ~= "Vxeze Hub" and "/" .. tbl6.Id or "")
 	end
@@ -6920,7 +7541,7 @@ local Library = (function()
 				DeletedIds = deletedIds,
 				Announcement = type(data.announcement) == "table" and {
 					Id = tostring(data.announcement.id),
-					Title = "Thông báo",
+					Title = "Announcement",
 					Content = data.announcement.content,
 					RemainingMs = tonumber(data.announcement.remainingMs) or 0,
 				} or nil,
@@ -7198,8 +7819,7 @@ local Library = (function()
 		end
 
 		local function announce(t)
-			tbl6:Notify(t.Title, t.Text, "warn", t.Duration)
-			return {Dismiss = function() end}
+			return tbl6:Announce(t)
 		end
 
 		local function confirm(t)
@@ -9226,6 +9846,242 @@ local Library = (function()
 			end,
 		}
 	end
+
+
+	-- Built-in Vietnamese for the hub's own screens (dashboard, settings, configs, chat).
+	tbl6:AddTranslations("vi", {
+		["Language"] = "Ngôn ngữ",
+		["Auto (game language)"] = "Tự động (theo ngôn ngữ game)",
+		["Search"] = "Tìm kiếm",
+		["Find an option"] = "Tìm một tùy chọn",
+		["No results"] = "Không có kết quả",
+		["No option matches"] = "Không có tùy chọn nào khớp",
+		["Nothing here"] = "Chưa có gì ở đây",
+		["Announcement"] = "Thông báo",
+
+		-- Dashboard
+		["Home"] = "Trang chủ",
+		["Dashboard"] = "Bảng điều khiển",
+		["Welcome back"] = "Chào mừng trở lại",
+		["Copy invite"] = "Sao chép lời mời",
+		["Invite copied"] = "Đã sao chép lời mời",
+		["Discord invite copied"] = "Đã sao chép lời mời Discord",
+		["Updates, keys, support"] = "Cập nhật, key, hỗ trợ",
+		["Rejoin"] = "Vào lại",
+		["Server hop"] = "Đổi server",
+		["Copy Job ID"] = "Sao chép Job ID",
+		["Job ID copied"] = "Đã sao chép Job ID",
+		["Unload hub"] = "Tắt hub",
+		["Session"] = "Phiên chơi",
+		["What's new"] = "Có gì mới",
+		["Rejoin this server?"] = "Vào lại server này?",
+		["You leave and join this same server again."] = "Bạn sẽ thoát ra rồi vào lại đúng server này.",
+		["Hop to another server?"] = "Chuyển sang server khác?",
+		["You leave this server and join a different one."] = "Bạn sẽ rời server này và vào một server khác.",
+		["Hop"] = "Đổi",
+		["OPEN"] = "MỞ",
+		["Open"] = "Mở",
+		["NEW"] = "MỚI",
+		["FIX"] = "SỬA",
+		["UPD"] = "CẬP NHẬT",
+		["No eggs yet"] = "Chưa có trứng",
+		["Pick an egg"] = "Chọn một quả trứng",
+
+		-- Dialogs and common buttons
+		["OK"] = "OK",
+		["Cancel"] = "Hủy",
+		["Done"] = "Xong",
+		["Later"] = "Để sau",
+		["Run"] = "Chạy",
+		["Save"] = "Lưu",
+		["Delete"] = "Xóa",
+		["Create"] = "Tạo",
+		["Import"] = "Nhập",
+		["Reset"] = "Đặt lại",
+		["Clear"] = "Xóa hết",
+		["Turn off"] = "Tắt",
+		["Turned on"] = "Đã bật",
+		["Turned off"] = "Đã tắt",
+		["Not set"] = "Chưa đặt",
+		["None"] = "Không",
+		["Off"] = "Tắt",
+		["All"] = "Tất cả",
+		["Select all"] = "Chọn tất cả",
+		["Pick one"] = "Chọn một",
+		["Pick any"] = "Chọn tùy ý",
+		["Nothing picked"] = "Chưa chọn gì",
+		["Type here"] = "Nhập tại đây",
+		["Loading..."] = "Đang tải...",
+		["Unknown game"] = "Game không rõ",
+
+		-- Settings
+		["Settings"] = "Cài đặt",
+		["Interface"] = "Giao diện",
+		["Theme"] = "Chủ đề",
+		["Defaults"] = "Mặc định",
+		["Default"] = "Mặc định",
+		["UI scale"] = "Tỉ lệ giao diện",
+		["Dim the game"] = "Làm tối game",
+		["Tone"] = "Tông màu",
+		["Opacity"] = "Độ mờ",
+		["Size"] = "Kích thước",
+		["Weight"] = "Độ đậm",
+		["Bar size"] = "Cỡ thanh",
+		["Hide UI"] = "Ẩn giao diện",
+		["Show / hide UI"] = "Hiện / ẩn giao diện",
+		["Turn off all toggles"] = "Tắt mọi công tắc",
+		["Toggles off"] = "Đã tắt các công tắc",
+		["Reset to defaults"] = "Khôi phục mặc định",
+		["Reset every option?"] = "Đặt lại mọi tùy chọn?",
+		["All options go back to their built-in values and your active config is saved that way."] = "Mọi tùy chọn trở về giá trị gốc và config đang dùng sẽ được lưu như vậy.",
+		["Every option is back to its default"] = "Mọi tùy chọn đã về mặc định",
+
+		-- Configs
+		["Config"] = "Config",
+		["Profiles"] = "Hồ sơ",
+		["Active config"] = "Config đang dùng",
+		["Saved configs"] = "Config đã lưu",
+		["Auto load"] = "Tự tải",
+		["Auto save"] = "Tự lưu",
+		["Save changes"] = "Lưu thay đổi",
+		["Save config"] = "Lưu config",
+		["Create config"] = "Tạo config",
+		["New config name"] = "Tên config mới",
+		["Config 1"] = "Config 1",
+		["Set active"] = "Dùng config này",
+		["Set as active config"] = "Đặt làm config đang dùng",
+		["Delete picked"] = "Xóa mục đã chọn",
+		["Pick to delete"] = "Chọn để xóa",
+		["Pick configs other than Default"] = "Hãy chọn config khác Default",
+		["Nothing to delete"] = "Không có gì để xóa",
+		["Choose a config first"] = "Hãy chọn một config trước",
+		["Export config"] = "Xuất config",
+		["Import config"] = "Nhập config",
+		["Import text"] = "Văn bản nhập",
+		["Paste config text"] = "Dán nội dung config",
+		["Apply now"] = "Áp dụng ngay",
+		["Restore deleted"] = "Khôi phục mục đã xóa",
+		["Config saved"] = "Đã lưu config",
+		["Config loaded"] = "Đã tải config",
+		["Config created"] = "Đã tạo config",
+		["Config not created"] = "Chưa tạo được config",
+		["Config imported"] = "Đã nhập config",
+		["Config copied"] = "Đã sao chép config",
+		["Config picked"] = "Đã chọn config",
+		["Config restored"] = "Đã khôi phục config",
+		["Imported"] = "Đã nhập",
+		["Import failed"] = "Nhập thất bại",
+		["Restore failed"] = "Khôi phục thất bại",
+		["Copy failed"] = "Sao chép thất bại",
+		["Bad config name"] = "Tên config không hợp lệ",
+		["Use letters, numbers, spaces, - or _"] = "Chỉ dùng chữ, số, dấu cách, - hoặc _",
+		["32 characters at most"] = "Tối đa 32 ký tự",
+		["Not a Vxeze Hub config text"] = "Đây không phải config của Vxeze Hub",
+		["This executor cannot copy text"] = "Executor này không sao chép được văn bản",
+		["This executor cannot copy text."] = "Executor này không sao chép được văn bản.",
+		["Press Save changes to keep your options"] = "Bấm Lưu thay đổi để giữ tùy chọn của bạn",
+		["Vxeze Hub starts with its default options"] = "Vxeze Hub khởi động với tùy chọn mặc định",
+
+		-- Quick bars and keybinds
+		["Quick bars"] = "Thanh nhanh",
+		["Quick bar layout"] = "Bố cục thanh nhanh",
+		["Show quick bars"] = "Hiện thanh nhanh",
+		["Quick bars are hidden"] = "Thanh nhanh đang ẩn",
+		["Clear all quick bars"] = "Xóa mọi thanh nhanh",
+		["Clear every quick bar?"] = "Xóa mọi thanh nhanh?",
+		["Features keep their state, they just leave the bars."] = "Các tính năng vẫn giữ trạng thái, chỉ bị gỡ khỏi thanh.",
+		["Pins and keybinds"] = "Ghim và phím tắt",
+		["Keybinds"] = "Phím tắt",
+		["KEYBIND"] = "PHÍM TẮT",
+		["Clear all keybinds"] = "Xóa mọi phím tắt",
+		["Clear every keybind?"] = "Xóa mọi phím tắt?",
+		["Keys stop toggling options until you set them again."] = "Các phím sẽ không bật/tắt tùy chọn nữa cho đến khi bạn đặt lại.",
+		["Nothing pinned or bound yet"] = "Chưa ghim hay gán phím nào",
+		["Key not set"] = "Chưa đặt phím",
+		["Key moved"] = "Đã chuyển phím",
+		["Press any key  -  Esc cancels"] = "Bấm một phím bất kỳ  -  Esc để hủy",
+		["SHOW ON QUICK BAR"] = "HIỆN TRÊN THANH NHANH",
+		["+ PIN"] = "+ GHIM",
+		["Pressed"] = "Đã bấm",
+		["Tip: you can also hold any feature, or right-click it on PC, to pin it or set a key."] = "Mẹo: giữ một tính năng (hoặc chuột phải trên PC) để ghim hoặc gán phím cho nó.",
+
+		-- Global chat
+		["Chat"] = "Chat",
+		["Global Chat"] = "Chat toàn cầu",
+		["Message everyone using this script..."] = "Nhắn cho mọi người đang dùng script...",
+		["No messages yet. Say hello!"] = "Chưa có tin nhắn. Hãy chào mọi người!",
+		["Global chat is not configured by the script owner."] = "Chủ script chưa cấu hình chat toàn cầu.",
+		["Chat unavailable"] = "Chat không khả dụng",
+		["Report chat / user"] = "Báo cáo tin nhắn / người dùng",
+		["Enter report reason..."] = "Nhập lý do báo cáo...",
+		["Enter a report reason."] = "Hãy nhập lý do báo cáo.",
+		["Send report"] = "Gửi báo cáo",
+		["Sending..."] = "Đang gửi...",
+		["Report"] = "Báo cáo",
+		["Reported"] = "Đã báo cáo",
+		["Report sent to the admins."] = "Đã gửi báo cáo tới admin.",
+		["Could not report"] = "Không gửi được báo cáo",
+		["Join Server"] = "Vào server",
+		["Join server?"] = "Vào server này?",
+		["Join"] = "Vào",
+		["This player is no longer sharing a server."] = "Người chơi này không còn chia sẻ server.",
+		["You are already in this server."] = "Bạn đang ở trong server này rồi.",
+		["Join sharing needs a public game server."] = "Chia sẻ server chỉ dùng được ở server công khai.",
+		["Show timestamps"] = "Hiện thời gian",
+		["Sound on new message"] = "Phát âm thanh khi có tin mới",
+		["Fast updates (1s)"] = "Cập nhật nhanh (1 giây)",
+		["Allow others to join me"] = "Cho người khác vào server của tôi",
+		["Anonymous mode on -- new messages won't reveal your avatar."] = "Đã bật ẩn danh: tin nhắn mới sẽ không hiện avatar của bạn.",
+		["Anonymous mode off -- new messages show your avatar."] = "Đã tắt ẩn danh: tin nhắn mới sẽ hiện avatar của bạn.",
+		["Clipboard is not available."] = "Không dùng được bộ nhớ tạm.",
+		["Mailbox"] = "Hộp thư",
+		["New message from admin"] = "Có tin nhắn mới từ admin",
+		["The mailbox is empty."] = "Hộp thư trống.",
+		["Couldn't load the mailbox."] = "Không tải được hộp thư.",
+		["edited"] = "đã sửa",
+		["just now"] = "vừa xong",
+		["Chat relay is not responding"] = "Máy chủ chat không phản hồi",
+		["Chat poll timed out"] = "Hết thời gian chờ tải chat",
+		["Presence is not supported by the relay."] = "Máy chủ chat không hỗ trợ chia sẻ server.",
+		["Request failed"] = "Yêu cầu thất bại",
+		["Invalid chat response"] = "Phản hồi chat không hợp lệ",
+		["Unknown message"] = "Tin nhắn không xác định",
+	}, {
+		{"^(%d+) days? ago$", "%1 ngày trước"},
+		{"^(%d+) hours? ago$", "%1 giờ trước"},
+		{"^(%d+) minutes? ago$", "%1 phút trước"},
+		{"^(%d+)m ago$", "%1 phút trước"},
+		{"^(%d+)h ago$", "%1 giờ trước"},
+		{"^(%d+)d ago$", "%1 ngày trước"},
+		{"^(.+)  •  (%d+) online$", "@1  •  %2 đang online"},
+		{"^Join (.+) in (.+)%? You will leave your current server%.$", "Vào cùng %1 trong %2? Bạn sẽ rời server hiện tại."},
+		{"^Replying to (.-): (.*)$", "Đang trả lời %1: %2"},
+		{"^Reporting (.+)$", "Báo cáo %1"},
+		{"^Join failed: (.*)$", "Vào server thất bại: %1"},
+		{"^Slow down %-%- wait (.+)s%.$", "Chậm lại, chờ %1 giây."},
+		{"^QUICK BAR (%d+)$", "THANH NHANH %1"},
+		{"^Turn on Show quick bars to see Quick bar (%d+)$", "Bật Hiện thanh nhanh để thấy thanh nhanh %1"},
+		{"^(%d+) switched off$", "Đã tắt %1 công tắc"},
+		{"^(.+) %- press Set active to load it$", "%1 - bấm Dùng config này để tải"},
+		{"^Auto load on$", "Đã bật tự tải"},
+		{"^Auto load off$", "Đã tắt tự tải"},
+		{"^Auto save on$", "Đã bật tự lưu"},
+		{"^Auto save off$", "Đã tắt tự lưu"},
+		{"^(.+) loads every time Vxeze Hub starts$", "%1 sẽ được tải mỗi khi Vxeze Hub khởi động"},
+		{"^Every change is saved to (.+)$", "Mọi thay đổi được lưu vào %1"},
+		{"^(.+) is now the active config$", "%1 giờ là config đang dùng"},
+		{"^Delete (%d+) config%(s%)%?$", "Xóa %1 config?"},
+		{"^(%d+) config%(s%) deleted$", "Đã xóa %1 config"},
+		{"^(.+)\nDefault is kept%.$", "%1\nConfig Default được giữ lại."},
+		{"^(.+) is on your clipboard%. Paste it to share it, then load it with Import config%.$", "%1 đã nằm trong bộ nhớ tạm. Dán để chia sẻ, rồi tải bằng Nhập config."},
+		{"^(.+) is on your clipboard$", "%1 đã nằm trong bộ nhớ tạm"},
+		{"^(.+) was added to your configs%. Apply it now%?$", "Đã thêm %1 vào danh sách config. Áp dụng luôn?"},
+		{"^(.+) was added to your configs$", "Đã thêm %1 vào danh sách config"},
+		{"^(.+) already shows and hides the menu$", "%1 đang dùng để hiện/ẩn menu"},
+		{"^(.+) now toggles (.+) instead of (.+)$", "%1 giờ bật/tắt @2 thay vì @3"},
+		-- Search result paths: "Steal / Auto Steal / Filter"
+		{"^(%a[^/]-) / (.+)$", "@1 / @2"},
+	}, "Tiếng Việt")
 
 	return tbl6
 end)()
