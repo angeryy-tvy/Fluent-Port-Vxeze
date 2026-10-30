@@ -1,4 +1,4 @@
-local Library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Fluent.luau"))()
+local Library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/FluentCustom.luau"))()
 local SaveManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Addons/SaveManager.luau"))()
 local InterfaceManager = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/angeryy-tvy/Fluent-Port-Vxeze/refs/heads/main/Addons/InterfaceManager.luau"))()
  
@@ -16,8 +16,8 @@ local Window = Library:CreateWindow{
 
 -- Set this to the public URL of the companion project's /api/global-chat route.
 -- Do not put a database password here. Any key shipped in a client script is public.
-local GLOBAL_CHAT_ENDPOINT = ""
-local GLOBAL_CHAT_API_KEY = ""
+local GLOBAL_CHAT_ENDPOINT = "https://vxezestudio.online/api/global-chat"
+local GLOBAL_CHAT_API_KEY = "olwenth05dzkhoaito"
 
 -- Fluent Renewed provides ALL 1544 Lucide 0.469.0 https://lucide.dev/icons/ Icons and ALL 9072 Phosphor 2.1.0 https://phosphoricons.com/ Icons for the tabs, icons are optional
 local Tabs = {
