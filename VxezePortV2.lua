@@ -9079,13 +9079,15 @@ local Library = (function()
 				local backlogOk, backlog = pollWithDeadline(0)
 				backlog = backlogOk and backlog or nil
 				if type(backlog) == "table" then
-					local historyLimit = opts.HistoryLimit or 3
+					-- Show the whole backlog the relay returned (it already caps it at MaxMessages).
+					local historyLimit = opts.HistoryLimit or #backlog
 					local startIdx = math.max(1, #backlog - historyLimit + 1)
 					for i = startIdx, #backlog do
 						local m = backlog[i]
 						if not seenIds[m.Id] then
 							seenIds[m.Id] = true
-							addBubble(m, m.UserId == LocalPlayer.UserId)
+							-- One bad message must not kill the poll loop below.
+							pcall(addBubble, m, m.UserId == LocalPlayer.UserId)
 						end
 						if m.Id > lastSeenId then
 							lastSeenId = m.Id
