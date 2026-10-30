@@ -10289,10 +10289,40 @@ function Window:AddGlobalChatPanel(opts)
 		end
 	end)
 
+	-- Executor HTTP calls have no timeout, and one that never returns used to
+	-- freeze the chat until the player sent something. Give each poll a deadline;
+	-- a late answer is dropped (the next poll asks again from the same id).
+	local POLL_TIMEOUT, MAX_STRANDED = 12, 3
+	local strandedPolls = 0
+	local function pollWithDeadline(sinceId)
+		if strandedPolls >= MAX_STRANDED then
+			return false, "Chat relay is not responding"
+		end
+		local done, ok, result = false, false, nil
+		task.spawn(function()
+			ok, result = pcall(service.PollChatMessages, service, sinceId)
+			if done == nil then
+				strandedPolls -= 1
+			end
+			done = true
+		end)
+		local started = os.clock()
+		while done == false and os.clock() - started < POLL_TIMEOUT do
+			task.wait(0.1)
+		end
+		if done == false then
+			done = nil
+			strandedPolls += 1
+			return false, "Chat poll timed out"
+		end
+		return ok, result
+	end
+
 	if service then
 		SafeSpawn(function()
-			local backlog = service:PollChatMessages(0)
-			if backlog then
+			local backlogOk, backlog = pollWithDeadline(0)
+			backlog = backlogOk and backlog or nil
+			if type(backlog) == "table" then
 				local historyLimit = opts.HistoryLimit or 3
 				local startIdx = math.max(1, #backlog - historyLimit + 1)
 				for i = startIdx, #backlog do
@@ -10328,7 +10358,7 @@ function Window:AddGlobalChatPanel(opts)
 				if not (panel and panel.Parent) then
 					break
 				end
-				local ok, newMsgs = pcall(service.PollChatMessages, service, lastSeenId)
+				local ok, newMsgs = pollWithDeadline(lastSeenId)
 				newMsgs = ok and newMsgs or nil
 				failures = newMsgs and 0 or failures + 1
 				if newMsgs then
