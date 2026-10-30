@@ -4040,6 +4040,21 @@ local Library = (function()
 				fn71()
 			end
 
+			-- Pin a control (by its Key) to quick bar `bar` (1-5) from code; nil unpins it.
+			w.QuickPin = function(arg6, key, bar)
+				if tbl19.pins[key] == bar then
+					return
+				end
+
+				tbl19.pins[key] = bar
+				fn69()
+				fn71()
+			end
+
+			w.QuickPinned = function(arg6, key)
+				return tbl19.pins[key]
+			end
+
 			function w.Pin(arg6, arg7)
 				local UIScale4 = fn7("UIScale", {Scale = 0.9})
 				local flag = false
