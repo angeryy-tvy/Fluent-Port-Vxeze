@@ -8257,6 +8257,7 @@ local Library = (function()
 		-- Chat regions. Everyone shares one relay; each message carries its sender's region
 		-- (a "region" field, plus a " [VN]" tag on the game name for relays that drop
 		-- unknown fields) and the panel only draws the region the player picked.
+		-- New players start in VN (a picked region is saved and kept).
 		-- Untagged messages (older clients, other hubs) count as "MORE"; staff
 		-- messages (OWNER / ADMIN / SUPPORT) show in every region.
 		local REGIONS = {
@@ -8272,32 +8273,6 @@ local Library = (function()
 		end
 		local UNTAGGED_REGION = "MORE"
 		local REGION_FILE = "VxezeHub/global_chat_region.txt"
-		local INDIA_LANGS = { hi = true, bn = true, ta = true, te = true, mr = true, gu = true, kn = true, ml = true, pa = true, ["or"] = true, as = true }
-
-		-- Default follows the Roblox language setting ("vi-vn" -> VN, "pt-br" -> BR, ...).
-		local function regionFromGame()
-			local id = ""
-			pcall(function()
-				local LocalizationService = game:GetService("LocalizationService")
-				id = LocalPlayer.LocaleId ~= "" and LocalPlayer.LocaleId or LocalizationService.RobloxLocaleId
-				if id == "" then
-					id = LocalizationService.SystemLocaleId
-				end
-			end)
-			id = tostring(id):lower():gsub("_", "-")
-			local langCode, country = id:match("^(%a+)%-?(%a*)")
-			if langCode == "vi" then
-				return "VN"
-			elseif langCode == "pt" then
-				return "BR"
-			elseif INDIA_LANGS[langCode] or (langCode == "en" and country == "in") then
-				return "IN"
-			elseif langCode == "en" then
-				return "US"
-			end
-			return "MORE"
-		end
-
 		local currentRegion = nil
 		pcall(function()
 			if fn_isfile and fn_readfile and fn_isfile(REGION_FILE) then
@@ -8307,7 +8282,7 @@ local Library = (function()
 		end)
 		if not currentRegion then
 			local preset = type(opts.DefaultRegion) == "string" and opts.DefaultRegion:upper() or nil
-			currentRegion = regionByCode[preset] and preset or regionFromGame()
+			currentRegion = regionByCode[preset] and preset or "VN"
 		end
 
 		local function saveRegion()
