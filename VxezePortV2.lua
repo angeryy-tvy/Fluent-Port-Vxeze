@@ -8965,6 +8965,7 @@ local Library = (function()
 				metaLbl.ZIndex = BASE_Z + 3
 				metaLbl.Parent = bubble
 			end
+			local extraH = (metaName or roleTag or msg.GameName) and 13 or 0
 
 			local replyData = type(msg.Reply) == "table" and tostring(msg.Reply.Content or "") ~= "" and msg.Reply or nil
 			if replyData then
@@ -8982,6 +8983,7 @@ local Library = (function()
 				quote.LayoutOrder = -1
 				quote.ZIndex = BASE_Z + 3
 				quote.Parent = bubble
+				extraH += 13
 			end
 
 			local label = Instance.new("TextLabel")
@@ -8996,7 +8998,17 @@ local Library = (function()
 			label.TextYAlignment = Enum.TextYAlignment.Top
 			label.LineHeight = C.Mobile and 1.15 or 1.3
 			label.AutomaticSize = Enum.AutomaticSize.Y
-			label.Size = UDim2.new(1, 0, 0, 16)
+			-- AutomaticSize is not worked out while the tab/window is hidden (or while the
+			-- window sits in its open/close CanvasGroup), which left rows 0px tall and
+			-- stacked on top of each other. Measure the text so every level has a
+			-- real minimum height; AutomaticSize can still grow past it.
+			local _, lineH = MeasureText("Ag", C.Text, 10000)
+			local _, textH = MeasureText(text, C.Text, math.max(bubbleWidth - H_PAD * 2, 20))
+			local lines = math.max(1, math.floor(textH / math.max(lineH, 1) + 0.5))
+			local labelH = math.ceil(lines * lineH * label.LineHeight) + 2
+			label.Size = UDim2.new(1, 0, 0, labelH)
+			local bubbleBaseH = V_PAD * 2 + labelH + extraH
+			local timeH = 0
 			label.LayoutOrder = 1
 			label.ZIndex = BASE_Z + 3
 			label.Parent = bubble
@@ -9018,6 +9030,7 @@ local Library = (function()
 				timeLbl.Visible = showTimestamps
 				timeLbl.Parent = bubble
 				table.insert(timestampLabels, timeLbl)
+				timeH = C.Mobile and 10 or 12
 			end
 
 			if msg.Id and service then
@@ -9116,10 +9129,17 @@ local Library = (function()
 				joinBtn.ZIndex = BASE_Z + 3
 				joinBtn.Parent = bubble
 				Corner(joinBtn, 6)
+				bubbleBaseH += 20
 				jan:Add(joinBtn.MouseButton1Click:Connect(function()
 					confirmJoin(msg)
 				end))
 			end
+
+			bubble:SetAttribute("BaseH", bubbleBaseH)
+			bubble:SetAttribute("TimeH", timeH)
+			local bubbleH = bubbleBaseH + (showTimestamps and timeH or 0)
+			bubble.Size = UDim2.fromOffset(bubbleWidth, bubbleH)
+			row.Size = UDim2.new(1, 0, 0, math.max(AVATAR, bubbleH))
 
 			local avatarFinalTransparency = isOwn and 0.85 or 0.82
 			local bubbleFinalTransparency = isOwn and 0.72 or 0.9
@@ -9264,8 +9284,8 @@ local Library = (function()
 				}
 				storeMsg(own)
 				if inCurrentRegion(own) then
-					if flushing then
-						-- A region redraw is drawing; queue so rows stay in order.
+					if flushing or not isShown() then
+						-- Queue while hidden or while a flush draws, so rows stay in order.
 						pending[#pending + 1] = own
 					else
 						addBubble(own, true)
@@ -9410,8 +9430,15 @@ local Library = (function()
 			end, function()
 				showTimestamps = not showTimestamps
 				for _, lbl in ipairs(timestampLabels) do
-					if lbl.Parent then
+					local bubble = lbl.Parent
+					if bubble then
 						lbl.Visible = showTimestamps
+						local base = bubble:GetAttribute("BaseH")
+						if base and bubble.Parent then
+							local h = base + (showTimestamps and (bubble:GetAttribute("TimeH") or 0) or 0)
+							bubble.Size = UDim2.fromOffset(bubble.Size.X.Offset, h)
+							bubble.Parent.Size = UDim2.new(1, 0, 0, math.max(AVATAR, h))
+						end
 					end
 				end
 				return showTimestamps
@@ -9930,7 +9957,7 @@ local Library = (function()
 		-- new messages are only queued and drawn (in small batches) when the tab opens.
 		-- Nothing is ever dropped from under the reader: old rows are only trimmed while the
 		-- list is at the bottom, and the cap is high.
-		local MAX_ROWS, MAX_PENDING = 250, 150
+		local MAX_ROWS, MAX_PENDING = 250, 250
 		local function trimRows()
 			if not pinnedToBottom then
 				return
@@ -9948,7 +9975,7 @@ local Library = (function()
 		-- Bumped by a region switch; a draw loop from before it stops.
 		local drawGen = 0
 		local function flushPending()
-			if flushing or #pending == 0 then
+			if flushing or #pending == 0 or not isShown() then
 				return
 			end
 			flushing = true
@@ -9957,6 +9984,19 @@ local Library = (function()
 			pending = {}
 			for i, m in ipairs(queued) do
 				if gen ~= drawGen then
+					return
+				end
+				if not isShown() then
+					-- Tab/window closed mid-flush: keep the rest for the next open.
+					local rest = {}
+					for j = i, #queued do
+						rest[#rest + 1] = queued[j]
+					end
+					for _, p in ipairs(pending) do
+						rest[#rest + 1] = p
+					end
+					pending = rest
+					flushing = false
 					return
 				end
 				-- One bad message must not leave `flushing` stuck or stop the rest.
@@ -9974,7 +10014,6 @@ local Library = (function()
 		-- Drops the drawn rows and draws the stored messages of the current region.
 		redrawRegion = function()
 			drawGen += 1
-			local gen = drawGen
 			for _, child in ipairs(msgScroll:GetChildren()) do
 				if child.Name == "ChatRow" then
 					child:Destroy()
@@ -9992,23 +10031,13 @@ local Library = (function()
 					list[#list + 1] = m
 				end
 			end
-			flushing = true
+			for i = math.max(1, #list - MAX_ROWS + 1), #list do
+				pending[#pending + 1] = list[i]
+			end
+			-- An older flush still running sees the new drawGen and stops.
+			flushing = false
 			scrollToBottom()
-			task.spawn(function()
-				for i = math.max(1, #list - MAX_ROWS + 1), #list do
-					if gen ~= drawGen then
-						return
-					end
-					pcall(addBubble, list[i], list[i].IsOwn)
-					if i % 8 == 0 then
-						task.wait()
-					end
-				end
-				if gen == drawGen then
-					flushing = false
-					flushPending()
-				end
-			end)
+			task.spawn(flushPending)
 		end
 		table.insert(tabListeners, function(selected)
 			if selected == tabObj then
@@ -10066,11 +10095,12 @@ local Library = (function()
 							lastSeenId = m.Id
 						end
 					end
+					-- Drawn when the chat is on screen (now, or when the tab opens).
 					local historyLimit = opts.HistoryLimit or #fresh
 					for i = math.max(1, #fresh - historyLimit + 1), #fresh do
-						-- One bad message must not kill the poll loop below.
-						pcall(addBubble, fresh[i], fresh[i].IsOwn)
+						pending[#pending + 1] = fresh[i]
 					end
+					task.spawn(flushPending)
 				end
 				applyMeta()
 				syncAnnouncement()
