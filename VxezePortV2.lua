@@ -7528,6 +7528,7 @@ local Library = (function()
 				PlayerName = m.playerName,
 				GameName = m.gameName,
 				SenderTag = m.senderTag,
+				Region = type(m.region) == "string" and m.region or nil,
 				Text = m.content,
 				CreatedAt = toMs(m.createdAt),
 				Reply = reply and {PlayerName = reply.playerName, Content = reply.content} or nil,
@@ -7591,6 +7592,7 @@ local Library = (function()
 				gameName = extra.GameName or gameName,
 				avatarUrl = avatarUrl,
 				content = text,
+				region = extra.Region,
 				replyToId = extra.ReplyToId and tostring(extra.ReplyToId) or nil,
 			})
 			if not data then
@@ -7953,6 +7955,7 @@ local Library = (function()
 		titleLayout.FillDirection = Enum.FillDirection.Horizontal
 		titleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 		titleLayout.Padding = UDim.new(0, 7)
+		titleLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		titleLayout.Parent = titleRow
 
 		local titleIcon = Instance.new("ImageLabel")
@@ -8066,7 +8069,7 @@ local Library = (function()
 		mailboxNotice.TextXAlignment = Enum.TextXAlignment.Left
 		mailboxNotice.AutomaticSize = Enum.AutomaticSize.X
 		mailboxNotice.Size = UDim2.fromOffset(0, 16)
-		mailboxNotice.LayoutOrder = 3
+		mailboxNotice.LayoutOrder = 4
 		mailboxNotice.Visible = false
 		mailboxNotice.ZIndex = BASE_Z + 2
 		mailboxNotice.Parent = titleRow
@@ -8249,6 +8252,96 @@ local Library = (function()
 				return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
 			end)
 			gameName = okInfo and info and info.Name or "Unknown game"
+		end
+
+		-- Chat regions. Everyone shares one relay; each message carries its sender's region
+		-- (a "region" field, plus a " [VN]" tag on the game name for relays that drop
+		-- unknown fields) and the panel only draws the region the player picked.
+		-- Untagged messages (older clients, other hubs) count as "MORE"; staff
+		-- messages (OWNER / ADMIN / SUPPORT) show in every region.
+		local REGIONS = {
+			{ Code = "VN", Name = "Việt Nam", Short = "VN" },
+			{ Code = "US", Name = "US", Short = "US" },
+			{ Code = "IN", Name = "India", Short = "IN" },
+			{ Code = "BR", Name = "Brazil", Short = "BR" },
+			{ Code = "MORE", Name = "More", Short = "More" },
+		}
+		local regionByCode = {}
+		for _, r in ipairs(REGIONS) do
+			regionByCode[r.Code] = r
+		end
+		local UNTAGGED_REGION = "MORE"
+		local REGION_FILE = "VxezeHub/global_chat_region.txt"
+		local INDIA_LANGS = { hi = true, bn = true, ta = true, te = true, mr = true, gu = true, kn = true, ml = true, pa = true, ["or"] = true, as = true }
+
+		-- Default follows the Roblox language setting ("vi-vn" -> VN, "pt-br" -> BR, ...).
+		local function regionFromGame()
+			local id = ""
+			pcall(function()
+				local LocalizationService = game:GetService("LocalizationService")
+				id = LocalPlayer.LocaleId ~= "" and LocalPlayer.LocaleId or LocalizationService.RobloxLocaleId
+				if id == "" then
+					id = LocalizationService.SystemLocaleId
+				end
+			end)
+			id = tostring(id):lower():gsub("_", "-")
+			local langCode, country = id:match("^(%a+)%-?(%a*)")
+			if langCode == "vi" then
+				return "VN"
+			elseif langCode == "pt" then
+				return "BR"
+			elseif INDIA_LANGS[langCode] or (langCode == "en" and country == "in") then
+				return "IN"
+			elseif langCode == "en" then
+				return "US"
+			end
+			return "MORE"
+		end
+
+		local currentRegion = nil
+		pcall(function()
+			if fn_isfile and fn_readfile and fn_isfile(REGION_FILE) then
+				local saved = tostring(fn_readfile(REGION_FILE)):upper():gsub("%s+", "")
+				currentRegion = regionByCode[saved] and saved or nil
+			end
+		end)
+		if not currentRegion then
+			local preset = type(opts.DefaultRegion) == "string" and opts.DefaultRegion:upper() or nil
+			currentRegion = regionByCode[preset] and preset or regionFromGame()
+		end
+
+		local function saveRegion()
+			pcall(function()
+				if fn_isfolder and fn_makefolder and not fn_isfolder("VxezeHub") then
+					fn_makefolder("VxezeHub")
+				end
+				if fn_writefile then
+					fn_writefile(REGION_FILE, currentRegion)
+				end
+			end)
+		end
+
+		-- Reads the region off a received message and strips the tag from its game name.
+		local function ingestRegion(m)
+			local name = type(m.GameName) == "string" and m.GameName or nil
+			local tagged
+			if name then
+				local base, tag = name:match("^(.-)%s*%[(%u+)%]$")
+				if tag and regionByCode[tag] then
+					m.GameName, tagged = base, tag
+				end
+			end
+			local region = type(m.Region) == "string" and m.Region:upper() or tagged
+			m.Region = regionByCode[region] and region or UNTAGGED_REGION
+			return m
+		end
+
+		local function inCurrentRegion(m)
+			local tag = tostring(m.SenderTag or "")
+			if tag == "OWNER" or tag == "ADMIN" or tag == "SUPPORT" then
+				return true
+			end
+			return (m.Region or UNTAGGED_REGION) == currentRegion
 		end
 
 		-- Layout: pinned notice and reply bar shrink the message list.
@@ -9057,6 +9150,20 @@ local Library = (function()
 
 		local seenIds = { [0] = true }
 		local lastSeenId = 0
+		-- Every message received (all regions), so switching region can redraw.
+		local MAX_STORED = 500
+		local allMsgs = {}
+		-- Messages waiting to be drawn (filled while the tab is closed or a redraw runs).
+		local pending = {}
+		local flushing = false
+		local redrawRegion, closeRegionPopup
+		local deletedSet = {}
+		local function storeMsg(m)
+			allMsgs[#allMsgs + 1] = m
+			if #allMsgs > MAX_STORED then
+				table.remove(allMsgs, 1)
+			end
+		end
 		-- Relay announcements are shown once per id; an early removal by the admin
 		-- (announcement gone from the feed) dismisses the toast.
 		local lastAnnouncementId, announcementHandle = nil, nil
@@ -9115,12 +9222,14 @@ local Library = (function()
 			local sendUserId = anonymousMode and 0 or LocalPlayer.UserId
 			local playerName = anonymousMode and nil or maskedName(LocalPlayer.DisplayName or LocalPlayer.Name)
 			local replying = replyingTo
+			local sendRegion = currentRegion
 			clearReply()
 			sending = true
 			task.spawn(function()
 				local ok, result, err = pcall(service.SendChatMessage, service, sendUserId, text, {
 					PlayerName = playerName,
-					GameName = gameName,
+					GameName = gameName .. " [" .. sendRegion .. "]",
+					Region = sendRegion,
 					ReplyToId = replying and replying.Id or nil,
 				})
 				sending = false
@@ -9140,17 +9249,28 @@ local Library = (function()
 				-- lastSeenId up to it would skip messages other people sent between the last
 				-- poll and this send (their ids are lower), and those would never appear.
 				seenIds[result.Id] = true
-				addBubble({
+				local own = {
 					Id = result.Id,
 					UserId = sendUserId,
 					PlayerName = playerName,
 					GameName = gameName,
+					Region = sendRegion,
+					IsOwn = true,
 					-- Prefer the server's stored text: the relay may rewrite blocked content.
 					-- Without it, apply the same rule locally so the sender sees the warning.
 					Text = type(result.Text) == "string" and result.Text or censorForeignLoadstrings(text),
 					CreatedAt = os.time() * 1000,
 					Reply = replying and { PlayerName = replying.PlayerName, Content = replying.Text } or nil,
-				}, true)
+				}
+				storeMsg(own)
+				if inCurrentRegion(own) then
+					if flushing then
+						-- A region redraw is drawing; queue so rows stay in order.
+						pending[#pending + 1] = own
+					else
+						addBubble(own, true)
+					end
+				end
 			end)
 		end
 
@@ -9180,6 +9300,8 @@ local Library = (function()
 			table.clear(transcript)
 			table.clear(timestampLabels)
 			table.clear(rowsById)
+			table.clear(allMsgs)
+			table.clear(pending)
 		end))
 		jan:Add(closeBtn.MouseButton1Click:Connect(function()
 			if isShown() then
@@ -9201,6 +9323,9 @@ local Library = (function()
 			if settingsPopup then
 				closeSettingsPopup()
 				return
+			end
+			if closeRegionPopup then
+				closeRegionPopup()
 			end
 
 			local popup = Instance.new("Frame")
@@ -9523,6 +9648,9 @@ local Library = (function()
 				return
 			end
 			closeSettingsPopup()
+			if closeRegionPopup then
+				closeRegionPopup()
+			end
 
 			local popup = Instance.new("Frame")
 			popup.Name = "ChatMailboxPopup"
@@ -9630,6 +9758,168 @@ local Library = (function()
 			end
 		end
 
+		-- Region picker: a chip next to the title, opening a short list.
+		local regionBtn = Instance.new("TextButton")
+		regionBtn.Name = "RegionButton"
+		regionBtn.AutoButtonColor = false
+		regionBtn.BackgroundColor3 = Color3.new(1, 1, 1)
+		regionBtn.BackgroundTransparency = 0.92
+		regionBtn.BorderSizePixel = 0
+		regionBtn.FontFace = Theme.Font
+		regionBtn.TextColor3 = Theme.Text
+		regionBtn.TextSize = 11
+		regionBtn.AutomaticSize = Enum.AutomaticSize.X
+		regionBtn.Size = UDim2.fromOffset(0, 20)
+		regionBtn.LayoutOrder = 3
+		regionBtn.ZIndex = BASE_Z + 2
+		regionBtn.Parent = titleRow
+		Corner(regionBtn, 6)
+		Stroke(regionBtn, Color3.new(1, 1, 1), 1, 0.88)
+		local regionBtnPad = Instance.new("UIPadding")
+		regionBtnPad.PaddingLeft = UDim.new(0, 7)
+		regionBtnPad.PaddingRight = UDim.new(0, 7)
+		regionBtnPad.Parent = regionBtn
+
+		local function updateRegionButton()
+			regionBtn.Text = "\u{1F310} " .. regionByCode[currentRegion].Short .. " \u{25BE}"
+		end
+		updateRegionButton()
+
+		jan:Add(regionBtn.MouseEnter:Connect(function()
+			Tween(regionBtn, { BackgroundTransparency = 0.85 }, 0.12)
+		end))
+		jan:Add(regionBtn.MouseLeave:Connect(function()
+			Tween(regionBtn, { BackgroundTransparency = 0.92 }, 0.12)
+		end))
+
+		local regionPopup
+		closeRegionPopup = function()
+			if regionPopup then
+				regionPopup:Destroy()
+				regionPopup = nil
+			end
+		end
+
+		local function setRegion(code)
+			closeRegionPopup()
+			if code == currentRegion or not regionByCode[code] then
+				return
+			end
+			currentRegion = code
+			saveRegion()
+			updateRegionButton()
+			redrawRegion()
+			notify({
+				Title = opts.Title or "Chat",
+				Text = "Chat region: " .. regionByCode[code].Name,
+				Type = "info",
+				Duration = 2,
+			})
+		end
+
+		local function openRegionPopup()
+			if regionPopup then
+				closeRegionPopup()
+				return
+			end
+			closeSettingsPopup()
+			closeMailboxPopup()
+
+			local popup = Instance.new("Frame")
+			popup.Name = "ChatRegionPopup"
+			popup.BackgroundColor3 = Theme.Surface
+			popup.BackgroundTransparency = 0.05
+			popup.BorderSizePixel = 0
+			popup.Position = UDim2.new(0, 14, 0, HEADER_H + 4)
+			popup.Size = UDim2.new(0, 170, 0, 0)
+			popup.AutomaticSize = Enum.AutomaticSize.Y
+			popup.ClipsDescendants = true
+			popup.ZIndex = BASE_Z + 10
+			popup.Parent = panel
+			Corner(popup, 10)
+			Stroke(popup, Color3.new(1, 1, 1), 1, 0.88)
+
+			local pad = Instance.new("UIPadding")
+			pad.PaddingTop = UDim.new(0, 8)
+			pad.PaddingBottom = UDim.new(0, 8)
+			pad.PaddingLeft = UDim.new(0, 8)
+			pad.PaddingRight = UDim.new(0, 8)
+			pad.Parent = popup
+
+			local layout = Instance.new("UIListLayout")
+			layout.Padding = UDim.new(0, 2)
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.Parent = popup
+
+			local head = Instance.new("TextLabel")
+			head.BackgroundTransparency = 1
+			head.FontFace = Theme.Font
+			head.Text = "Chat region"
+			head.TextColor3 = Theme.TextDim
+			head.TextSize = 11
+			head.TextXAlignment = Enum.TextXAlignment.Left
+			head.Size = UDim2.new(1, 0, 0, 18)
+			head.LayoutOrder = 0
+			head.ZIndex = BASE_Z + 11
+			head.Parent = popup
+			local headPad = Instance.new("UIPadding")
+			headPad.PaddingLeft = UDim.new(0, 4)
+			headPad.Parent = head
+
+			for i, r in ipairs(REGIONS) do
+				local selected = r.Code == currentRegion
+				local row = Instance.new("TextButton")
+				row.Text = ""
+				row.AutoButtonColor = false
+				row.BackgroundColor3 = Color3.new(1, 1, 1)
+				row.BackgroundTransparency = selected and 0.9 or 1
+				row.BorderSizePixel = 0
+				row.Size = UDim2.new(1, 0, 0, 26)
+				row.LayoutOrder = i
+				row.ZIndex = BASE_Z + 11
+				row.Parent = popup
+				Corner(row, 6)
+
+				local lbl = Instance.new("TextLabel")
+				lbl.BackgroundTransparency = 1
+				lbl.FontFace = selected and Theme.Font or Theme.FontRegular
+				lbl.Text = r.Name
+				lbl.TextColor3 = Theme.Text
+				lbl.TextSize = 12
+				lbl.TextXAlignment = Enum.TextXAlignment.Left
+				lbl.Position = UDim2.fromOffset(8, 0)
+				lbl.Size = UDim2.new(1, -30, 1, 0)
+				lbl.ZIndex = BASE_Z + 12
+				lbl.Parent = row
+
+				if selected then
+					local tick = Instance.new("ImageLabel")
+					tick.BackgroundTransparency = 1
+					tick.Image = ResolveIcon("check")
+					tick.ImageColor3 = Theme.Accent
+					tick.AnchorPoint = Vector2.new(1, 0.5)
+					tick.Position = UDim2.new(1, -8, 0.5, 0)
+					tick.Size = UDim2.fromOffset(12, 12)
+					tick.ZIndex = BASE_Z + 12
+					tick.Parent = row
+				end
+
+				jan:Add(row.MouseEnter:Connect(function()
+					Tween(row, { BackgroundTransparency = 0.88 }, 0.1)
+				end))
+				jan:Add(row.MouseLeave:Connect(function()
+					Tween(row, { BackgroundTransparency = selected and 0.9 or 1 }, 0.1)
+				end))
+				jan:Add(row.MouseButton1Click:Connect(function()
+					setRegion(r.Code)
+				end))
+			end
+
+			regionPopup = popup
+		end
+
+		jan:Add(regionBtn.MouseButton1Click:Connect(openRegionPopup))
+
 		local notifySoundInstance = Instance.new("Sound")
 		notifySoundInstance.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 		notifySoundInstance.Volume = 0.5
@@ -9641,8 +9931,6 @@ local Library = (function()
 		-- Nothing is ever dropped from under the reader: old rows are only trimmed while the
 		-- list is at the bottom, and the cap is high.
 		local MAX_ROWS, MAX_PENDING = 250, 150
-		local pending = {}
-		local flushing = false
 		local function trimRows()
 			if not pinnedToBottom then
 				return
@@ -9657,22 +9945,70 @@ local Library = (function()
 				rows[i]:Destroy()
 			end
 		end
+		-- Bumped by a region switch; a draw loop from before it stops.
+		local drawGen = 0
 		local function flushPending()
 			if flushing or #pending == 0 then
 				return
 			end
 			flushing = true
+			local gen = drawGen
 			local queued = pending
 			pending = {}
 			for i, m in ipairs(queued) do
+				if gen ~= drawGen then
+					return
+				end
 				-- One bad message must not leave `flushing` stuck or stop the rest.
-				pcall(addBubble, m, m.UserId == LocalPlayer.UserId)
+				if inCurrentRegion(m) then
+					pcall(addBubble, m, m.IsOwn)
+				end
 				if i % 8 == 0 then
 					task.wait()
 				end
 			end
 			flushing = false
 			trimRows()
+		end
+
+		-- Drops the drawn rows and draws the stored messages of the current region.
+		redrawRegion = function()
+			drawGen += 1
+			local gen = drawGen
+			for _, child in ipairs(msgScroll:GetChildren()) do
+				if child.Name == "ChatRow" then
+					child:Destroy()
+				end
+			end
+			table.clear(transcript)
+			table.clear(timestampLabels)
+			table.clear(rowsById)
+			clearReply()
+			pending = {}
+			chatEmpty.Visible = true
+			local list = {}
+			for _, m in ipairs(allMsgs) do
+				if not deletedSet[m.Id] and inCurrentRegion(m) then
+					list[#list + 1] = m
+				end
+			end
+			flushing = true
+			scrollToBottom()
+			task.spawn(function()
+				for i = math.max(1, #list - MAX_ROWS + 1), #list do
+					if gen ~= drawGen then
+						return
+					end
+					pcall(addBubble, list[i], list[i].IsOwn)
+					if i % 8 == 0 then
+						task.wait()
+					end
+				end
+				if gen == drawGen then
+					flushing = false
+					flushPending()
+				end
+			end)
 		end
 		table.insert(tabListeners, function(selected)
 			if selected == tabObj then
@@ -9715,18 +10051,25 @@ local Library = (function()
 				backlog = backlogOk and backlog or nil
 				if type(backlog) == "table" then
 					-- Show the whole backlog the relay returned (it already caps it at MaxMessages).
-					local historyLimit = opts.HistoryLimit or #backlog
-					local startIdx = math.max(1, #backlog - historyLimit + 1)
-					for i = startIdx, #backlog do
-						local m = backlog[i]
+					local fresh = {}
+					for _, m in ipairs(backlog) do
 						if not seenIds[m.Id] then
 							seenIds[m.Id] = true
-							-- One bad message must not kill the poll loop below.
-							pcall(addBubble, m, m.UserId == LocalPlayer.UserId)
+							ingestRegion(m)
+							m.IsOwn = m.UserId == LocalPlayer.UserId
+							storeMsg(m)
+							if inCurrentRegion(m) then
+								fresh[#fresh + 1] = m
+							end
 						end
 						if m.Id > lastSeenId then
 							lastSeenId = m.Id
 						end
+					end
+					local historyLimit = opts.HistoryLimit or #fresh
+					for i = math.max(1, #fresh - historyLimit + 1), #fresh do
+						-- One bad message must not kill the poll loop below.
+						pcall(addBubble, fresh[i], fresh[i].IsOwn)
 					end
 				end
 				applyMeta()
@@ -9761,6 +10104,7 @@ local Library = (function()
 						local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
 						if type(deletedIds) == "table" then
 							for _, id in ipairs(deletedIds) do
+								deletedSet[id] = true
 								local row = rowsById[id]
 								if row then
 									rowsById[id] = nil
@@ -9777,8 +10121,14 @@ local Library = (function()
 						for _, m in ipairs(newMsgs) do
 							if not seenIds[m.Id] then
 								seenIds[m.Id] = true
+								ingestRegion(m)
 								local isOwn = m.UserId == LocalPlayer.UserId
-								if onScreen then
+								m.IsOwn = isOwn
+								storeMsg(m)
+								local visible = inCurrentRegion(m)
+								if not visible then
+									-- Kept in allMsgs only, for a later region switch.
+								elseif onScreen then
 									pcall(addBubble, m, isOwn)
 								else
 									pending[#pending + 1] = m
@@ -9787,7 +10137,7 @@ local Library = (function()
 									end
 								end
 
-								if notifySound and not isOwn and notifySoundInstance.Parent then
+								if visible and notifySound and not isOwn and notifySoundInstance.Parent then
 									notifySoundInstance:Play()
 								end
 							end
@@ -10061,7 +10411,9 @@ local Library = (function()
 		["Request failed"] = "Yêu cầu thất bại",
 		["Invalid chat response"] = "Phản hồi chat không hợp lệ",
 		["Unknown message"] = "Tin nhắn không xác định",
+		["Chat region"] = "Khu vực chat",
 	}, {
+		{"^Chat region: (.+)$", "Khu vực chat: %1"},
 		{"^(%d+) days? ago$", "%1 ngày trước"},
 		{"^(%d+) hours? ago$", "%1 giờ trước"},
 		{"^(%d+) minutes? ago$", "%1 phút trước"},
