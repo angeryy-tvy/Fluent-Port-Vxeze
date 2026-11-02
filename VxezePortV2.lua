@@ -1426,7 +1426,7 @@ local Library = (function()
 
 	tbl6.Window = function(arg, arg2)
 		arg2 = arg2 or {}
-		local w = {Tabs = {}, Key = arg2.Key or Enum.KeyCode.RightControl, us = 1, open = true}
+		local w = {Tabs = {}, Key = arg2.Key or Enum.KeyCode.RightControl, us = 0.9, open = true}
 		local v8 = fn42(w, tostring(arg2.Id or "Vxeze Hub"))
 		w.Gui = v8
 		local n3 = 832
@@ -3634,7 +3634,7 @@ local Library = (function()
 
 			w.look = {}
 
-			w.look[1] = Interface:Slider("UI scale", 60, 140, 100, function(arg5)
+			w.look[1] = Interface:Slider("UI scale", 60, 140, 90, function(arg5)
 				w:SetScale(arg5 / 100)
 			end, "%", 5)
 
@@ -7897,8 +7897,8 @@ local Library = (function()
 			-- One time, for every saved config: the Interface look goes back to the defaults above.
 			local look = tbl6.W and tbl6.W.look
 
-			if look and state.Look ~= 2 then
-				state.Look = 2
+			if look and state.Look ~= 3 then
+				state.Look = 3
 
 				for _, slider in ipairs(look) do
 					if type(slider) == "table" and slider.Set then
