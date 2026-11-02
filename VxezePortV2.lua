@@ -7492,12 +7492,16 @@ local Library = (function()
 		end
 
 		local service = {ChatMeta = {OnlineCount = 0}}
+		local fetchVersion = 0
 
 		local function call(method, path, body, query)
 			local ok, res = pcall(httpRequest, {
 				Url = endpoint .. (path or "") .. (query or ""),
 				Method = method,
-				Headers = {["Content-Type"] = "application/json", ["X-Global-Chat-Key"] = config.ApiKey},
+				Headers = {
+					["Content-Type"] = "application/json", ["X-Global-Chat-Key"] = config.ApiKey,
+					["Cache-Control"] = "no-cache, no-store", Pragma = "no-cache",
+				},
 				Body = body and HttpService:JSONEncode(body) or nil,
 			})
 			if not ok or type(res) ~= "table" then
@@ -7538,7 +7542,10 @@ local Library = (function()
 
 		-- With `after` the relay only returns newer messages, so a quiet chat stays cheap.
 		local function fetch(sinceId)
+			fetchVersion += 1
+			local version = fetchVersion
 			local query = "?limit=" .. tostring(config.MaxMessages or 50)
+				.. "&_poll=" .. tostring(os.time()) .. "-" .. tostring(version)
 			if sinceId and sinceId > 0 then
 				query = query .. "&after=" .. tostring(sinceId)
 			end
@@ -7546,12 +7553,15 @@ local Library = (function()
 			if not data then
 				return nil, err
 			end
+			-- A request that outlived its deadline cannot overwrite a newer poll's metadata.
+			if version ~= fetchVersion then return nil, "Stale chat response" end
 			local pinned = type(data.pinnedMessage) == "table" and data.pinnedMessage or nil
 			local deletedIds = {}
 			for _, id in ipairs(type(data.deletedIds) == "table" and data.deletedIds or {}) do
 				table.insert(deletedIds, idFor(id))
 			end
 			service.ChatMeta = {
+				LatestId = idFor(data.latestId),
 				Pinned = pinned and {Content = pinned.content, UpdatedByName = pinned.updatedByName} or nil,
 				OnlineCount = tonumber(data.onlineCount) or 0,
 				DeletedIds = deletedIds,
@@ -8770,6 +8780,10 @@ local Library = (function()
 
 		-- Rendered rows by message id, so messages deleted by an admin can be removed.
 		local rowsById = {}
+		local seenIds = { [0] = true }
+		local lastSeenId, clearedThroughId = 0, 0
+		local pendingIds = {}
+		local refreshChatRows, clearPending, queueChatMessage
 
 		local avatarCache = {}
 
@@ -8794,6 +8808,17 @@ local Library = (function()
 			if msg.Id then
 				rowsById[msg.Id] = row
 			end
+			local rowConnections = {}
+			local rowJan = {Add = function(_, connection)
+				rowConnections[#rowConnections + 1] = connection
+				return connection
+			end}
+			row.Destroying:Once(function()
+				if rowsById[msg.Id] == row then rowsById[msg.Id] = nil end
+				seenIds[msg.Id] = nil
+				for _, connection in ipairs(rowConnections) do connection:Disconnect() end
+				table.clear(rowConnections)
+			end)
 
 			local rowScale = Instance.new("UIScale")
 			rowScale.Scale = 0.92
@@ -9050,15 +9075,15 @@ local Library = (function()
 					icon.ZIndex = BASE_Z + 3
 					icon.Parent = btn
 
-					jan:Add(btn.MouseEnter:Connect(function()
+					rowJan:Add(btn.MouseEnter:Connect(function()
 						Tween(btn, { BackgroundTransparency = 0.85 }, 0.12)
 						Tween(icon, { ImageColor3 = hoverColor, ImageTransparency = 0 }, 0.12)
 					end))
-					jan:Add(btn.MouseLeave:Connect(function()
+					rowJan:Add(btn.MouseLeave:Connect(function()
 						Tween(btn, { BackgroundTransparency = 0.94 }, 0.12)
 						Tween(icon, { ImageColor3 = Theme.TextDim, ImageTransparency = 0.2 }, 0.12)
 					end))
-					jan:Add(btn.MouseButton1Click:Connect(function()
+					rowJan:Add(btn.MouseButton1Click:Connect(function()
 						onClick(icon)
 					end))
 				end
@@ -9105,7 +9130,7 @@ local Library = (function()
 				joinBtn.Parent = bubble
 				Corner(joinBtn, 6)
 				bubbleBaseH += 20
-				jan:Add(joinBtn.MouseButton1Click:Connect(function()
+				rowJan:Add(joinBtn.MouseButton1Click:Connect(function()
 					confirmJoin(msg)
 				end))
 			end
@@ -9127,6 +9152,30 @@ local Library = (function()
 
 			scrollToBottom()
 			table.insert(transcript, (isOwn and "You" or "Someone") .. ": " .. text)
+			if #transcript > 250 then table.remove(transcript, 1) end
+			return row
+		end
+
+		local function validChatMessage(message)
+			return type(message) == "table" and type(message.Id) == "number"
+				and message.Id > 0 and message.Id < math.huge and message.Id % 1 == 0
+				and type(message.Text) == "string" and message.Text:find("%S") ~= nil
+		end
+
+		local function drawChatMessage(message, isOwn)
+			if not validChatMessage(message) or message.Id <= clearedThroughId then return false end
+			local row = rowsById[message.Id]
+			if row and row.Parent then seenIds[message.Id] = true; return true end
+			local ok, rendered = pcall(addBubble, message, isOwn)
+			if ok and rendered and rendered.Parent then
+				seenIds[message.Id] = true
+				return true
+			end
+			-- Remove a partially constructed bubble and allow the next history sync to retry it.
+			row = rowsById[message.Id]
+			rowsById[message.Id], seenIds[message.Id] = nil, nil
+			if row then row:Destroy() end
+			return false
 		end
 
 		jan:Add(copyBtn.MouseButton1Click:Connect(function()
@@ -9143,20 +9192,19 @@ local Library = (function()
 			end)
 		end))
 
-		local seenIds = { [0] = true }
-		local lastSeenId = 0
 		-- Every message received (all regions), so switching region can redraw.
 		local MAX_STORED = 500
-		local allMsgs = {}
-		-- Messages waiting to be drawn (filled while the tab is closed or a redraw runs).
-		local pending = {}
-		local flushing = false
-		local redrawRegion, closeRegionPopup
+		local allMsgs, storedIds = {}, {}
+		local redrawRegion, closeRegionPopup, flushPending
 		local deletedSet = {}
 		local function storeMsg(m)
+			if storedIds[m.Id] then
+				return
+			end
+			storedIds[m.Id] = true
 			allMsgs[#allMsgs + 1] = m
 			if #allMsgs > MAX_STORED then
-				table.remove(allMsgs, 1)
+				storedIds[table.remove(allMsgs, 1).Id] = nil
 			end
 		end
 		-- Relay announcements are shown once per id; an early removal by the admin
@@ -9243,7 +9291,6 @@ local Library = (function()
 				-- Only remember the id so the poll doesn't draw this message twice. Moving
 				-- lastSeenId up to it would skip messages other people sent between the last
 				-- poll and this send (their ids are lower), and those would never appear.
-				seenIds[result.Id] = true
 				local own = {
 					Id = result.Id,
 					UserId = sendUserId,
@@ -9259,11 +9306,12 @@ local Library = (function()
 				}
 				storeMsg(own)
 				if inCurrentRegion(own) then
-					if flushing or not isShown() then
-						-- Queue while hidden or while a flush draws, so rows stay in order.
-						pending[#pending + 1] = own
-					else
-						addBubble(own, true)
+					-- Rows are sorted by id afterwards, so drawing during a flush keeps order.
+					if isShown() then
+						drawChatMessage(own, true)
+						if refreshChatRows then refreshChatRows() end
+					elseif queueChatMessage then
+						queueChatMessage(own)
 					end
 				end
 			end)
@@ -9287,6 +9335,9 @@ local Library = (function()
 			})
 		end))
 		jan:Add(clearBtn.MouseButton1Click:Connect(function()
+			clearedThroughId = math.max(clearedThroughId, lastSeenId)
+			for id in pairs(seenIds) do clearedThroughId = math.max(clearedThroughId, id) end
+			if clearPending then clearPending() end
 			for _, child in ipairs(msgScroll:GetChildren()) do
 				if child.Name == "ChatRow" then
 					child:Destroy()
@@ -9295,8 +9346,9 @@ local Library = (function()
 			table.clear(transcript)
 			table.clear(timestampLabels)
 			table.clear(rowsById)
+			table.clear(seenIds)
 			table.clear(allMsgs)
-			table.clear(pending)
+			table.clear(storedIds)
 		end))
 		jan:Add(closeBtn.MouseButton1Click:Connect(function()
 			if isShown() then
@@ -9927,68 +9979,84 @@ local Library = (function()
 		notifySoundInstance.Volume = 0.5
 		notifySoundInstance.Parent = panel
 
-		-- Building a bubble is the expensive part of chat (dozens of instances, tweens, avatar
-		-- lookups), and a busy chat made the whole hub stutter. While the chat tab isn't open
-		-- new messages are only queued and drawn (in small batches) when the tab opens.
-		-- Nothing is ever dropped from under the reader: old rows are only trimmed while the
-		-- list is at the bottom, and the cap is high.
-		local MAX_ROWS, MAX_PENDING = 250, 250
-		local function trimRows()
-			if not pinnedToBottom then
-				return
-			end
-			local rows = {}
-			for _, child in ipairs(msgScroll:GetChildren()) do
-				if child.Name == "ChatRow" then
-					rows[#rows + 1] = child
-				end
-			end
-			for i = 1, #rows - MAX_ROWS do
-				rows[i]:Destroy()
-			end
+		-- BEGIN Chat Feed Recovery
+		-- Keep polling independent of drawing. One queue drains even when polls overlap a flush.
+		local MAX_ROWS, MAX_PENDING = 250, 150
+		local pending, flushing = {}, false
+		-- Anonymous sends carry UserId 0, so own messages are flagged instead.
+		local function isOwnMessage(message)
+			if message.IsOwn ~= nil then return message.IsOwn end
+			return message.UserId == LocalPlayer.UserId
 		end
-		-- Bumped by a region switch; a draw loop from before it stops.
-		local drawGen = 0
-		local function flushPending()
-			if flushing or #pending == 0 or not isShown() then
-				return
+		local historySyncRequested, lastHistorySyncAt = true, 0
+		local HISTORY_SYNC_INTERVAL = 30
+
+		refreshChatRows = function()
+			local rows = {}
+			for id, row in pairs(rowsById) do
+				if row.Parent then rows[#rows + 1] = {Id = id, Row = row}
+				else rowsById[id] = nil end
 			end
-			flushing = true
-			local gen = drawGen
-			local queued = pending
-			pending = {}
-			for i, m in ipairs(queued) do
-				if gen ~= drawGen then
-					return
-				end
-				if not isShown() then
-					-- Tab/window closed mid-flush: keep the rest for the next open.
-					local rest = {}
-					for j = i, #queued do
-						rest[#rest + 1] = queued[j]
-					end
-					for _, p in ipairs(pending) do
-						rest[#rest + 1] = p
-					end
-					pending = rest
-					flushing = false
-					return
-				end
-				-- One bad message must not leave `flushing` stuck or stop the rest.
-				if inCurrentRegion(m) then
-					pcall(addBubble, m, m.IsOwn)
-				end
-				if i % 8 == 0 then
-					task.wait()
-				end
+			-- Sending can finish before an earlier poll: arrival order is not message order.
+			table.sort(rows, function(a, b) return a.Id < b.Id end)
+			local removeCount = pinnedToBottom and math.max(0, #rows - MAX_ROWS) or 0
+			for index, entry in ipairs(rows) do
+				if index <= removeCount then entry.Row:Destroy()
+				else entry.Row.LayoutOrder = index - removeCount end
 			end
-			flushing = false
-			trimRows()
+			for index = #timestampLabels, 1, -1 do
+				if not timestampLabels[index].Parent then table.remove(timestampLabels, index) end
+			end
+			-- Deduplication only needs rows and queued messages, not every id seen all session.
+			local retained = {[0] = true}
+			for id in pairs(rowsById) do retained[id] = true end
+			for id in pairs(pendingIds) do retained[id] = true end
+			seenIds = retained
 		end
 
-		-- Drops the drawn rows and draws the stored messages of the current region.
+		clearPending = function()
+			table.clear(pending)
+			table.clear(pendingIds)
+		end
+
+		queueChatMessage = function(message)
+			if not validChatMessage(message) or message.Id <= clearedThroughId then return false end
+			local row = rowsById[message.Id]
+			if (row and row.Parent) or pendingIds[message.Id] then return false end
+			seenIds[message.Id], pendingIds[message.Id] = true, message
+			pending[#pending + 1] = message
+			if #pending > MAX_PENDING then
+				local dropped = table.remove(pending, 1)
+				if pendingIds[dropped.Id] == dropped then
+					pendingIds[dropped.Id], seenIds[dropped.Id] = nil, nil
+				end
+			end
+			return true
+		end
+
+		flushPending = function()
+			if flushing or not isShown() then return end
+			flushing = true
+			local drawn = 0
+			while #pending > 0 and panel and panel.Parent and isShown() do
+				local message = table.remove(pending, 1)
+				if pendingIds[message.Id] == message then
+					pendingIds[message.Id] = nil
+					-- drawChatMessage cleans failed/partial rows so a later snapshot can retry.
+					local ok = pcall(drawChatMessage, message, isOwnMessage(message))
+					if not ok then seenIds[message.Id] = nil end
+				end
+				drawn += 1
+				if drawn % 8 == 0 then task.wait() end
+			end
+			flushing = false
+			refreshChatRows()
+		end
+
+		-- Drops the drawn rows and queues the stored messages of the current region.
 		redrawRegion = function()
-			drawGen += 1
+			clearReply()
+			clearPending()
 			for _, child in ipairs(msgScroll:GetChildren()) do
 				if child.Name == "ChatRow" then
 					child:Destroy()
@@ -9997,8 +10065,6 @@ local Library = (function()
 			table.clear(transcript)
 			table.clear(timestampLabels)
 			table.clear(rowsById)
-			clearReply()
-			pending = {}
 			chatEmpty.Visible = true
 			local list = {}
 			for _, m in ipairs(allMsgs) do
@@ -10006,157 +10072,127 @@ local Library = (function()
 					list[#list + 1] = m
 				end
 			end
-			for i = math.max(1, #list - MAX_ROWS + 1), #list do
-				pending[#pending + 1] = list[i]
+			for i = math.max(1, #list - MAX_PENDING + 1), #list do
+				queueChatMessage(list[i])
 			end
-			-- An older flush still running sees the new drawGen and stops.
-			flushing = false
 			scrollToBottom()
 			task.spawn(flushPending)
 		end
+
 		table.insert(tabListeners, function(selected)
 			if selected == tabObj then
+				historySyncRequested = true
 				task.spawn(flushPending)
 			end
 		end)
 
-		-- Executor HTTP calls have no timeout, and one that never returns used to
-		-- freeze the chat until the player sent something. Give each poll a deadline;
-		-- a late answer is dropped (the next poll asks again from the same id).
+		-- Cancel our own timed-out worker when supported; otherwise keep a bounded fallback
+		-- for executors that cannot cancel a native HTTP yield. Late replies do not draw rows.
 		local POLL_TIMEOUT, MAX_STRANDED = 12, 3
 		local strandedPolls = 0
 		local function pollWithDeadline(sinceId)
-			if strandedPolls >= MAX_STRANDED then
-				return false, "Chat relay is not responding"
-			end
-			local done, ok, result = false, false, nil
-			task.spawn(function()
+			if strandedPolls >= MAX_STRANDED then return false, "Chat relay is not responding" end
+			local done, expired, held = false, false, false
+			local ok, result = false, nil
+			local worker = task.spawn(function()
 				ok, result = pcall(service.PollChatMessages, service, sinceId)
-				if done == nil then
-					strandedPolls -= 1
-				end
+				if expired and held then strandedPolls -= 1; held = false end
 				done = true
 			end)
 			local started = os.clock()
-			while done == false and os.clock() - started < POLL_TIMEOUT do
+			while not done and panel and panel.Parent and os.clock() - started < POLL_TIMEOUT do
 				task.wait(0.1)
 			end
-			if done == false then
-				done = nil
-				strandedPolls += 1
+			if not done then
+				expired = true
+				local cancelled = type(task.cancel) == "function" and pcall(task.cancel, worker)
+				if not cancelled or coroutine.status(worker) ~= "dead" then
+					held, strandedPolls = true, strandedPolls + 1
+				end
 				return false, "Chat poll timed out"
 			end
-			return ok, result
+			return ok and type(result) == "table", result
+		end
+
+		local function acceptChatBatch(messages, sinceId)
+			local deleted = {}
+			local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
+			if type(deletedIds) == "table" then
+				for _, rawId in ipairs(deletedIds) do
+					local id = tonumber(rawId)
+					if id then
+						deleted[id], deletedSet[id] = true, true
+						pendingIds[id], seenIds[id] = nil, nil
+						local row = rowsById[id]
+						rowsById[id] = nil
+						if row then row:Destroy() end
+					end
+				end
+			end
+			local ordered = {}
+			for _, message in ipairs(messages) do
+				if validChatMessage(message) then ordered[#ordered + 1] = message end
+			end
+			table.sort(ordered, function(a, b) return a.Id < b.Id end)
+			local sounded = false
+			for _, message in ipairs(ordered) do
+				if not deleted[message.Id] then
+					-- Every region is stored for a later switch; only the picked one is drawn.
+					ingestRegion(message)
+					message.IsOwn = message.UserId == LocalPlayer.UserId
+					storeMsg(message)
+					if inCurrentRegion(message) then
+						local queued = queueChatMessage(message)
+						if queued and sinceId > 0 and message.Id > sinceId and notifySound
+							and not message.IsOwn then sounded = true end
+					end
+				end
+				lastSeenId = math.max(lastSeenId, message.Id)
+			end
+			if sounded and notifySoundInstance.Parent then pcall(notifySoundInstance.Play, notifySoundInstance) end
+			if isShown() then task.spawn(flushPending) end
 		end
 
 		if service then
 			task.spawn(function()
-				local backlogOk, backlog = pollWithDeadline(0)
-				backlog = backlogOk and backlog or nil
-				if type(backlog) == "table" then
-					-- Show the whole backlog the relay returned (it already caps it at MaxMessages).
-					local fresh = {}
-					for _, m in ipairs(backlog) do
-						if not seenIds[m.Id] then
-							seenIds[m.Id] = true
-							ingestRegion(m)
-							m.IsOwn = m.UserId == LocalPlayer.UserId
-							storeMsg(m)
-							if inCurrentRegion(m) then
-								fresh[#fresh + 1] = m
-							end
-						end
-						if m.Id > lastSeenId then
-							lastSeenId = m.Id
-						end
-					end
-					-- Drawn when the chat is on screen (now, or when the tab opens).
-					local historyLimit = opts.HistoryLimit or #fresh
-					for i = math.max(1, #fresh - historyLimit + 1), #fresh do
-						pending[#pending + 1] = fresh[i]
-					end
-					task.spawn(flushPending)
-				end
-				applyMeta()
-				syncAnnouncement()
-				syncMailbox()
-				local failures = 0
+				local firstPoll, failures = true, 0
 				while panel and panel.Parent do
-					-- Poll at full speed only while the chat is on screen, and back off
-					-- while the relay is failing instead of hammering it.
-					local delay = (isShown()) and pollInterval or math.max(pollInterval * 3, 8)
-					if failures > 0 then
-						delay = math.min(delay * 2 ^ math.min(failures, 3), 30)
-					end
-					local waited = 0
-					while waited < delay and panel and panel.Parent do
-						waited += task.wait(0.25)
-						-- Opening the chat cuts a slow background wait short.
-						if failures == 0 and waited >= pollInterval and isShown() then
-							break
+					if not firstPoll then
+						local delay = isShown() and pollInterval or math.max(pollInterval * 3, 8)
+						if failures > 0 then delay = math.min(delay * 2 ^ math.min(failures, 3), 30) end
+						local waited = 0
+						while waited < delay and panel and panel.Parent do
+							waited += task.wait(0.25)
+							if failures == 0 and waited >= pollInterval and isShown() then break end
 						end
 					end
-					if not (panel and panel.Parent) then
-						break
-					end
-					local ok, newMsgs = pollWithDeadline(lastSeenId)
-					newMsgs = ok and newMsgs or nil
-					failures = newMsgs and 0 or failures + 1
-					if newMsgs then
-						applyMeta()
-						syncAnnouncement()
-						syncMailbox()
-						local deletedIds = service.ChatMeta and service.ChatMeta.DeletedIds
-						if type(deletedIds) == "table" then
-							for _, id in ipairs(deletedIds) do
-								deletedSet[id] = true
-								local row = rowsById[id]
-								if row then
-									rowsById[id] = nil
-									row:Destroy()
-								end
-							end
+					if not (panel and panel.Parent) then break end
+					firstPoll = false
+					-- An error in metadata or one message must not terminate this worker forever.
+					local iterationOk = pcall(function()
+						local full = historySyncRequested or failures > 0
+							or os.clock() - lastHistorySyncAt >= HISTORY_SYNC_INTERVAL
+						local sinceId = full and 0 or lastSeenId
+						historySyncRequested = false
+						local ok, messages = pollWithDeadline(sinceId)
+						if not ok then failures += 1; historySyncRequested = true; return end
+						failures = 0
+						if full then lastHistorySyncAt = os.clock() end
+						pcall(applyMeta)
+						pcall(syncAnnouncement)
+						pcall(syncMailbox)
+						if full and opts.HistoryLimit and #messages > opts.HistoryLimit then
+							local recent = {}
+							for index = #messages - opts.HistoryLimit + 1, #messages do recent[#recent + 1] = messages[index] end
+							messages = recent
 						end
-						-- While the tab's own flush is still drawing, new messages queue behind it
-						-- so rows can't end up out of order.
-						local onScreen = isShown() and not flushing
-						if onScreen then
-							flushPending()
-						end
-						for _, m in ipairs(newMsgs) do
-							if not seenIds[m.Id] then
-								seenIds[m.Id] = true
-								ingestRegion(m)
-								local isOwn = m.UserId == LocalPlayer.UserId
-								m.IsOwn = isOwn
-								storeMsg(m)
-								local visible = inCurrentRegion(m)
-								if not visible then
-									-- Kept in allMsgs only, for a later region switch.
-								elseif onScreen then
-									pcall(addBubble, m, isOwn)
-								else
-									pending[#pending + 1] = m
-									if #pending > MAX_PENDING then
-										table.remove(pending, 1)
-									end
-								end
-
-								if visible and notifySound and not isOwn and notifySoundInstance.Parent then
-									notifySoundInstance:Play()
-								end
-							end
-							if m.Id > lastSeenId then
-								lastSeenId = m.Id
-							end
-						end
-						if onScreen then
-							trimRows()
-						end
-					end
+						acceptChatBatch(messages, sinceId)
+					end)
+					if not iterationOk then failures += 1; historySyncRequested = true end
 				end
 			end)
 		end
+		-- END Chat Feed Recovery
 
 		if service and service.PublishChatPresence then
 			task.spawn(function()
