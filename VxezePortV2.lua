@@ -1433,6 +1433,9 @@ local Library = (function()
 		local n4 = 510
 		-- Smallest size the corner grip can drag the window down to.
 		local minW, minH = 540, 360
+		-- The tab rail shows names like NullUI's; a narrow window folds it back to icons.
+		local railW = 148
+		w.rail = n2
 		w.dim = Frame({Parent = v8, Size = v, BackgroundColor3 = color(0, 0, 0)})
 
 		pcall(function()
@@ -1840,13 +1843,15 @@ local Library = (function()
 		local tbl16
 		tbl15[1] = Frame({Position = fn2(0, -16), Size = udim2(1, 16, 1, 16), BackgroundTransparency = 0.95, (fn12(16))})
 		local v25 = v24(tbl15)
+		-- v25 is reused for something else further down; fitRail needs the rail itself.
+		local railFrame = v25
 		fn18(v25, udim2(1, -1, 0, 0), udim2(0, 1, 1, 0))
 
 		local v26 = Frame({
 			Parent = v25,
 			AnchorPoint = v3,
 			Position = udim2(0.5, 0, 0, 29),
-			Size = fn2(38, 38),
+			Size = udim2(1, -16, 0, 38),
 			BackgroundTransparency = 0.88,
 			fn12(10),
 			fn13(0.9),
@@ -1899,6 +1904,27 @@ local Library = (function()
 			Size = udim2(1, -n2, 1, -n - 49),
 			ClipsDescendants = true,
 		})
+
+		local function fitRail()
+			local wide = w.Main.Size.X.Offset >= 700
+			local rail = wide and railW or n2
+			w.rail = rail
+			railFrame.Size = udim2(0, rail, 1, -n - 1)
+			-- A tween, not a set: it replaces a tab switch's title slide that is still running.
+			fn19(v28, {Position = fn2(rail + 18, n + 9)}, 0.2)
+			v28.Size = udim2(1, -rail - 36, 0, 26)
+			v30.Position = fn2(rail, n + 41)
+			v30.Size = udim2(1, -rail, 1, -n - 49)
+
+			for _, tab in ipairs(w.Tabs) do
+				if tab.lb then
+					tab.lb.Visible = wide
+				end
+			end
+		end
+
+		fn5(w.Main:GetPropertyChangedSignal("Size"), fitRail)
+		fitRail()
 
 		fn30(v16, v13, function(arg3)
 			local viewportSize = workspace.CurrentCamera.ViewportSize
@@ -2618,6 +2644,9 @@ local Library = (function()
 				end
 
 				fn19(tab.im, {ImageTransparency = tab == cur and 0 or 0.45, ImageColor3 = tab == cur and tbl.a1 or tbl.wh}, 0.3)
+				if tab.lb then
+					fn19(tab.lb, {TextTransparency = tab == cur and 0 or 0.45}, 0.3)
+				end
 			end
 
 			fn19(v26, {Position = udim2(0.5, 0, 0, fn52(cur))}, 0.42)
@@ -2644,9 +2673,9 @@ local Library = (function()
 			cur.fr.Visible = true
 			fn19(cur.fr, {Position = udim2()}, 0.5)
 			v28.Text = cur.Title or cur.Name
-			v28.Position = fn2(n2 + 18 + n6 * 24, n + 9)
+			v28.Position = fn2(w.rail + 18 + n6 * 24, n + 9)
 			v28.TextTransparency = 0.7
-			fn19(v28, {Position = fn2(n2 + 18, n + 9), TextTransparency = 0}, 0.45)
+			fn19(v28, {Position = fn2(w.rail + 18, n + 9), TextTransparency = 0}, 0.45)
 		end
 
 		w.nest = {}
@@ -2719,15 +2748,27 @@ local Library = (function()
 				top.subs = {}
 			end
 
-			local v39 = TextButton({Parent = v27, Size = fn2(38, 38), LayoutOrder = top.i})
+			local v39 = TextButton({Parent = v27, Size = udim2(1, -16, 0, 38), LayoutOrder = top.i})
 
+			-- Icon centred in the first 38px, so it sits where it did on the icon-only rail.
 			top.im = fn9({
 				Parent = v39,
 				AnchorPoint = v3,
-				Position = v2,
-				Size = fn2(24, 24),
+				Position = udim2(0, 19, 0.5, 0),
+				Size = fn2(22, 22),
 				Image = image or "grid",
 				ImageTransparency = 0.45,
+			})
+
+			top.lb = TextLabel({
+				Parent = v39,
+				Position = fn2(40, 0),
+				Size = udim2(1, -46, 1, 0),
+				Text = name,
+				TextSize = 12,
+				TextTransparency = 0.45,
+				TextTruncate = atEnd,
+				Visible = w.rail ~= n2,
 			})
 
 			fn27(top.im, 0.8, v39, function(arg5)
