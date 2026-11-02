@@ -15,62 +15,144 @@ local Library = (function()
 	local udim2 = UDim2.new
 	local udim = UDim.new
 	local vector2 = Vector2.new
-	local font = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
-	local font2 = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
-	local font3 = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.ExtraBold)
+
+	-- Figtree, NullUI's typeface. The files are cached in NullUI/Assets so both libraries
+	-- share one download; Builder Sans stands in when the executor can't load custom fonts.
+	local function loadFigtree()
+		local customAsset = getcustomasset or getsynasset
+
+		if not (customAsset and writefile and isfile and readfile and makefolder and isfolder) then
+			return nil
+		end
+
+		local folder = "NullUI/Assets"
+		local base = "https://raw.githubusercontent.com/Skinny-yz/NullUI-Assets/main/fonts/"
+
+		local function fetch(file)
+			local path = folder .. "/" .. file
+
+			local function looksLikeFont(data)
+				local sig = type(data) == "string" and #data >= 4096 and data:sub(1, 4)
+				return sig == "\0\1\0\0" or sig == "OTTO" or sig == "true" or sig == "wOFF" or sig == "wOF2"
+			end
+
+			local ok, data = pcall(readfile, path)
+
+			if isfile(path) and ok and looksLikeFont(data) then
+				return path
+			end
+
+			local got, body = pcall(game.HttpGet, game, base .. file)
+
+			if got and looksLikeFont(body) and pcall(writefile, path, body) then
+				return path
+			end
+
+			return nil
+		end
+
+		local ok, faces = pcall(function()
+			for _, dir in ipairs({"NullUI", folder}) do
+				if not isfolder(dir) then
+					makefolder(dir)
+				end
+			end
+
+			local semi = fetch("Figtree-SemiBold.ttf")
+
+			if not semi then
+				return nil
+			end
+
+			local regular = fetch("Figtree-Medium.ttf") or semi
+			local familyPath = folder .. "/Figtree.font"
+
+			writefile(familyPath, HttpService:JSONEncode({
+				name = "Figtree",
+				faces = {
+					{name = "Regular", weight = 400, style = "normal", assetId = customAsset(regular)},
+					{name = "SemiBold", weight = 600, style = "normal", assetId = customAsset(semi)},
+				},
+			}))
+
+			return customAsset(familyPath)
+		end)
+
+		return ok and faces or nil
+	end
+
+	local figtree = loadFigtree()
+	local family = figtree or "rbxasset://fonts/families/BuilderSans.json"
+	local font = Font.new(family, Enum.FontWeight.SemiBold)
+	local font2 = Font.new(family, figtree and Enum.FontWeight.SemiBold or Enum.FontWeight.Bold)
+	local font3 = Font.new(family, figtree and Enum.FontWeight.SemiBold or Enum.FontWeight.ExtraBold)
 	local font4 = Font.new("rbxasset://fonts/families/RobotoMono.json", Enum.FontWeight.SemiBold)
 	local font5 = Font.new("rbxassetid://12187365977", Enum.FontWeight.Bold)
 	local colorSequence = ColorSequence.new(color(26, 255, 0), color(0, 255, 0))
 	local font6 = Font.new(font5.Family, font5.Weight, Enum.FontStyle.Italic)
 
 	local tbl = {
-		bg = color(16, 18, 40),
-		tx = color(242, 244, 255),
-		a1 = color(122, 162, 255),
-		a2 = color(185, 139, 255),
-		g1 = color(255, 229, 138),
-		g2 = color(255, 155, 88),
+		tx = color(240, 240, 242),
 		dk = color(42, 18, 0),
 		mint = color(110, 255, 182),
 		red = color(255, 110, 110),
-		sky = color(143, 180, 255),
 		pink = color(255, 158, 207),
 		vio = color(199, 166, 255),
 		gold = color(255, 210, 122),
 		wh = color(255, 255, 255),
-		val = color(217, 222, 255),
 		dc = color(88, 101, 242),
-		pn = color(24, 26, 54),
-		w1 = color(36, 40, 86),
-		w2 = color(14, 15, 34),
 		gv = color(184, 255, 156),
-		on = color(255, 255, 254),
 	}
 
-	local tbl2 = {
-		{"Twilight", color(36, 40, 86), color(14, 15, 34), color(122, 162, 255), color(185, 139, 255)},
-		{"Aurora", color(10, 84, 82), color(4, 26, 38), color(63, 224, 176), color(127, 255, 216)},
-		{"Ocean", color(8, 70, 128), color(3, 20, 52), color(47, 185, 221), color(127, 220, 255)},
-		{"Midnight", color(52, 24, 112), color(10, 4, 36), color(118, 100, 226), color(160, 132, 240)},
-		{"Sakura", color(118, 44, 96), color(36, 12, 40), color(255, 140, 200), color(255, 196, 228)},
-		{"Onyx", color(58, 46, 22), color(8, 6, 2), color(255, 206, 110), color(255, 150, 80)},
-		{
-			"Black",
-			color(50, 50, 56),
-			color(16, 16, 19),
-			color(250, 251, 255),
-			color(176, 182, 198),
-			color(14, 14, 18),
-		},
-		{
-			"Mono",
-			color(92, 94, 104),
-			color(30, 31, 36),
-			color(250, 251, 255),
-			color(196, 200, 214),
-			color(20, 21, 26),
-		},
+	-- NullUI's palette: the shell stays neutral and only the accent carries colour.
+	-- Each theme is {name, surface, background, accent, accent2, textOnAccent}.
+	local bases = {
+		Dark = {color(24, 24, 24), color(16, 16, 16)},
+		Darker = {color(15, 15, 17), color(8, 8, 9)},
+		Slate = {color(26, 29, 36), color(18, 20, 25)},
 	}
+
+	local function preset(name, base, accent)
+		local light = accent.R * 0.299 + accent.G * 0.587 + accent.B * 0.114 > 0.6
+		return {name, bases[base][1], bases[base][2], accent, accent:Lerp(color(255, 255, 255), 0.3), light and color(12, 14, 18) or color(255, 255, 254)}
+	end
+
+	local tbl2 = {
+		preset("Aqua", "Darker", color(0, 255, 255)),
+		preset("Sky", "Darker", color(88, 166, 255)),
+		preset("Ocean", "Slate", color(64, 200, 224)),
+		preset("Indigo", "Darker", color(120, 130, 255)),
+		preset("Amethyst", "Darker", color(176, 128, 255)),
+		preset("Rose", "Darker", color(255, 118, 160)),
+		preset("Crimson", "Darker", color(255, 92, 92)),
+		preset("Ember", "Dark", color(255, 122, 66)),
+		preset("Gold", "Dark", color(240, 205, 96)),
+		preset("Emerald", "Darker", color(72, 217, 150)),
+		preset("Mint", "Slate", color(128, 240, 200)),
+		-- Not pure white: the theme switch remaps colours by value, and white is reserved.
+		preset("Mono", "Dark", color(245, 246, 250)),
+	}
+
+	-- Every colour the theme drives, worked out from one preset.
+	local function themeColors(p)
+		return {
+			w1 = p[2],
+			w2 = p[3],
+			a1 = p[4],
+			a2 = p[5],
+			sky = p[4]:Lerp(tbl.wh, 0.2),
+			g1 = p[5]:Lerp(tbl.wh, 0.35),
+			g2 = p[4],
+			val = p[5]:Lerp(tbl.wh, 0.7),
+			pn = p[2]:Lerp(p[3], 0.55),
+			bg = p[2]:Lerp(p[3], 0.75),
+			on = p[6] or color(255, 255, 254),
+		}
+	end
+
+	for k, v8 in next, themeColors(tbl2[1]) do
+		tbl[k] = v8
+	end
 
 	local tbl3 = {tbl.gold, tbl.mint, tbl.sky, tbl.pink, tbl.vio}
 
@@ -282,7 +364,7 @@ local Library = (function()
 	end
 
 	local tbl6 = {Opt = {}, Keys = {}, Alias = {}, th = tbl2[1][1]}
-	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Ocean", Cfg = 2, Lang = ""}
+	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Aqua", Cfg = 2, Lang = ""}
 	tbl6.State = state
 	local tbl7 = {}
 
@@ -689,8 +771,7 @@ local Library = (function()
 			Position = udim2(0, 3, 0.5, 0),
 			Size = fn2(arg2 - 6, arg2 - 6),
 			ZIndex = 2,
-			fn12(),
-			(fn13(0.6, color(0, 0, 0))),
+			(fn12()),
 		})
 
 		local function fn34(arg3, arg4)
@@ -869,6 +950,121 @@ local Library = (function()
 		end) then
 			arg.Parent = fn("CoreGui")
 		end
+	end
+
+	-- Acrylic blur behind the window, the way NullUI (and Fluent) do it: a near-invisible
+	-- glass part right in front of the camera, under the window, blurred by a DOF that
+	-- only touches things closer than the world.
+	local acrylic = {list = {}, on = true}
+
+	local function acrylicRefresh()
+		local active = false
+
+		for _, glass in ipairs(acrylic.list) do
+			active = active or glass.vis
+		end
+
+		if active and not (acrylic.dof and acrylic.dof.Parent) then
+			acrylic.dof = fn7("DepthOfFieldEffect", {
+				Parent = fn("Lighting"),
+				FarIntensity = 0,
+				FocusDistance = 0.05,
+				InFocusRadius = 0.1,
+				NearIntensity = 1,
+			})
+		end
+
+		if acrylic.dof then
+			acrylic.dof.Enabled = active
+		end
+	end
+
+	local function acrylicFor(gui)
+		local part = fn7("Part", {
+			Anchored = true,
+			CanCollide = false,
+			CanQuery = false,
+			CanTouch = false,
+			CastShadow = false,
+			Material = Enum.Material.Glass,
+			Color = color(0, 0, 0),
+			Transparency = 1,
+			Size = Vector3.new(1, 1, 0.001),
+		})
+
+		local mesh = fn7("SpecialMesh", {
+			Parent = part,
+			MeshType = Enum.MeshType.Brick,
+			Offset = Vector3.new(0, 0, -0.000001),
+			Scale = Vector3.new(1, 1, 0.001),
+		})
+
+		local glass = {vis = false}
+
+		local function drop()
+			local i = table.find(acrylic.list, glass)
+
+			if i then
+				table.remove(acrylic.list, i)
+			end
+
+			part:Destroy()
+			acrylicRefresh()
+		end
+
+		glass.Update = function()
+			local camera = workspace.CurrentCamera
+			local size = gui.AbsoluteSize
+			local vis = acrylic.on and camera ~= nil and gui.Visible and size.X > 2 and size.Y > 2
+
+			if glass.vis ~= vis then
+				glass.vis = vis
+				part.Transparency = vis and 0.98 or 1
+				acrylicRefresh()
+			end
+
+			if not vis then
+				return
+			end
+
+			if part.Parent ~= camera then
+				part.Parent = camera
+			end
+
+			-- Nothing moved since the last frame: skip the projection.
+			local camCF, pos = camera:GetRenderCFrame(), gui.AbsolutePosition
+
+			if glass.cf == camCF and glass.pos == pos and glass.size == size and glass.fov == camera.FieldOfView then
+				return
+			end
+
+			glass.cf, glass.pos, glass.size, glass.fov = camCF, pos, size, camera.FieldOfView
+
+			-- Inset so the square glass stays inside the window's rounded corners.
+			local inset = math.clamp(camera.ViewportSize.Y * 0.012, 8, 18)
+			local topLeft = pos + vector2(inset, inset)
+			local panel = vector2(math.max(1, size.X - inset * 2), math.max(1, size.Y - inset * 2))
+
+			local function toWorld(point)
+				local ray = camera:ScreenPointToRay(point.X, point.Y)
+				return ray.Origin + ray.Direction * 0.001
+			end
+
+			local a, b, c = toWorld(topLeft), toWorld(topLeft + vector2(panel.X, 0)), toWorld(topLeft + panel)
+			part.CFrame = CFrame.fromMatrix((a + c) / 2, camCF.XVector, camCF.YVector, camCF.ZVector)
+			mesh.Scale = Vector3.new((b - a).Magnitude, (c - b).Magnitude, 0.001)
+		end
+
+		glass.Destroy = drop
+
+		gui.AncestryChanged:Connect(function()
+			if not gui:IsDescendantOf(game) then
+				drop()
+			end
+		end)
+
+		acrylic.list[#acrylic.list + 1] = glass
+		return glass
 	end
 
 	local function fn42(vxezeUI, id)
@@ -1235,13 +1431,15 @@ local Library = (function()
 		w.Gui = v8
 		local n3 = 832
 		local n4 = 510
+		-- Smallest size the corner grip can drag the window down to.
+		local minW, minH = 540, 360
 		w.dim = Frame({Parent = v8, Size = v, BackgroundColor3 = color(0, 0, 0)})
 
 		pcall(function()
 			w.dim.Interactable = false
 		end)
 
-		w.dz = 0.6
+		w.dz = 0.25
 
 		local v9 = Frame({
 			Parent = v8,
@@ -1265,13 +1463,16 @@ local Library = (function()
 
 		local v10 = Frame({Parent = v9, Size = v})
 
+		-- NullUI's shell: a dark neutral pane at 85% over the blurred game.
 		w.bg = Frame({
 			Parent = v10,
 			Size = v,
-			BackgroundTransparency = 0.05,
+			BackgroundTransparency = 0.15,
 			fn12(16),
 			fn14(tbl.w1, tbl.w2, 90),
 		})
+
+		w.glass = acrylicFor(v9)
 
 		w.tone = Frame({Parent = v10, Size = v, BackgroundColor3 = color(0, 0, 0), fn12(16)})
 
@@ -1285,8 +1486,8 @@ local Library = (function()
 			w.tone.BackgroundTransparency = 1 - math.abs(arg4) / 100 * (arg4 < 0 and 0.22 or 0.65)
 		end
 
-		w:Tone(70)
-		Frame2({Parent = v10, Size = udim2(1, 0, 0.55, 0), fn12(16), (fn15(90, {0, 0.86}, {1, 1}))})
+		w:Tone(0)
+		Frame2({Parent = v10, Size = udim2(1, 0, 0.55, 0), fn12(16), (fn15(90, {0, 0.94}, {1, 1}))})
 
 		Frame2({
 			Parent = v10,
@@ -1295,7 +1496,7 @@ local Library = (function()
 			(fn15(0, {0, 1}, {0.5, 0.3}, {1, 1})),
 		})
 
-		local v11 = fn13(0.7)
+		local v11 = fn13(0.88)
 		Frame({Parent = v10, Size = v, ZIndex = 5, fn12(16), v11})
 
 		local function fn43()
@@ -1326,7 +1527,15 @@ local Library = (function()
 			BackgroundColor3 = tbl.bg,
 			Visible = false,
 			fn12(18),
-			(fn13(0.75)),
+			-- NullUI's launcher ring: an accent rim with a soft halo around it.
+			fn7("UIStroke", {Color = tbl.a1, Thickness = 1.5, Transparency = 0.15}),
+			(Frame({
+				AnchorPoint = v3,
+				Position = v2,
+				Size = udim2(1, 8, 1, 8),
+				fn12(22),
+				(fn7("UIStroke", {Color = tbl.a1, Thickness = 3, Transparency = 0.75})),
+			})),
 		})
 
 		local UIScale2 = fn7("UIScale", {Parent = v12, Scale = 0})
@@ -1350,6 +1559,7 @@ local Library = (function()
 
 		RunService:BindToRenderStep(v15, Enum.RenderPriority.Camera.Value + 1, function(arg3)
 			fn29(v13, arg3)
+			w.glass.Update()
 
 			if v12.Visible then
 				fn29(v14, arg3)
@@ -1363,7 +1573,15 @@ local Library = (function()
 			(Frame({Size = udim2(1, 0, 1, 16), BackgroundTransparency = 0.95, (fn12(16))})),
 		})
 
-		fn18(v10, fn2(0, n), udim2(1, 0, 0, 1))
+		-- NullUI's accent hairline under the header, fading out to the right.
+		Frame2({
+			Parent = v10,
+			Position = fn2(0, n),
+			Size = udim2(1, 0, 0, 1),
+			BackgroundColor3 = tbl.a1,
+			BackgroundTransparency = 0.25,
+			(fn15(0, {0, 1}, {0.18, 0.25}, {0.55, 0.6}, {1, 1})),
+		})
 
 		fn32(v16, {
 			AnchorPoint = v3,
@@ -1384,12 +1602,11 @@ local Library = (function()
 			Parent = v17,
 			Size = udim2(0, 0, 1, 0),
 			AutomaticSize = x,
-			Text = (arg2.Title or "Vxeze Hub"):upper(),
+			Text = arg2.Title or "Vxeze Hub",
+			FontFace = font,
+			TextSize = 17,
 		}
 
-		local v18
-		v18, tbl14.FontFace = Enum, Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
-		tbl14.TextSize = 22
 		TextLabel(tbl14)
 
 		TextLabel({
@@ -1476,6 +1693,20 @@ local Library = (function()
 				v19.Text = ok and result and result.Name or ""
 			end)
 		end
+
+		-- A narrow window keeps only the title; "/ game  version" would be cut mid-word.
+		local function fitTitle()
+			local narrow = w.Main.Size.X.Offset < 700
+
+			for _, child in ipairs(v17:GetChildren()) do
+				if child:IsA("GuiObject") and child.LayoutOrder >= 1 and child.LayoutOrder <= 3 then
+					child.Visible = not narrow
+				end
+			end
+		end
+
+		fn5(w.Main:GetPropertyChangedSignal("Size"), fitTitle)
+		fitTitle()
 
 		local v23 = TextButton({
 			Parent = v16,
@@ -1616,9 +1847,17 @@ local Library = (function()
 			AnchorPoint = v3,
 			Position = udim2(0.5, 0, 0, 29),
 			Size = fn2(38, 38),
-			BackgroundTransparency = 0.82,
-			fn12(12),
-			(fn13(0.68)),
+			BackgroundTransparency = 0.88,
+			fn12(10),
+			fn13(0.9),
+			(Frame2({
+				AnchorPoint = vector2(0, 0.5),
+				Position = udim2(0, -8, 0.5, 0),
+				Size = fn2(3, 18),
+				BackgroundColor3 = tbl.a1,
+				BackgroundTransparency = 0.15,
+				fn12(2),
+			})),
 		})
 
 		local UIScale3 = fn7("UIScale", {Parent = v26})
@@ -1713,7 +1952,7 @@ local Library = (function()
 				end
 				local n6 = (input.Position - position) / scale
 				local n7 = workspace.CurrentCamera.ViewportSize / scale
-				v9.Size = fn2(math.clamp(v33.X + n6.X, n3, math.max(n3, n7.X - 40)), math.clamp(v33.Y + n6.Y, n4, math.max(n4, n7.Y - 20)))
+				v9.Size = fn2(math.clamp(v33.X + n6.X, minW, math.max(minW, n7.X - 40)), math.clamp(v33.Y + n6.Y, minH, math.max(minH, n7.Y - 20)))
 			end
 
 			local connection2 = UserInputService.InputChanged:Connect(fn45)
@@ -2273,6 +2512,21 @@ local Library = (function()
 			})
 
 			arg3.cols[4] = Frame({Parent = layoutOrder, LayoutOrder = 0, Size = v5, AutomaticSize = y, Visible = false, (fn17(16))})
+
+			-- A narrow window stacks the two section columns instead of squeezing them.
+			local columns = v39:FindFirstChildOfClass("UIListLayout")
+
+			local function fitColumns()
+				local narrow = w.Main.Size.X.Offset < 700
+				columns.FillDirection = narrow and Enum.FillDirection.Vertical or horizontal
+
+				for i = 1, 3 do
+					arg3.cols[i].Size = udim2(narrow and 1 or 0.5, narrow and 0 or -8, 0, 0)
+				end
+			end
+
+			fn5(w.Main:GetPropertyChangedSignal("Size"), fitColumns)
+			fitColumns()
 		end
 
 		local function fn54(arg3, arg4)
@@ -2363,7 +2617,7 @@ local Library = (function()
 					task.defer(fn54, tab, true)
 				end
 
-				fn19(tab.im, {ImageTransparency = tab == cur and 0 or 0.45}, 0.3)
+				fn19(tab.im, {ImageTransparency = tab == cur and 0 or 0.45, ImageColor3 = tab == cur and tbl.a1 or tbl.wh}, 0.3)
 			end
 
 			fn19(v26, {Position = udim2(0.5, 0, 0, fn52(cur))}, 0.42)
@@ -2727,166 +2981,298 @@ local Library = (function()
 			end
 		end)
 
-		w.Home = function(arg3, arg4)
-			local tbl19 = arg4 or {}
-			local v40 = w:Tab(tbl19.Name or "Home", tbl19.Icon or "home", true)
-			v40.Title = tbl19.Title or "Dashboard"
-			local v41 = Frame({Parent = v40.sc, Position = fn2(-6, -6), Size = udim2(1, 12, 1, 12)})
+		-- Home: a full-width hero (avatar, chips, session clock, Discord) over the
+		-- session stats on the left and quick actions plus news on the right.
+		w.Home = function(_, opts)
+			opts = opts or {}
+			local tab = w:Tab(opts.Name or "Home", opts.Icon or "home", true)
+			tab.Title = opts.Title or "Dashboard"
+			-- Below minBoard the dashboard stops squeezing and scrolls instead.
+			local minBoard = 400
 
-			local function fn60(arg5, arg6, arg7, arg8, backgroundTransparency, backgroundColor3, arg9)
+			local scroller = ScrollingFrame({
+				Parent = tab.sc,
+				Position = fn2(-6, -6),
+				Size = udim2(1, 12, 1, 12),
+				AutomaticCanvasSize = Enum.AutomaticSize.None,
+				ScrollBarThickness = 3,
+				ScrollBarImageColor3 = tbl.wh,
+				ScrollBarImageTransparency = 0.7,
+			})
+
+			local board = Frame({Parent = scroller, Size = v})
+
+			local function fitBoard()
+				local short = w.Main.Size.Y.Offset - n - 49 < minBoard
+				board.Size = short and udim2(1, -4, 0, minBoard) or v
+				scroller.CanvasSize = udim2(0, 0, 0, short and minBoard or 0)
+				scroller.ScrollingEnabled = short
+			end
+
+			fn5(w.Main:GetPropertyChangedSignal("Size"), fitBoard)
+			fitBoard()
+			local heroH, leftW, actionsH = 0.32, 0.63, 0.39
+			local ink = color(10, 20, 50)
+
+			-- Board cells are fractions of the tab; the 6px inset leaves 12px gutters.
+			local function card(x, y, cw, ch)
 				return Frame({
-					Parent = v41,
-					Position = udim2(arg5, 6, arg6, 6),
-					Size = udim2(arg7, -12, arg8, -12),
-					BackgroundTransparency = backgroundTransparency or 0.93,
-					BackgroundColor3 = backgroundColor3 or tbl.wh,
-					fn12(18),
-					(fn13(arg9 or 0.86, backgroundColor3 and backgroundColor3:Lerp(tbl.wh, 0.5))),
+					Parent = board,
+					Position = udim2(x, 6, y, 6),
+					Size = udim2(cw, -12, ch, -12),
+					BackgroundTransparency = 0.94,
+					fn12(16),
+					(fn13(0.88)),
 				})
 			end
 
-			local function fn61(parent, arg5, image, imageColor3)
-				fn9({Parent = parent, Position = fn2(14, 13), Size = fn2(14, 14), Image = image, ImageColor3 = imageColor3})
+			local function cardTitle(parent, text, image, tint)
+				fn9({Parent = parent, Position = fn2(14, 13), Size = fn2(15, 15), Image = image, ImageColor3 = tint})
 
 				return TextLabel({
 					Parent = parent,
-					Position = fn2(34, 12),
-					Size = udim2(1, -48, 0, 16),
-					Text = arg5:upper(),
+					Position = fn2(36, 11),
+					Size = udim2(1, -120, 0, 18),
+					Text = text,
 					FontFace = font3,
-					TextSize = 11.5,
-					TextTransparency = 0.15,
+					TextSize = 12,
 				})
 			end
 
-			local v42 = fn60(0, 0, 0.6666666666666666, 0.3, 0.55)
-			fn14(color(255, 196, 120), color(150, 110, 255)).Parent = v42
+			-- Rounded pill with an icon and a label, sized to its text.
+			local function chip(parent, layoutOrder, image, text, light)
+				local tint = light and color(42, 63, 154) or tbl.wh
 
-			fn9({
-				Parent = v42,
-				Position = udim2(0, 16, 0.5, -28),
-				Size = fn2(56, 56),
+				return Frame({
+					Parent = parent,
+					LayoutOrder = layoutOrder,
+					Size = fn2(0, 22),
+					AutomaticSize = x,
+					BackgroundTransparency = light and 0.06 or 0.72,
+					BackgroundColor3 = light and tbl.wh or ink,
+					fn12(),
+					fn13(light and 1 or 0.8),
+					fn16(0, 9, 0, 7),
+					fn17(5, nil, center3, horizontal),
+					fn9({Size = fn2(12, 12), Image = image, ImageColor3 = tint}),
+					TextLabel({
+						LayoutOrder = 1,
+						Size = udim2(0, 0, 1, 0),
+						AutomaticSize = x,
+						Text = text,
+						FontFace = font2,
+						TextSize = 9.5,
+						TextColor3 = tint,
+					}),
+				})
+			end
+
+			-- CanvasGroup so the decorative circles clip to the rounded corners. The
+			-- gradient sits on a child: on the group itself it would tint every child too.
+			local hero = fn7("CanvasGroup", {
+				Parent = board,
+				Position = fn2(6, 6),
+				Size = udim2(1, -12, heroH, -12),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				(fn12(18)),
+			})
+
+			local heroBg = Frame2({
+				Parent = hero,
+				Size = v,
+				ZIndex = 0,
+				BackgroundColor3 = tbl.wh,
+				fn7("UIGradient", {
+					Rotation = 15,
+					Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, color(26, 150, 190)),
+						ColorSequenceKeypoint.new(0.5, color(52, 92, 200)),
+						ColorSequenceKeypoint.new(1, color(124, 82, 240)),
+					}),
+				}),
+			})
+
+			Frame2({Parent = heroBg, AnchorPoint = v7, Position = udim2(1, 46, 0, -130), Size = fn2(260, 260), ZIndex = 0, BackgroundTransparency = 0.9, fn12()})
+			Frame2({Parent = heroBg, AnchorPoint = vector2(1, 1), Position = udim2(1, -115, 1, 115), Size = fn2(170, 170), ZIndex = 0, BackgroundTransparency = 0.93, fn12()})
+
+			local avatar = fn9({
+				Parent = hero,
+				AnchorPoint = vector2(0, 0.5),
+				Position = udim2(0, 18, 0.5, 0),
+				Size = fn2(76, 76),
 				Image = fn11(150),
 				BackgroundTransparency = 0,
 				BackgroundColor3 = tbl.a2,
+				fn12(24),
+				(fn7("UIStroke", {Thickness = 2.5, Transparency = 0.2, Color = tbl.wh})),
+			})
+
+			Frame2({
+				Parent = avatar,
+				AnchorPoint = vector2(1, 1),
+				Position = udim2(1, 3, 1, 3),
+				Size = fn2(17, 17),
+				ZIndex = 2,
+				BackgroundColor3 = color(66, 224, 138),
 				fn12(),
-				(fn13(0.4)),
+				(fn7("UIStroke", {Thickness = 3, Color = color(40, 110, 196)})),
 			})
 
-			TextLabel({
-				Parent = v42,
-				Position = udim2(0, 86, 0.5, -34),
-				Size = udim2(1, -100, 0, 14),
-				Text = "Welcome back",
-				TextSize = 11,
-				TextTransparency = 0.25,
-			})
+			local textX, rightW = 112, 196
+			local hour = tonumber(os.date("%H")) or 12
 
 			TextLabel({
-				Parent = v42,
-				Position = udim2(0, 86, 0.5, -19),
-				Size = udim2(1, -100, 0, 24),
+				Parent = hero,
+				Position = udim2(0, textX, 0.5, -38),
+				Size = udim2(1, -textX - rightW, 0, 14),
+				Text = hour < 12 and "Good morning" or hour < 18 and "Good afternoon" or "Good evening",
+				TextSize = 10.5,
+				TextTransparency = 0.12,
+			})
+
+			local name = TextLabel({
+				Position = udim2(0, textX, 0.5, -25),
+				Size = udim2(1, -textX - rightW, 0, 32),
 				Text = localPlayer.DisplayName,
-				FontFace = font2,
-				TextSize = 21,
+				FontFace = font,
+				TextSize = 23,
 				TextTruncate = atEnd,
 			})
 
-			local v43 = Frame({
-				Parent = v42,
-				Position = udim2(0, 86, 0.5, 10),
-				Size = udim2(1, -100, 0, 20),
-				(fn17(6, nil, nil, horizontal)),
+			name:SetAttribute("NoTr", true)
+			name.Parent = hero
+
+			local chips = Frame({
+				Parent = hero,
+				Position = udim2(0, textX, 0.5, 13),
+				Size = udim2(1, -textX - rightW, 0, 22),
+				ClipsDescendants = true,
+				(fn17(6, nil, center3, horizontal)),
 			})
 
-			local executor = tbl19.Executor or identifyexecutor and select(2, pcall(identifyexecutor))
+			local executor = opts.Executor or identifyexecutor and select(2, pcall(identifyexecutor))
 
-			for i, v44 in ipairs({{tbl19.Game}, {type(executor) == "string" and executor}, {tbl19.Key, tbl.mint}}) do
-				if v44[1] then
-					TextLabel({
-						Parent = v43,
-						LayoutOrder = i,
-						Size = udim2(0, 0, 1, 0),
-						AutomaticSize = x,
-						Text = tostring(v44[1]),
-						TextSize = 11,
-						TextColor3 = v44[2] and v44[2]:Lerp(tbl.wh, 0.6),
-						BackgroundTransparency = v44[2] and 0.8 or 0.75,
-						BackgroundColor3 = v44[2] or color(0, 0, 0),
-						TextXAlignment = center,
-						fn12(),
-						(fn16(0, 10)),
-					})
+			for i, item in ipairs({{opts.Game, "grid"}, {type(executor) == "string" and executor, "zap"}, {opts.Key, "key", true}}) do
+				if item[1] then
+					chip(chips, i, item[2], tostring(item[1]), item[3])
 				end
 			end
 
-			local notice = tbl19.Notice
-			local v44 = fn60(0.6666666666666666, 0, 0.3333333333333333, 0.3, 0.78, notice and tbl.a1 or tbl.dc, 0.55)
-
-			Frame2({
-				Parent = v44,
-				Position = fn2(14, 14),
-				Size = fn2(36, 36),
-				BackgroundColor3 = notice and tbl.a1 or tbl.dc,
-				fn12(11),
-				fn10(notice and "sparkles" or "discord", 22),
+			local clock = TextLabel({
+				LayoutOrder = 1,
+				Size = udim2(0, 0, 1, 0),
+				AutomaticSize = x,
+				Text = "00:00:00",
+				FontFace = font4,
+				TextSize = 10,
 			})
 
-			TextLabel({
-				Parent = v44,
-				Position = fn2(60, 15),
-				Size = udim2(1, -72, 0, 17),
-				Text = notice and notice[1] or tbl19.Community or "Community",
-				FontFace = font2,
-				TextSize = 14,
-				TextTruncate = atEnd,
+			Frame({
+				Parent = hero,
+				AnchorPoint = v4,
+				Position = udim2(1, -16, 0.5, -30),
+				Size = fn2(0, 22),
+				AutomaticSize = x,
+				BackgroundTransparency = 0.72,
+				BackgroundColor3 = ink,
+				fn12(),
+				fn13(0.8),
+				fn16(0, 9, 0, 7),
+				fn17(5, nil, center3, horizontal),
+				fn9({Size = fn2(12, 12), Image = "clock"}),
+				clock,
 			})
 
-			if notice then
+			local started = os.clock()
+
+			task.spawn(function()
+				while clock.Parent do
+					local n6 = math.floor(os.clock() - started)
+					clock.Text = ("%02d:%02d:%02d"):format(n6 // 3600, n6 // 60 % 60, n6 % 60)
+					task.wait(1)
+				end
+			end)
+
+			-- White card on the right: the owner's notice when there is one, else the Discord invite.
+			local notice = opts.Notice
+			local cardH = notice and 54 or 42
+
+			local invite = TextButton({
+				Parent = hero,
+				AnchorPoint = v3,
+				Position = udim2(1, -101, 0.5, 14 + (cardH - 42) / 2),
+				Size = fn2(170, cardH),
+				BackgroundTransparency = 0.04,
+				BackgroundColor3 = tbl.wh,
+				fn12(13),
+				Frame2({
+					Position = fn2(6, 6),
+					Size = fn2(30, 30),
+					BackgroundColor3 = notice and tbl.a1 or tbl.dc,
+					fn12(10),
+					(fn10(notice and "sparkles" or "discord", 18)),
+				}),
 				TextLabel({
-					Parent = v44,
-					Position = fn2(14, 58),
-					Size = udim2(1, -28, 1, -70),
-					Text = notice[2],
+					Position = fn2(44, 6),
+					Size = udim2(1, -52, 0, 16),
+					Text = notice and notice[1] or opts.Community or "Join Discord",
+					FontFace = font3,
 					TextSize = 11,
-					TextTransparency = 0.22,
-					TextWrapped = true,
+					TextColor3 = color(70, 82, 224),
+					TextTruncate = atEnd,
+				}),
+				TextLabel({
+					Position = fn2(44, 22),
+					Size = udim2(1, -52, 0, notice and 26 or 13),
+					Text = notice and notice[2] or "Updates, keys, support",
+					TextSize = 8.5,
+					TextColor3 = color(122, 130, 201),
+					TextWrapped = notice ~= nil,
 					TextYAlignment = Enum.TextYAlignment.Top,
-				})
-			else
-				TextLabel({
-					Parent = v44,
-					Position = fn2(60, 33),
-					Size = udim2(1, -72, 0, 14),
-					Text = "Updates, keys, support",
-					TextSize = 11,
-					TextTransparency = 0.22,
-				})
+				}),
+			})
 
-				local v45 = TextButton({
-					Parent = v44,
-					AnchorPoint = vector2(0, 1),
-					Position = udim2(0, 14, 1, -12),
-					Size = udim2(1, -28, 0, 32),
-					BackgroundTransparency = 0,
-					BackgroundColor3 = tbl.dc,
-					Text = "Copy invite",
-					FontFace = font2,
-					TextSize = 12,
-					TextColor3 = tbl.wh,
-					(fn12(10)),
-				})
+			if not notice then
+				fn27(invite)
 
-				fn27(v45)
-
-				fn25(v45, function()
-					fn47(tbl19.Discord, "Invite copied")
+				fn25(invite, function()
+					fn47(opts.Discord, "Invite copied")
 				end)
 			end
 
+			local statsCard = card(0, heroH, leftW, 1 - heroH)
+			local session = cardTitle(statsCard, "Session", "clock", tbl.gold)
+			local liveDot = Frame2({Size = fn2(6, 6), BackgroundColor3 = tbl.mint, fn12()})
+
+			Frame({
+				Parent = statsCard,
+				AnchorPoint = v7,
+				Position = udim2(1, -12, 0, 10),
+				Size = fn2(0, 20),
+				AutomaticSize = x,
+				BackgroundTransparency = 0.86,
+				BackgroundColor3 = tbl.mint,
+				fn12(),
+				fn16(0, 8, 0, 7),
+				fn17(5, nil, center3, horizontal),
+				liveDot,
+				TextLabel({
+					LayoutOrder = 1,
+					Size = udim2(0, 0, 1, 0),
+					AutomaticSize = x,
+					Text = "Live",
+					FontFace = font3,
+					TextSize = 8.5,
+					TextColor3 = tbl.mint,
+				}),
+			})
+
+			TweenService:Create(liveDot, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.75}):Play()
+
 			local TeleportService = fn("TeleportService")
 
-			local actions = tbl19.Actions or {
+			local actions = opts.Actions or {
 				{
 					"Rejoin",
 					"refresh",
@@ -2901,8 +3287,8 @@ local Library = (function()
 					"server",
 					function()
 						fn45("Hop to another server?", "You leave this server and join a different one.", "warn", "Hop", function()
-							if tbl19.Hop then
-								tbl19.Hop()
+							if opts.Hop then
+								opts.Hop()
 							else
 								TeleportService:Teleport(game.PlaceId, localPlayer)
 							end
@@ -2916,255 +3302,270 @@ local Library = (function()
 						fn47(game.JobId, "Job ID copied")
 					end,
 				},
-				tbl19.Unload and {"Unload hub", "trash", tbl19.Unload} or {"Save config", "save", fn46},
-				tbl19.Switch or tbl19.Discord and {
-					"Discord",
-					"discord",
-					function()
-						fn47(tbl19.Discord, "Discord invite copied")
-					end,
-				} or {
+				{"Save config", "save", fn46},
+				opts.Switch or {
 					"Hide UI",
 					"eye",
 					function()
 						w:Show(false)
 					end,
 				},
+				opts.Unload and {"Unload hub", "trash", opts.Unload} or opts.Discord and {
+					"Discord",
+					"discord",
+					function()
+						fn47(opts.Discord, "Discord invite copied")
+					end,
+				} or nil,
 			}
 
-			local v45 = Frame({
-				Parent = v41,
-				Position = udim2(0, 6, 0.3, 6),
-				Size = udim2(1, -12, 0.16, -12),
-				(fn17(12, nil, nil, horizontal)),
+			local actionsCard = card(leftW, heroH, 1 - leftW, actionsH)
+			cardTitle(actionsCard, "Quick actions", "zap", tbl.sky)
+			local actionRows = math.max(math.ceil(#actions / 3), 1)
+
+			local actionGrid = Frame({
+				Parent = actionsCard,
+				Position = fn2(10, 36),
+				Size = udim2(1, -20, 1, -46),
+				(fn7("UIGridLayout", {
+					CellSize = udim2(1 / 3, -4, 1 / actionRows, -6 * (actionRows - 1) / actionRows),
+					CellPadding = fn2(6, 6),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				})),
 			})
 
 			for i, action in ipairs(actions) do
-				local v46 = tbl3[(i - 1) % 5 + 1]
+				local tint = tbl3[(i - 1) % 5 + 1]
 
-				local v47 = TextButton({
-					Parent = Frame({Parent = v45, LayoutOrder = i, Size = udim2(1 / #actions, 12 / #actions - 12, 1, 0)}),
-					AnchorPoint = v3,
-					Position = v2,
-					Size = v,
-					BackgroundTransparency = 0.94,
-					fn12(14),
-					fn13(0.88),
+				local button = TextButton({
+					Parent = actionGrid,
+					LayoutOrder = i,
+					BackgroundTransparency = 0.93,
+					fn12(12),
+					fn13(0.9),
 					Frame({
-						Position = udim2(0, 10, 0.5, -15),
-						Size = fn2(30, 30),
+						AnchorPoint = vector2(0.5, 0),
+						Position = udim2(0.5, 0, 0, 5),
+						Size = fn2(24, 24),
 						BackgroundTransparency = 0.82,
-						BackgroundColor3 = v46,
-						fn12(9),
-						(fn10(action[2], 16, v46)),
+						BackgroundColor3 = tint,
+						fn12(),
+						(fn10(action[2], 14, tint)),
 					}),
 					(TextLabel({
-						Position = fn2(48, 0),
-						Size = udim2(1, -54, 1, 0),
+						AnchorPoint = vector2(0.5, 1),
+						Position = udim2(0.5, 0, 1, -4),
+						Size = udim2(1, -6, 0, 13),
 						Text = action[1],
-						TextSize = 12,
-						TextWrapped = true,
+						FontFace = font2,
+						TextSize = 9,
+						TextXAlignment = center,
+						TextTruncate = atEnd,
 					})),
 				})
 
-				fn27(v47, 0.95)
+				fn27(button, 0.95)
 
-				fn25(v47, function()
+				fn25(button, function()
 					fn22(action[3])
 				end)
 			end
 
-			local v46 = fn60(0, 0.46, 0.6666666666666666, 0.54)
-			local session = fn61(v46, "Session", "clock", tbl.gold)
-			local v47 = fn60(0.6666666666666666, 0.46, 0.3333333333333333, 0.54)
-			fn61(v47, "What's new", "sparkles", tbl.pink)
+			local newsCard = card(leftW, heroH + actionsH, 1 - leftW, 1 - heroH - actionsH)
+			cardTitle(newsCard, "What's new", "sparkles", tbl.pink)
 
-			local v48 = ScrollingFrame({
-				Parent = v47,
-				Position = fn2(14, 40),
-				Size = udim2(1, -24, 1, -50),
+			local feed = ScrollingFrame({
+				Parent = newsCard,
+				Position = fn2(12, 36),
+				Size = udim2(1, -20, 1, -44),
 				fn16(1, 4, 4, 1),
-				(fn17(10)),
+				(fn17(8)),
 			})
 
-			local tbl20 = {}
+			local home = {}
 
-			local function fn62(arg5)
-				local n6 = math.max(os.time() - arg5, 0)
+			local function ago(stamp)
+				local n6 = math.max(os.time() - stamp, 0)
 
-				for _, v49 in ipairs({{86400, "day"}, {3600, "hour"}, {60, "minute"}}) do
-					local n7 = n6 // v49[1]
+				for _, unit in ipairs({{86400, "day"}, {3600, "hour"}, {60, "minute"}}) do
+					local n7 = n6 // unit[1]
 					if n7 >= 1 then
-						return ("%d %s%s ago"):format(n7, v49[2], n7 > 1 and "s" or "")
+						return ("%d %s%s ago"):format(n7, unit[2], n7 > 1 and "s" or "")
 					end
 				end
 
 				return "just now"
 			end
 
-			tbl20.News = function(arg5, list)
-				tbl20.list = list
-				fn37(v48)
+			-- list: {{tag, text, author?, unixTime?}, ...}; tag is NEW / FIX / IMP / UPD.
+			home.News = function(_, list)
+				home.list = list
+				fn37(feed)
 
-				for i, v49 in ipairs(list) do
-					local v50 = Frame({
+				for i, entry in ipairs(list) do
+					local tagColor = ({NEW = tbl.mint, FIX = tbl.sky, IMP = tbl.gold, UPD = tbl.red})[entry[1]] or tbl.vio
+
+					local body = Frame({
 						Position = fn2(44, 0),
 						Size = udim2(1, -44, 0, 0),
 						AutomaticSize = y,
-						fn17(2),
-						(TextLabel({Size = v5, AutomaticSize = y, Text = v49[2], TextSize = 12, TextWrapped = true})),
+						fn17(3),
+						(TextLabel({Size = v5, AutomaticSize = y, Text = entry[2], FontFace = font2, TextSize = 10.5, TextWrapped = true})),
 					})
 
-					if v49[3] or v49[4] then
-						local v51 = Frame({Parent = v50, LayoutOrder = 1, Size = udim2(1, 0, 0, 14), (fn17(5, nil, center3, horizontal))})
+					if entry[3] or entry[4] then
+						-- Separate labels so "2 days ago" still matches its translation rule.
+						local meta = Frame({Parent = body, LayoutOrder = 1, Size = udim2(1, 0, 0, 13), (fn17(4, nil, center3, horizontal))})
 
-						if v49[3] then
-							TextLabel({
-								Parent = v51,
-								Size = udim2(0, 0, 1, 0),
-								AutomaticSize = x,
-								Text = v49[3],
-								FontFace = font4,
-								TextSize = 10,
-								TextTransparency = 0.4,
-							})
-						end
-
-						if v49[4] then
-							local v52 = Frame({
-								Parent = v51,
-								LayoutOrder = 1,
-								Size = udim2(0, 0, 1, 0),
-								AutomaticSize = x,
-								BackgroundTransparency = 0.9,
-								fn12(),
-								fn16(0, 6),
-								(fn17(3, nil, center3, horizontal)),
-							})
-
-							fn9({Parent = v52, Size = fn2(10, 10), Image = "clock", ImageTransparency = 0.3})
-
-							TextLabel({
-								Parent = v52,
-								LayoutOrder = 1,
-								Size = udim2(0, 0, 1, 0),
-								AutomaticSize = x,
-								Text = fn62(v49[4]),
-								FontFace = font4,
-								TextSize = 10,
-								TextTransparency = 0.3,
-							})
+						for k, part in ipairs({entry[3] or false, entry[3] and entry[4] and "·" or false, entry[4] and ago(entry[4]) or false}) do
+							if part then
+								TextLabel({
+									Parent = meta,
+									LayoutOrder = k,
+									Size = udim2(0, 0, 1, 0),
+									AutomaticSize = x,
+									Text = part,
+									TextSize = 8.5,
+									TextTransparency = 0.42,
+								})
+							end
 						end
 					end
 
 					Frame({
-						Parent = v48,
+						Parent = feed,
 						LayoutOrder = i,
 						Size = v5,
 						AutomaticSize = y,
-						v50,
+						body,
 						TextLabel({
 							Size = fn2(0, 18),
 							AutomaticSize = x,
-							Text = v49[1],
-							FontFace = font4,
-							TextSize = 9,
-							TextColor3 = color(16, 20, 42),
-							BackgroundTransparency = 0,
-							BackgroundColor3 = ({NEW = tbl.mint, FIX = tbl.sky, IMP = tbl.gold, UPD = tbl.red})[v49[1]] or tbl.vio,
+							Text = entry[1],
+							FontFace = font3,
+							TextSize = 8,
+							TextColor3 = tagColor,
+							BackgroundTransparency = 0.82,
+							BackgroundColor3 = tagColor,
 							TextXAlignment = center,
-							fn12(5),
+							fn12(6),
 							fn16(0, 6),
 						}),
 					})
 				end
 			end
 
-			tbl20.Stats = function(arg5, arg6, arg7)
-				session.Text = arg6:upper()
+			-- list: {{label, image?, onOpen?}, ...}. Returns Set(label, text) / Icon(label, image).
+			-- A value like "61 / 115" also fills the bar along the bottom of its tile.
+			home.Stats = function(_, title, list)
+				session.Text = title
+				local rows = math.max(math.ceil(#list / 3), 1)
 
-				local v49 = Frame({
-					Parent = v46,
+				local grid = Frame({
+					Parent = statsCard,
 					Position = fn2(12, 38),
-					Size = udim2(1, -24, 1, -48),
+					Size = udim2(1, -24, 1, -50),
 					(fn7("UIGridLayout", {
-						CellSize = udim2(0.3333333333333333, -7, 0.333, -6),
-						CellPadding = fn2(10, 8),
+						CellSize = udim2(1 / 3, -6, 1 / rows, -8 * (rows - 1) / rows),
+						CellPadding = fn2(9, 8),
 						SortOrder = Enum.SortOrder.LayoutOrder,
 					})),
 				})
 
-				local tbl21 = {}
+				local values = {}
 
-				for i, v50 in ipairs(arg7) do
-					local v51 = Frame({Parent = v49, LayoutOrder = i, BackgroundTransparency = 0.94, fn12(12)})
+				for i, stat in ipairs(list) do
+					local tint = tbl3[(i - 1) % 5 + 1]
+					local tile = Frame({Parent = grid, LayoutOrder = i, BackgroundTransparency = 0.93, fn12(13)})
 
-					if v50[2] then
+					if stat[2] then
+						Frame({Parent = tile, Position = fn2(8, 7), Size = fn2(26, 26), BackgroundTransparency = 0.84, BackgroundColor3 = tint, fn12(9)})
+
 						fn9({
-							Parent = v51,
-							AnchorPoint = vector2(0, 0.5),
-							Position = udim2(0, 8, 0.5, 0),
-							Size = fn2(30, 30),
-							Image = v50[2],
+							Parent = tile,
+							Position = fn2(11, 10),
+							Size = fn2(20, 20),
+							ZIndex = 2,
+							Image = stat[2],
 							ScaleType = Enum.ScaleType.Fit,
-							ImageColor3 = tbl5[v50[2]] and tbl.a1 or nil,
+							ImageColor3 = tbl5[stat[2]] and tbl.a1 or nil,
 						})
 					end
 
-					local n6 = v50[2] and 44 or 10
-
-					TextLabel({
-						Parent = v51,
-						Position = udim2(0, n6, 0.5, -17),
-						Size = udim2(1, -n6 - 6, 0, 13),
-						Text = v50[1]:upper(),
-						FontFace = font3,
-						TextSize = 9.5,
-						TextTransparency = 0.38,
-					})
-
-					tbl21[v50[1]] = TextLabel({
-						Parent = v51,
-						Position = udim2(0, n6, 0.5, -2),
-						Size = udim2(1, -n6 - 6, 0, 18),
+					local value = TextLabel({
+						Parent = tile,
+						Position = udim2(0, 9, 1, -33),
+						Size = udim2(1, -18, 0, 16),
 						Text = "--",
-						FontFace = font4,
-						TextSize = 13.5,
+						FontFace = font3,
+						TextSize = 12.5,
 						TextTruncate = atEnd,
 					})
 
-					if v50[3] then
-						local v52 = TextButton({
-							Parent = v51,
-							AnchorPoint = vector2(1, 0),
-							Position = udim2(1, -8, 0, 8),
-							Size = fn2(40, 16),
-							Text = "OPEN",
+					values[stat[1]] = value
+
+					TextLabel({
+						Parent = tile,
+						Position = udim2(0, 9, 1, -17),
+						Size = udim2(1, -18, 0, 12),
+						Text = stat[1],
+						TextSize = 8.5,
+						TextTransparency = 0.42,
+						TextTruncate = atEnd,
+					})
+
+					local track = Frame({
+						Parent = tile,
+						Position = udim2(0, 13, 1, -3),
+						Size = udim2(1, -26, 0, 2),
+						BackgroundTransparency = 0.88,
+						Visible = false,
+						fn12(),
+					})
+
+					local fill = Frame2({Parent = track, Size = udim2(0, 0, 1, 0), BackgroundColor3 = tbl.a1, fn12()})
+
+					fn5(value:GetPropertyChangedSignal("Text"), function()
+						local have, cap = (value.Text:gsub(",", "")):match("^%s*([%d%.]+)%s*/%s*([%d%.]+)")
+						have, cap = tonumber(have), tonumber(cap)
+						track.Visible = have ~= nil and cap ~= nil and cap > 0
+
+						if track.Visible then
+							fn19(fill, {Size = udim2(math.clamp(have / cap, 0, 1), 0, 1, 0)}, 0.4)
+						end
+					end)
+
+					if stat[3] then
+						local open = TextButton({
+							Parent = tile,
+							AnchorPoint = v3,
+							Position = udim2(1, -24, 0, 16),
+							Size = fn2(34, 16),
+							Text = "Open",
 							FontFace = font3,
-							TextSize = 9,
-							TextColor3 = tbl.wh,
-							BackgroundTransparency = 0.82,
-							BackgroundColor3 = tbl.wh,
+							TextSize = 8,
+							TextColor3 = color(6, 48, 58),
+							BackgroundTransparency = 0,
+							BackgroundColor3 = tbl.a1,
 							fn12(),
-							(fn13(0.7)),
 						})
 
-						fn27(v52, 0.92)
+						fn27(open, 0.92)
 
-						fn25(v52, function()
-							fn22(v50[3])
+						fn25(open, function()
+							fn22(stat[3])
 						end)
 					end
 				end
 
-				return fn38(tbl21)
+				return fn38(values)
 			end
 
-			if tbl19.News then
-				tbl20:News(tbl19.News)
+			if opts.News then
+				home:News(opts.News)
 			end
 
-			return tbl20
+			return home
 		end
 
 		local function fn60(arg3, arg4, arg5)
@@ -3185,15 +3586,20 @@ local Library = (function()
 
 			Interface:Key("Show / hide UI", w.Key, nil, fn61)
 
-			Interface:Slider("Opacity", 50, 100, 95, function(arg5)
+			Interface:Toggle("Blur behind the UI", true, function(on)
+				acrylic.on = on
+				w.glass.Update()
+			end)
+
+			Interface:Slider("Opacity", 50, 100, 85, function(arg5)
 				w.bg.BackgroundTransparency = 1 - arg5 / 100
 			end, "%")
 
-			Interface:Slider("Tone", -100, 100, 70, function(arg5)
+			Interface:Slider("Tone", -100, 100, 0, function(arg5)
 				w:Tone(arg5)
 			end, "", 5)
 
-			Interface:Slider("Dim the game", 0, 80, 60, function(arg5)
+			Interface:Slider("Dim the game", 0, 80, 25, function(arg5)
 				w.dz = arg5 / 100
 
 				if w.open then
@@ -4618,6 +5024,7 @@ local Library = (function()
 
 			tbl7 = {}
 			pcall(RunService.UnbindFromRenderStep, RunService, v15)
+			w.glass.Destroy()
 			v8:Destroy()
 			local vxezeWindows = getgenv and getgenv().VxezeWindows
 
@@ -4652,14 +5059,14 @@ local Library = (function()
 				Position = fn2(14, 14),
 				Size = fn2(15, 15),
 				Image = image or "grid",
-				ImageColor3 = tbl3[#t.Secs % 5 + 1],
+				ImageColor3 = tbl.a1,
 			}),
 			(TextLabel({
 				Position = fn2(37, 12),
 				Size = udim2(1, -76, 0, 18),
-				Text = name:upper(),
-				FontFace = font3,
-				TextSize = 12,
+				Text = name,
+				FontFace = font,
+				TextSize = 13,
 				TextTransparency = 0.06,
 				TextTruncate = atEnd,
 			})),
@@ -7295,27 +7702,17 @@ local Library = (function()
 			v8 = if v9[1] == th then v9 else v8
 		end
 
+		-- Configs saved before the NullUI palette name themes that no longer exist.
 		if not v8 then
-			return
+			v8 = tbl2[1]
+			th = v8[1]
 		end
 		local w = tbl6.W
 
 		if tbl6.th ~= th then
 			tbl6.th = th
 
-			local tbl18 = {
-				w1 = v8[2],
-				w2 = v8[3],
-				a1 = v8[4],
-				a2 = v8[5],
-				sky = v8[4]:Lerp(tbl.wh, 0.2),
-				g1 = v8[5]:Lerp(tbl.wh, 0.35),
-				g2 = v8[4],
-				val = v8[5]:Lerp(tbl.wh, 0.7),
-				pn = v8[2]:Lerp(v8[3], 0.55),
-				bg = v8[2]:Lerp(v8[3], 0.75),
-				on = v8[6] or color(255, 255, 254),
-			}
+			local tbl18 = themeColors(v8)
 
 			local tbl19 = {}
 
@@ -7822,7 +8219,7 @@ local Library = (function()
 				return cached.X, cached.Y
 			end
 			local ok, bounds = pcall(function()
-				return TextService:GetTextSize(text, size, Enum.Font.MontserratBold, vector2(maxWidth, 100000))
+				return TextService:GetTextSize(text, size, Enum.Font.GothamSemibold, vector2(maxWidth, 100000))
 			end)
 			local w2, h
 			if ok and bounds then
@@ -10269,6 +10666,12 @@ local Library = (function()
 		["Home"] = "Trang chủ",
 		["Dashboard"] = "Bảng điều khiển",
 		["Welcome back"] = "Chào mừng trở lại",
+		["Good morning"] = "Chào buổi sáng",
+		["Good afternoon"] = "Chào buổi chiều",
+		["Good evening"] = "Chào buổi tối",
+		["Join Discord"] = "Tham gia Discord",
+		["Quick actions"] = "Thao tác nhanh",
+		["Live"] = "Trực tiếp",
 		["Copy invite"] = "Sao chép lời mời",
 		["Invite copied"] = "Đã sao chép lời mời",
 		["Discord invite copied"] = "Đã sao chép lời mời Discord",
@@ -10330,6 +10733,7 @@ local Library = (function()
 		["Dim the game"] = "Làm tối game",
 		["Tone"] = "Tông màu",
 		["Opacity"] = "Độ mờ",
+		["Blur behind the UI"] = "Làm mờ nền sau giao diện",
 		["Size"] = "Kích thước",
 		["Weight"] = "Độ đậm",
 		["Bar size"] = "Cỡ thanh",
