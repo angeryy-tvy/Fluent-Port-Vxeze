@@ -364,7 +364,7 @@ local Library = (function()
 	end
 
 	local tbl6 = {Opt = {}, Keys = {}, Alias = {}, th = tbl2[1][1]}
-	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Aqua", Cfg = 2, Lang = ""}
+	local state = {AutoLoad = true, AutoSave = true, Active = "Default", Theme = "Aqua", Cfg = 2, Lang = "", Look = 0}
 	tbl6.State = state
 	local tbl7 = {}
 
@@ -1442,7 +1442,7 @@ local Library = (function()
 			w.dim.Interactable = false
 		end)
 
-		w.dz = 0.25
+		w.dz = 0.3
 
 		local v9 = Frame({
 			Parent = v8,
@@ -1466,11 +1466,11 @@ local Library = (function()
 
 		local v10 = Frame({Parent = v9, Size = v})
 
-		-- NullUI's shell: a dark neutral pane at 85% over the blurred game.
+		-- NullUI's shell: a dark neutral pane at 50% over the blurred game.
 		w.bg = Frame({
 			Parent = v10,
 			Size = v,
-			BackgroundTransparency = 0.15,
+			BackgroundTransparency = 0.5,
 			fn12(16),
 			fn14(tbl.w1, tbl.w2, 90),
 		})
@@ -1489,7 +1489,7 @@ local Library = (function()
 			w.tone.BackgroundTransparency = 1 - math.abs(arg4) / 100 * (arg4 < 0 and 0.22 or 0.65)
 		end
 
-		w:Tone(0)
+		w:Tone(30)
 		Frame2({Parent = v10, Size = udim2(1, 0, 0.55, 0), fn12(16), (fn15(90, {0, 0.94}, {1, 1}))})
 
 		Frame2({
@@ -1880,13 +1880,26 @@ local Library = (function()
 		fn9({
 			Parent = v25,
 			AnchorPoint = vector2(0.5, 1),
-			Position = udim2(0.5, 0, 1, -10),
+			Position = udim2(0, n2 / 2, 1, -10),
 			Size = fn2(32, 32),
 			Image = fn11(48),
 			BackgroundTransparency = 0,
 			BackgroundColor3 = tbl.a2,
 			(fn12()),
 		})
+
+		local railName = TextLabel({
+			Parent = v25,
+			AnchorPoint = vector2(0, 1),
+			Position = udim2(0, n2 / 2 + 24, 1, -10),
+			Size = udim2(1, -n2 / 2 - 32, 0, 32),
+			Text = localPlayer.DisplayName,
+			TextSize = 12,
+			TextTransparency = 0.3,
+			TextTruncate = atEnd,
+		})
+
+		railName:SetAttribute("NoTr", true)
 
 		local v28 = TextLabel({
 			Parent = v10,
@@ -1921,6 +1934,8 @@ local Library = (function()
 					tab.lb.Visible = wide
 				end
 			end
+
+			railName.Visible = wide
 		end
 
 		fn5(w.Main:GetPropertyChangedSignal("Size"), fitRail)
@@ -3617,7 +3632,9 @@ local Library = (function()
 			local settings_ = fn60(arg4, "Settings", "settings")
 			local Interface = settings_:Section("Interface", "sliders")
 
-			Interface:Slider("UI scale", 60, 140, 100, function(arg5)
+			w.look = {}
+
+			w.look[1] = Interface:Slider("UI scale", 60, 140, 100, function(arg5)
 				w:SetScale(arg5 / 100)
 			end, "%", 5)
 
@@ -3627,20 +3644,20 @@ local Library = (function()
 
 			Interface:Key("Show / hide UI", w.Key, nil, fn61)
 
-			Interface:Toggle("Blur behind the UI", true, function(on)
+			w.look[2] = Interface:Toggle("Blur behind the UI", true, function(on)
 				acrylic.on = on
 				w.glass.Update()
 			end)
 
-			Interface:Slider("Opacity", 50, 100, 85, function(arg5)
+			w.look[3] = Interface:Slider("Opacity", 50, 100, 50, function(arg5)
 				w.bg.BackgroundTransparency = 1 - arg5 / 100
 			end, "%")
 
-			Interface:Slider("Tone", -100, 100, 0, function(arg5)
+			w.look[4] = Interface:Slider("Tone", -100, 100, 30, function(arg5)
 				w:Tone(arg5)
 			end, "", 5)
 
-			Interface:Slider("Dim the game", 0, 80, 25, function(arg5)
+			w.look[5] = Interface:Slider("Dim the game", 0, 80, 30, function(arg5)
 				w.dz = arg5 / 100
 
 				if w.open then
@@ -7875,6 +7892,21 @@ local Library = (function()
 
 			if state.AutoLoad then
 				tbl6:Load(state.Active)
+			end
+
+			-- One time, for every saved config: the Interface look goes back to the defaults above.
+			local look = tbl6.W and tbl6.W.look
+
+			if look and state.Look ~= 2 then
+				state.Look = 2
+
+				for _, slider in ipairs(look) do
+					if type(slider) == "table" and slider.Set then
+						slider:Set(slider.Def)
+					end
+				end
+
+				tbl6:Persist()
 			end
 
 			tbl6:Theme(state.Theme)
