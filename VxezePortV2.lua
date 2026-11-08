@@ -8045,6 +8045,13 @@ local Library = (function()
 					LatestId = tonumber(data.mailbox.latestId) or 0,
 					Count = tonumber(data.mailbox.count) or 0,
 				} or nil,
+				-- Alert sound pushed by an admin (or sent with a chat ban), kept ~30 s by the relay.
+				Sound = type(data.sound) == "table" and data.sound.id ~= nil and {
+					Id = tostring(data.sound.id),
+					Kind = tostring(data.sound.kind or "admin"),
+					PlayerName = type(data.sound.playerName) == "string" and data.sound.playerName or nil,
+					AgeMs = tonumber(data.sound.ageMs) or 0,
+				} or nil,
 			}
 			return type(data.messages) == "table" and data.messages or {}
 		end
@@ -9702,6 +9709,20 @@ local Library = (function()
 				})
 			end
 		end
+		-- Relay alert sounds: opts.OnSound({Kind = "admin" | "ban", PlayerName}) runs once per id.
+		-- On the first poll only a fresh one (under 6 s old) plays, so joining late is quiet.
+		local lastSoundId = nil
+		local function syncSound()
+			local s = service and service.ChatMeta and service.ChatMeta.Sound
+			if type(s) ~= "table" or not s.Id or s.Id == lastSoundId then
+				return
+			end
+			local fresh = lastSoundId ~= nil or (tonumber(s.AgeMs) or 0) <= 6000
+			lastSoundId = s.Id
+			if fresh and type(opts.OnSound) == "function" then
+				task.spawn(pcall, opts.OnSound, {Kind = s.Kind, PlayerName = s.PlayerName})
+			end
+		end
 		-- The relay rejects a second message within 1.5s; Enter + the send button can
 		-- both fire for one message, so keep a single send in flight.
 		local SEND_COOLDOWN = 1.5
@@ -10650,6 +10671,7 @@ local Library = (function()
 						if full then lastHistorySyncAt = os.clock() end
 						pcall(applyMeta)
 						pcall(syncAnnouncement)
+						pcall(syncSound)
 						pcall(syncMailbox)
 						if full and opts.HistoryLimit and #messages > opts.HistoryLimit then
 							local recent = {}
