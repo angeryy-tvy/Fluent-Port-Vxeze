@@ -6443,7 +6443,8 @@ local Library = (function()
 		else
 			layout = fn17(8)
 		end
-		local scroll = ScrollingFrame({Parent = holder, Position = fn2(10, 6), Size = udim2(1, -20, 1, -12), layout})
+		-- visible bar: the box shows `rows` rows and the rest scrolls inside it
+		local scroll = ScrollingFrame({Parent = holder, Position = fn2(10, 6), Size = udim2(1, -20, 1, -12), ScrollBarThickness = 4, ScrollBarImageColor3 = tbl.wh, ScrollBarImageTransparency = 0.45, layout})
 		W.nest[scroll] = arg.t.top or arg.t
 		local empty = TextLabel({Parent = holder, Size = v, Text = emptyText or "Nothing here", TextSize = 12, TextTransparency = 0.45, TextXAlignment = center})
 
