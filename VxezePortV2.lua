@@ -2257,6 +2257,241 @@ local Library = (function()
 			return dlg
 		end
 
+		-- w:CardView(cards, index): full-screen card for one config of a Section:Cards list.
+		-- Shows the whole title / description, like / favorite / apply, and pages through the
+		-- other cards with the arrows, a horizontal swipe or the Left / Right keys.
+		local CARD_ICONS = {
+			heart = "rbxassetid://111284155515598",
+			star = "rbxassetid://127746172798481",
+			download = "rbxassetid://93868047445509",
+			left = "rbxassetid://83856486110301",
+			right = "rbxassetid://126507964682213",
+			close = "rbxassetid://73070135088117",
+			trash = "rbxassetid://79564839810840",
+			user = "rbxassetid://122472562648438",
+			clock = "rbxassetid://96835529467684",
+		}
+		local LIKE_ON, FAV_ON = color(255, 99, 132), color(255, 210, 122)
+		w.CardIcons, w.LikeOn, w.FavOn = CARD_ICONS, LIKE_ON, FAV_ON
+
+		w.CardView = function(_, cards, index)
+			if w.dlg then
+				w.dlg.Close()
+			end
+			if not w.open then
+				w:Show(true)
+			end
+
+			local view = {i = index or 1, conns = {}}
+			local scale = fn7("UIScale", {Scale = 0.9})
+			local shade = TextButton({Parent = v10, Size = v, BackgroundColor3 = color(5, 6, 16), BackgroundTransparency = 1, ZIndex = 30, fn12(16)})
+			local panel = TextButton({
+				Parent = shade,
+				AnchorPoint = v3,
+				Position = v2,
+				Size = udim2(0.86, 0, 0.9, 0),
+				BackgroundTransparency = 0.02,
+				BackgroundColor3 = tbl.pn,
+				ClipsDescendants = true,
+				fn12(18),
+				fn13(0.8),
+				scale,
+				fn7("UISizeConstraint", {MaxSize = vector2(460, 420)}),
+			})
+			local body = Frame({Parent = panel, Size = v, fn16(18, 18, 16, 18)})
+
+			-- top bar: < counter >, close
+			local nav = Frame({Parent = body, Position = fn2(0, -4), Size = udim2(1, -40, 0, 26), fn17(6, nil, center3, horizontal)})
+			local function arrow(order, icon)
+				local button = TextButton({Parent = nav, LayoutOrder = order, Size = fn2(26, 26), BackgroundTransparency = 0.9, fn12(), fn10(icon, 14)})
+				fn27(button)
+				return button
+			end
+			local prev = arrow(1, CARD_ICONS.left)
+			local counter = TextLabel({Parent = nav, LayoutOrder = 2, Size = fn2(0, 26), AutomaticSize = x, FontFace = font4, TextSize = 11.5, TextTransparency = 0.35})
+			local nextButton = arrow(3, CARD_ICONS.right)
+			local close = TextButton({Parent = body, AnchorPoint = vector2(1, 0), Position = udim2(1, 4, 0, -4), Size = fn2(28, 28), BackgroundTransparency = 0.92, fn12(), fn10(CARD_ICONS.close, 14)})
+
+			-- header: icon, title, author
+			local head = Frame({Parent = body, Position = fn2(0, 24), Size = udim2(1, 0, 0, 56)})
+			local box = Frame({Parent = head, Size = fn2(52, 52), BackgroundTransparency = 0.8, BackgroundColor3 = tbl.a1, fn12(15)})
+			local boxImage = ImageLabel({Parent = box, AnchorPoint = v3, Position = v2, Size = fn2(40, 40), ScaleType = Enum.ScaleType.Fit})
+			local boxText = TextLabel({Parent = box, Size = v, FontFace = font3, TextSize = 22, TextXAlignment = center})
+			local title = TextLabel({Parent = head, Position = fn2(64, 0), Size = udim2(1, -64, 0, 36), FontFace = font2, TextSize = 17, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
+			local author = TextLabel({Parent = head, Position = udim2(0, 64, 1, -16), Size = udim2(1, -64, 0, 16), TextSize = 12, TextTransparency = 0.4})
+			author.TextTruncate = atEnd
+
+			-- stats + tags line
+			local stats = TextLabel({Parent = body, Position = fn2(0, 88), Size = udim2(1, 0, 0, 16), FontFace = font4, TextSize = 11.5, TextColor3 = tbl.val, RichText = true})
+
+			-- full description (scrolls when long)
+			local descBox = Frame({Parent = body, Position = fn2(0, 112), Size = udim2(1, 0, 1, -112 - 50), BackgroundTransparency = 0.95, fn12(12)})
+			local descScroll = ScrollingFrame({Parent = descBox, Size = v, ScrollBarImageColor3 = tbl.wh, fn16(10, 12, 10, 12)})
+			local desc = TextLabel({Parent = descScroll, Size = v5, AutomaticSize = y, TextSize = 13, TextTransparency = 0.15, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
+
+			-- actions
+			local bar = Frame({Parent = body, AnchorPoint = vector2(0, 1), Position = udim2(0, 0, 1, 0), Size = udim2(1, 0, 0, 38), fn17(8, nil, center3, horizontal)})
+			local function pill(order, icon)
+				local button = TextButton({Parent = bar, LayoutOrder = order, Size = fn2(0, 34), AutomaticSize = x, BackgroundTransparency = 0.9, fn12(), fn16(0, 14, 0, 12), fn17(6, nil, center3, horizontal)})
+				local image = ImageLabel({Parent = button, Size = fn2(16, 16), Image = icon})
+				local label = TextLabel({Parent = button, LayoutOrder = 1, Size = fn2(0, 34), AutomaticSize = x, FontFace = font2, TextSize = 13})
+				fn27(button)
+				return button, image, label
+			end
+			local like, likeIcon, likeText = pill(1, CARD_ICONS.heart)
+			local fav, favIcon, favText = pill(2, CARD_ICONS.star)
+			local del, _, delText = pill(3, CARD_ICONS.trash)
+			delText.Text = "Delete"
+			local apply = TextButton({Parent = bar, LayoutOrder = 9, Size = fn2(110, 34), BackgroundTransparency = 0, fn12(11), fn14(tbl.g1, tbl.g2),
+				(TextLabel({Size = v, FontFace = font2, TextSize = 13.5, TextColor3 = tbl.dk, TextXAlignment = center}))})
+			local applyText = apply:FindFirstChildOfClass("TextLabel")
+			fn27(apply)
+
+			local function item()
+				return cards.items[view.i]
+			end
+
+			local function render(dir)
+				local it = item()
+				if not it then
+					return view.Close()
+				end
+				local count = #cards.items
+				counter.Text = view.i .. " / " .. count
+				prev.BackgroundTransparency, nextButton.BackgroundTransparency = view.i > 1 and 0.9 or 0.97, view.i < count and 0.9 or 0.97
+				title.Text = it.title or ""
+				author.Text = it.author or ""
+				local hasImage = (it.image or "") ~= ""
+				boxImage.Image = it.image or ""
+				boxText.Text = hasImage and "" or (it.title or "?"):sub(1, 1):upper()
+				box.BackgroundColor3 = it.color or tbl.a1
+				local parts = {("♥ %d"):format(tonumber(it.likes) or 0), ("↓ %d"):format(tonumber(it.uses) or 0)}
+				if (it.tags or "") ~= "" then
+					parts[#parts + 1] = it.tags
+				end
+				if (it.age or "") ~= "" then
+					parts[#parts + 1] = it.age
+				end
+				if it.noLike and it.uses == nil then
+					table.remove(parts, 1)
+					table.remove(parts, 1)
+				end
+				stats.Text = table.concat(parts, "   ·   ")
+				desc.Text = (it.description or "") ~= "" and it.description or "No description"
+				descScroll.CanvasPosition = Vector2.zero
+				likeIcon.ImageColor3 = it.liked and LIKE_ON or tbl.wh
+				likeText.Text = it.liked and "Liked" or "Like"
+				like.Visible = cards.opts.Like ~= nil and not it.noLike
+				favIcon.ImageColor3 = it.fav and FAV_ON or tbl.wh
+				favText.Text = it.fav and "Saved" or "Favorite"
+				fav.Visible = cards.opts.Favorite ~= nil and not it.noFav
+				del.Visible = it.own == true and cards.opts.Delete ~= nil
+				applyText.Text = it.applyText or cards.opts.ApplyText or "Apply"
+				apply.Visible = cards.opts.Apply ~= nil
+				if dir then
+					body.Position = fn2(dir * 40, 0)
+					fn19(body, {Position = fn2(0, 0)}, 0.25)
+				end
+			end
+			view.Render = render
+
+			local function go(step)
+				local target = view.i + step
+				if target >= 1 and target <= #cards.items then
+					view.i = target
+					render(step)
+				end
+			end
+
+			view.Close = function()
+				if view.closed then
+					return
+				end
+				view.closed = true
+				if cards.view == view then
+					cards.view = nil
+				end
+				if w.dlg == view then
+					w.dlg = nil
+				end
+				for _, connection in ipairs(view.conns) do
+					connection:Disconnect()
+				end
+				panel.Visible = false
+				fn19(shade, {BackgroundTransparency = 1}, 0.2).Completed:Connect(function()
+					shade:Destroy()
+				end)
+			end
+
+			fn25(close, view.Close)
+			fn25(shade, view.Close)
+			fn25(prev, function() go(-1) end)
+			fn25(nextButton, function() go(1) end)
+			fn25(like, function()
+				local it = item()
+				if it then
+					cards:Toggle(it, "liked")
+				end
+			end)
+			fn25(fav, function()
+				local it = item()
+				if it then
+					cards:Toggle(it, "fav")
+				end
+			end)
+			fn25(del, function()
+				local it = item()
+				if it then
+					view.Close()
+					fn22(cards.opts.Delete, it)
+				end
+			end)
+			fn25(apply, function()
+				local it = item()
+				if it then
+					view.Close()
+					fn22(cards.opts.Apply, it)
+				end
+			end)
+
+			-- swipe: a horizontal drag of 60 px pages; keyboard arrows too
+			local startX
+			view.conns[#view.conns + 1] = panel.InputBegan:Connect(function(input)
+				if fn23(input) then
+					startX = input.Position.X
+				end
+			end)
+			view.conns[#view.conns + 1] = UserInputService.InputEnded:Connect(function(input)
+				if startX and fn23(input) then
+					local dx = input.Position.X - startX
+					startX = nil
+					if math.abs(dx) > 60 then
+						tbl10.s = true -- the release is a swipe, not a tap
+						go(dx < 0 and 1 or -1)
+					end
+				end
+			end)
+			view.conns[#view.conns + 1] = UserInputService.InputBegan:Connect(function(input, processed)
+				if processed then
+					return
+				end
+				if input.KeyCode == Enum.KeyCode.Left then
+					go(-1)
+				elseif input.KeyCode == Enum.KeyCode.Right then
+					go(1)
+				elseif input.KeyCode == Enum.KeyCode.Escape then
+					view.Close()
+				end
+			end)
+
+			cards.view = view
+			w.dlg = view
+			render()
+			fn19(shade, {BackgroundTransparency = 0.45}, 0.2)
+			fn19(scale, {Scale = 1}, 0.35, back)
+			return view
+		end
+
 		local function fn45(title, text, kind, arg3, arg4, arg5)
 			w:Dialog({Title = title, Text = text, Kind = kind, Buttons = {{arg5 or "Cancel"}, {arg3, arg4, true}}})
 		end
@@ -6183,6 +6418,176 @@ local Library = (function()
 		end
 
 		return tbl16
+	end
+
+	-- Section:Cards(rows, emptyText, opts): config cards with like / favorite / apply inside the card.
+	-- Items: {id, title, author, description, tags, age, likes, uses, liked, fav, own, badge, image, color,
+	-- applyText, noLike, noFav}. opts: {Apply, Like, Favorite, Delete = function(item), ApplyText}.
+	-- Like / Favorite flip item.liked / item.fav (likes +-1) at once, then call the callback; a callback
+	-- that returns false (or calls :Toggle again) undoes it. Tapping a card opens w:CardView on it.
+	index.Cards = function(arg, rows, emptyText, opts)
+		local W = arg.W
+		local icons = W.CardIcons
+		local CARD_H = 104
+		local holder = Frame({Parent = arg.f, LayoutOrder = arg.n + 1, Size = udim2(1, 0, 0, 46)})
+		arg:Add(holder, "")
+		local scroll = ScrollingFrame({Parent = holder, Position = fn2(10, 6), Size = udim2(1, -20, 1, -12), (fn17(8))})
+		W.nest[scroll] = arg.t.top or arg.t
+		local empty = TextLabel({Parent = holder, Size = v, Text = emptyText or "Nothing here", TextSize = 12, TextTransparency = 0.45, TextXAlignment = center})
+
+		local cards = {items = {}, opts = opts or {}, rows = {}}
+
+		local function pill(parent, order, icon)
+			local button = TextButton({Parent = parent, LayoutOrder = order, Size = fn2(0, 24), AutomaticSize = x, BackgroundTransparency = 0.9, fn12(), fn16(0, 7, 0, 7), fn17(4, nil, center3, horizontal)})
+			local image = ImageLabel({Parent = button, Size = fn2(13, 13), Image = icon})
+			local label = TextLabel({Parent = button, LayoutOrder = 1, Size = fn2(0, 24), AutomaticSize = x, FontFace = font4, TextSize = 11.5})
+			return button, image, label
+		end
+
+		local function paint(row, it)
+			row.title.Text = it.title or ""
+			row.desc.Text = it.description or ""
+			row.badge.Text = it.badge or ""
+			local hasImage = (it.image or "") ~= ""
+			row.image.Image = it.image or ""
+			row.letter.Text = hasImage and "" or (it.title or "?"):sub(1, 1):upper()
+			row.box.BackgroundColor3 = it.color or tbl.a1
+			row.likeText.Text = tostring(tonumber(it.likes) or 0)
+			row.likeIcon.ImageColor3 = it.liked and W.LikeOn or tbl.wh
+			row.like.BackgroundTransparency = it.liked and 0.8 or 0.9
+			row.like.Visible = cards.opts.Like ~= nil and not it.noLike
+			row.favIcon.ImageColor3 = it.fav and W.FavOn or tbl.wh
+			row.fav.BackgroundTransparency = it.fav and 0.8 or 0.9
+			row.favText.Visible = false
+			row.fav.Visible = cards.opts.Favorite ~= nil and not it.noFav
+			row.usesText.Text = tostring(tonumber(it.uses) or 0)
+			row.uses.Visible = it.uses ~= nil
+			-- author  ·  tags  ·  age
+			local parts = {}
+			for _, part in ipairs({it.author or "", it.tags or "", it.age or ""}) do
+				if part ~= "" then
+					parts[#parts + 1] = part
+				end
+			end
+			row.author.Text = table.concat(parts, "  ·  ")
+			row.applyText.Text = it.applyText or cards.opts.ApplyText or "Apply"
+			row.apply.Visible = cards.opts.Apply ~= nil
+		end
+
+		local function build()
+			local row = {}
+			row.r = TextButton({Parent = scroll, Size = udim2(1, -6, 0, CARD_H), BackgroundTransparency = 0.955, fn12(15), fn13(0.9)})
+			row.box = Frame({Parent = row.r, Position = fn2(12, 12), Size = fn2(44, 44), BackgroundTransparency = 0.8, fn12(13)})
+			row.image = ImageLabel({Parent = row.box, AnchorPoint = v3, Position = v2, Size = fn2(34, 34), ScaleType = Enum.ScaleType.Fit})
+			row.letter = TextLabel({Parent = row.box, Size = v, FontFace = font3, TextSize = 19, TextXAlignment = center})
+			row.title = TextLabel({Parent = row.r, Position = fn2(68, 10), Size = udim2(1, -150, 0, 18), FontFace = font2, TextSize = 14})
+			row.title.TextTruncate = atEnd
+			row.badge = TextLabel({Parent = row.r, AnchorPoint = vector2(1, 0), Position = udim2(1, -12, 0, 11), Size = fn2(0, 14), AutomaticSize = x, FontFace = font3, TextSize = 9.5, TextColor3 = W.FavOn})
+			row.author = TextLabel({Parent = row.r, Position = fn2(68, 29), Size = udim2(1, -80, 0, 14), TextSize = 11, TextTransparency = 0.45})
+			row.author.TextTruncate = atEnd
+			row.desc = TextLabel({Parent = row.r, Position = fn2(68, 45), Size = udim2(1, -80, 0, 16), TextSize = 12, TextTransparency = 0.2})
+			row.desc.TextTruncate = atEnd
+			local bar = Frame({Parent = row.r, Position = udim2(0, 12, 1, -34), Size = udim2(1, -106, 0, 24), fn17(4, nil, center3, horizontal)})
+			row.like, row.likeIcon, row.likeText = pill(bar, 1, icons.heart)
+			row.fav, row.favIcon, row.favText = pill(bar, 2, icons.star)
+			local usesIcon
+			row.uses, usesIcon, row.usesText = pill(bar, 3, icons.download)
+			usesIcon.ImageTransparency = 0.3
+			row.uses.Active, row.uses.AutoButtonColor = false, false
+			row.apply = TextButton({Parent = row.r, AnchorPoint = vector2(1, 1), Position = udim2(1, -12, 1, -10), Size = fn2(76, 28), BackgroundTransparency = 0, fn12(10), fn14(tbl.g1, tbl.g2),
+				(TextLabel({Size = v, FontFace = font2, TextSize = 12.5, TextColor3 = tbl.dk, TextXAlignment = center}))})
+			row.applyText = row.apply:FindFirstChildOfClass("TextLabel")
+			fn27(row.apply)
+			fn20(row.r, 0.93, 0.955)
+
+			fn25(row.r, function()
+				for i, it in ipairs(cards.items) do
+					if it == row.it then
+						W:CardView(cards, i)
+						break
+					end
+				end
+			end)
+			fn25(row.like, function()
+				if row.it then
+					cards:Toggle(row.it, "liked")
+				end
+			end)
+			fn25(row.fav, function()
+				if row.it then
+					cards:Toggle(row.it, "fav")
+				end
+			end)
+			fn25(row.apply, function()
+				if row.it then
+					fn22(cards.opts.Apply, row.it)
+				end
+			end)
+			return row
+		end
+
+		-- flips liked / fav right away, then asks the owner; false from the callback undoes it
+		cards.Toggle = function(_, it, field)
+			it[field] = not it[field]
+			if field == "liked" then
+				it.likes = math.max(0, (tonumber(it.likes) or 0) + (it.liked and 1 or -1))
+			end
+			cards:Refresh()
+			local callback = field == "liked" and cards.opts.Like or cards.opts.Favorite
+			task.spawn(function()
+				local ok, result = pcall(callback, it)
+				if ok and result == false then
+					it[field] = not it[field]
+					if field == "liked" then
+						it.likes = math.max(0, (tonumber(it.likes) or 0) + (it.liked and 1 or -1))
+					end
+					cards:Refresh()
+				end
+			end)
+		end
+
+		cards.Refresh = function()
+			for _, row in next, cards.rows do
+				if row.it then
+					paint(row, row.it)
+				end
+			end
+			if cards.view and not cards.view.closed then
+				cards.view.Render()
+			end
+		end
+
+		cards.Set = function(_, items, text)
+			cards.items = items or {}
+			if text then
+				empty.Text = text
+			end
+			empty.Visible = #cards.items == 0
+			holder.Size = udim2(1, 0, 0, #cards.items == 0 and 46 or math.min(#cards.items, rows or 3) * (CARD_H + 8) + 12 - 8 + 4)
+			local used = {}
+			for i, it in ipairs(cards.items) do
+				local key = tostring(it.id or i)
+				local row = cards.rows[key] or build()
+				cards.rows[key], used[key] = row, true
+				row.it = it
+				row.r.LayoutOrder = i
+				paint(row, it)
+			end
+			for key, row in next, cards.rows do
+				if not used[key] then
+					row.r:Destroy()
+					cards.rows[key] = nil
+				end
+			end
+			if cards.view and not cards.view.closed then
+				if cards.view.i > #cards.items then
+					cards.view.i = #cards.items
+				end
+				cards.view.Render()
+			end
+		end
+
+		return cards
 	end
 
 	local function fn43(parent, arg)
