@@ -6422,7 +6422,8 @@ local Library = (function()
 
 	-- Section:Cards(rows, emptyText, opts): config cards with like / favorite / apply inside the card.
 	-- Items: {id, title, author, description, tags, age, likes, uses, liked, fav, own, badge, image, color,
-	-- applyText, noLike, noFav}. opts: {Apply, Like, Favorite, Delete = function(item), ApplyText}.
+	-- applyText, noLike, noFav}. opts: {Apply, Like, Favorite, Delete = function(item), ApplyText, Columns}.
+	-- Columns > 1 lays the cards out in a grid (rows = visible grid rows); use it in a full-width section (side 4).
 	-- Like / Favorite flip item.liked / item.fav (likes +-1) at once, then call the callback; a callback
 	-- that returns false (or calls :Toggle again) undoes it. Tapping a card opens w:CardView on it.
 	index.Cards = function(arg, rows, emptyText, opts)
@@ -6431,7 +6432,18 @@ local Library = (function()
 		local CARD_H = 104
 		local holder = Frame({Parent = arg.f, LayoutOrder = arg.n + 1, Size = udim2(1, 0, 0, 46)})
 		arg:Add(holder, "")
-		local scroll = ScrollingFrame({Parent = holder, Position = fn2(10, 6), Size = udim2(1, -20, 1, -12), (fn17(8))})
+		local columns = math.max(1, math.floor(tonumber(opts and opts.Columns) or 1))
+		local layout
+		if columns > 1 then
+			layout = fn7("UIGridLayout", {
+				CellSize = udim2(1 / columns, -8 * (columns - 1) / columns - 6 / columns, 0, CARD_H),
+				CellPadding = fn2(8, 8),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			})
+		else
+			layout = fn17(8)
+		end
+		local scroll = ScrollingFrame({Parent = holder, Position = fn2(10, 6), Size = udim2(1, -20, 1, -12), layout})
 		W.nest[scroll] = arg.t.top or arg.t
 		local empty = TextLabel({Parent = holder, Size = v, Text = emptyText or "Nothing here", TextSize = 12, TextTransparency = 0.45, TextXAlignment = center})
 
@@ -6563,7 +6575,8 @@ local Library = (function()
 				empty.Text = text
 			end
 			empty.Visible = #cards.items == 0
-			holder.Size = udim2(1, 0, 0, #cards.items == 0 and 46 or math.min(#cards.items, rows or 3) * (CARD_H + 8) + 12 - 8 + 4)
+			local lines = math.ceil(#cards.items / columns)
+			holder.Size = udim2(1, 0, 0, #cards.items == 0 and 46 or math.min(lines, rows or 3) * (CARD_H + 8) + 12 - 8 + 4)
 			local used = {}
 			for i, it in ipairs(cards.items) do
 				local key = tostring(it.id or i)
