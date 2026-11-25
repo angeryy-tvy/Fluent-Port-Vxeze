@@ -8846,10 +8846,12 @@ local Library = (function()
 		header.ZIndex = BASE_Z
 		header.Parent = content
 
-		local headerPad = Instance.new("UIPadding")
-		headerPad.PaddingLeft = UDim.new(0, 14)
-		headerPad.PaddingRight = UDim.new(0, 8)
-		headerPad.Parent = header
+		do
+			local headerPad = Instance.new("UIPadding")
+			headerPad.PaddingLeft = UDim.new(0, 14)
+			headerPad.PaddingRight = UDim.new(0, 8)
+			headerPad.Parent = header
+		end
 
 		local titleRow = Instance.new("Frame")
 		titleRow.BackgroundTransparency = 1
@@ -8857,12 +8859,14 @@ local Library = (function()
 		titleRow.ZIndex = BASE_Z + 1
 		titleRow.Parent = header
 
-		local titleLayout = Instance.new("UIListLayout")
-		titleLayout.FillDirection = Enum.FillDirection.Horizontal
-		titleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-		titleLayout.Padding = UDim.new(0, 7)
-		titleLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		titleLayout.Parent = titleRow
+		do
+			local titleLayout = Instance.new("UIListLayout")
+			titleLayout.FillDirection = Enum.FillDirection.Horizontal
+			titleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+			titleLayout.Padding = UDim.new(0, 7)
+			titleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			titleLayout.Parent = titleRow
+		end
 
 		local titleIcon = Instance.new("ImageLabel")
 		titleIcon.BackgroundTransparency = 1
@@ -8894,12 +8898,14 @@ local Library = (function()
 		controls.ZIndex = BASE_Z + 1
 		controls.Parent = header
 
-		local controlsLayout = Instance.new("UIListLayout")
-		controlsLayout.FillDirection = Enum.FillDirection.Horizontal
-		controlsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-		controlsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-		controlsLayout.Padding = UDim.new(0, 4)
-		controlsLayout.Parent = controls
+		do
+			local controlsLayout = Instance.new("UIListLayout")
+			controlsLayout.FillDirection = Enum.FillDirection.Horizontal
+			controlsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+			controlsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+			controlsLayout.Padding = UDim.new(0, 4)
+			controlsLayout.Parent = controls
+		end
 
 		local function headerIconButton(icon, layoutOrder)
 			local btn = Instance.new("TextButton")
@@ -8980,20 +8986,24 @@ local Library = (function()
 		mailboxNotice.ZIndex = BASE_Z + 2
 		mailboxNotice.Parent = titleRow
 
-		local headerDivider = Instance.new("Frame")
-		headerDivider.BackgroundColor3 = Color3.new(1, 1, 1)
-		headerDivider.BackgroundTransparency = 0.94
-		headerDivider.BorderSizePixel = 0
-		headerDivider.Position = UDim2.fromOffset(0, HEADER_H)
-		headerDivider.Size = UDim2.new(1, 0, 0, 1)
-		headerDivider.ZIndex = BASE_Z
-		headerDivider.Parent = content
+		do
+			local headerDivider = Instance.new("Frame")
+			headerDivider.BackgroundColor3 = Color3.new(1, 1, 1)
+			headerDivider.BackgroundTransparency = 0.94
+			headerDivider.BorderSizePixel = 0
+			headerDivider.Position = UDim2.fromOffset(0, HEADER_H)
+			headerDivider.Size = UDim2.new(1, 0, 0, 1)
+			headerDivider.ZIndex = BASE_Z
+			headerDivider.Parent = content
+		end
 
-		local contentPad = Instance.new("UIPadding")
-		contentPad.PaddingLeft = UDim.new(0, 14)
-		contentPad.PaddingRight = UDim.new(0, 14)
-		contentPad.PaddingBottom = UDim.new(0, 12)
-		contentPad.Parent = content
+		do
+			local contentPad = Instance.new("UIPadding")
+			contentPad.PaddingLeft = UDim.new(0, 14)
+			contentPad.PaddingRight = UDim.new(0, 14)
+			contentPad.PaddingBottom = UDim.new(0, 12)
+			contentPad.Parent = content
+		end
 
 		local inputRow = Instance.new("Frame")
 		inputRow.BackgroundTransparency = 1
@@ -9014,10 +9024,12 @@ local Library = (function()
 		Corner(pill, 9)
 		local pillStroke = Stroke(pill, Color3.new(1, 1, 1), 1, 0.9)
 
-		local pillPad = Instance.new("UIPadding")
-		pillPad.PaddingLeft = UDim.new(0, 10)
-		pillPad.PaddingRight = UDim.new(0, 10)
-		pillPad.Parent = pill
+		do
+			local pillPad = Instance.new("UIPadding")
+			pillPad.PaddingLeft = UDim.new(0, 10)
+			pillPad.PaddingRight = UDim.new(0, 10)
+			pillPad.Parent = pill
+		end
 
 		local inputBox = Instance.new("TextBox")
 		inputBox.BackgroundTransparency = 1
@@ -9083,14 +9095,18 @@ local Library = (function()
 		msgScroll.ZIndex = BASE_Z
 		msgScroll.Parent = content
 
-		local msgPad = Instance.new("UIPadding")
-		msgPad.PaddingRight = UDim.new(0, C.PadR)
-		msgPad.Parent = msgScroll
+		do
+			local msgPad = Instance.new("UIPadding")
+			msgPad.PaddingRight = UDim.new(0, C.PadR)
+			msgPad.Parent = msgScroll
+		end
 
-		local msgLayout = Instance.new("UIListLayout")
-		msgLayout.Padding = UDim.new(0, C.Mobile and 4 or 8)
-		msgLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		msgLayout.Parent = msgScroll
+		do
+			local msgLayout = Instance.new("UIListLayout")
+			msgLayout.Padding = UDim.new(0, C.Mobile and 4 or 8)
+			msgLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			msgLayout.Parent = msgScroll
+		end
 
 		msgScroll.ScrollBarThickness = 3
 		msgScroll.ScrollBarImageTransparency = 0.7
@@ -9550,12 +9566,14 @@ local Library = (function()
 		reportInput.ZIndex = BASE_Z + 22
 		reportInput.Parent = reportCard
 		Corner(reportInput, 6)
-		local reportPad = Instance.new("UIPadding")
-		reportPad.PaddingTop = UDim.new(0, 6)
-		reportPad.PaddingBottom = UDim.new(0, 6)
-		reportPad.PaddingLeft = UDim.new(0, 8)
-		reportPad.PaddingRight = UDim.new(0, 8)
-		reportPad.Parent = reportInput
+		do
+			local reportPad = Instance.new("UIPadding")
+			reportPad.PaddingTop = UDim.new(0, 6)
+			reportPad.PaddingBottom = UDim.new(0, 6)
+			reportPad.PaddingLeft = UDim.new(0, 8)
+			reportPad.PaddingRight = UDim.new(0, 8)
+			reportPad.Parent = reportInput
+		end
 
 		local function reportButton(text, xOffset, transparency)
 			local b = Instance.new("TextButton")
@@ -10739,10 +10757,12 @@ local Library = (function()
 		regionBtn.Parent = titleRow
 		Corner(regionBtn, 6)
 		Stroke(regionBtn, Color3.new(1, 1, 1), 1, 0.88)
-		local regionBtnPad = Instance.new("UIPadding")
-		regionBtnPad.PaddingLeft = UDim.new(0, 7)
-		regionBtnPad.PaddingRight = UDim.new(0, 7)
-		regionBtnPad.Parent = regionBtn
+		do
+			local regionBtnPad = Instance.new("UIPadding")
+			regionBtnPad.PaddingLeft = UDim.new(0, 7)
+			regionBtnPad.PaddingRight = UDim.new(0, 7)
+			regionBtnPad.Parent = regionBtn
+		end
 
 		local function updateRegionButton()
 			regionBtn.Text = "\u{1F310} " .. regionByCode[currentRegion].Short .. " \u{25BE}"
