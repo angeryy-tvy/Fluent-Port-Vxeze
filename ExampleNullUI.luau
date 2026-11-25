@@ -1,4 +1,4 @@
--- Example: VxezePortV2 with tabs, sections, a Global Chat tab (Fluent relay) and a
+-- Example: VxezePortV2 with a Home dashboard, tabs, sections, a Global Chat tab (Fluent relay) and a
 -- Cloud tab where players share settings presets through vxezestudio.online.
 --
 -- VxezePortV2 uses positional arguments, not NullUI's option tables:
@@ -221,7 +221,49 @@ local Window = Library:Window({
 	Key = Enum.KeyCode.RightControl,
 })
 
-local Main = Window:Tab("Main", "home")
+-- Home dashboard (created first, so it opens by default): header chips, notice card,
+-- quick actions (Rejoin / Server hop / Copy Job ID / Unload), changelog and live stats.
+local Home = Window:Home({
+	Name = "Home",
+	Title = "Dashboard",
+	Game = game.Name,
+	-- Shown on the white card; without it the card offers the Discord invite instead.
+	Notice = { "Global chat is live", "Open the Chat tab to talk" },
+	-- Discord = "https://discord.gg/your-invite",
+	Unload = function()
+		Window:Destroy()
+	end,
+	-- { tag, text, author?, unix time? }; NEW / FIX / IMP / UPD get their own colours.
+	News = {
+		{ "NEW", "Cloud tab: share and apply settings presets", "Vxeze", os.time() - 3600 },
+		{ "IMP", "Global chat: replies, pinned message and mailbox", "Vxeze", os.time() - 86400 },
+		{ "FIX", "Library loads again on executors with a 200-local limit", "Vxeze", os.time() - 2 * 86400 },
+	},
+})
+
+-- { name, icon, onClick? }. Stats returns an object whose Set(name, text) updates a tile.
+local Stats = Home:Stats("This session", {
+	{ "Players", "user" },
+	{ "Ping", "wind" },
+	{ "Uptime", "clock" },
+})
+
+local startedAt = os.clock()
+task.spawn(function()
+	local Stats_ = game:GetService("Stats")
+	while Window.Gui and Window.Gui.Parent do
+		Stats:Set("Players", tostring(#Players:GetPlayers()))
+		local ok, ping = pcall(function()
+			return Stats_.Network.ServerStatsItem["Data Ping"]:GetValue()
+		end)
+		Stats:Set("Ping", ok and `{math.floor(ping)} ms` or "--")
+		local s = math.floor(os.clock() - startedAt)
+		Stats:Set("Uptime", string.format("%02d:%02d", s // 60, s % 60))
+		task.wait(1)
+	end
+end)
+
+local Main = Window:Tab("Main", "zap")
 
 local Player = Main:Section("Player", "user")
 Player:Text(`Signed in as {LocalPlayer.DisplayName}. Open the Chat tab to talk with everyone using the script.`)
@@ -237,7 +279,7 @@ flag("WalkSpeed", Player:Slider("Walk speed", 16, 100, 16, function(value)
 	end
 end))
 
-local Actions = Main:Section("Actions", "zap")
+local Actions = Main:Section("Actions", "sparkles")
 Actions:Button("Say hello", "Run", function()
 	Library:Notify("Hello", "VxezePortV2 is running.", "ok", 3)
 end, nil, "Shows a notification")
