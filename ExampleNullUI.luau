@@ -221,47 +221,148 @@ local Window = Library:Window({
 	Key = Enum.KeyCode.RightControl,
 })
 
--- Home dashboard (created first, so it opens by default): header chips, notice card,
--- quick actions (Rejoin / Server hop / Copy Job ID / Unload), changelog and live stats.
+--------------------------------------------------------------------------------
+-- Home dashboard (same layout as Sae-VxezeV2): created first, so it opens by default
+--------------------------------------------------------------------------------
+
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local StatsService = game:GetService("Stats")
+
+-- Image icons used by the Session tiles (same assets as Vxeze Hub).
+local ICONS = {
+	timer = "rbxassetid://132534369464516",
+	check = "rbxassetid://104873662023098",
+	star = "rbxassetid://79133579432887",
+	trophy = "rbxassetid://119210375463488",
+	money = "rbxassetid://119640363267627",
+}
+
+-- Server hop to the public server with the fewest players (falls back to a random one).
+local function hopLeastPlayers()
+	local best
+	local ok, body = pcall(game.HttpGet, game,
+		`https://games.roblox.com/v1/games/{game.PlaceId}/servers/Public?sortOrder=Asc&limit=100`)
+	local decoded, data = pcall(HttpService.JSONDecode, HttpService, ok and body or "")
+	for _, server in ipairs(decoded and typeof(data) == "table" and data.data or {}) do
+		if server.id ~= game.JobId and server.playing < server.maxPlayers
+			and (not best or server.playing < best.playing) then
+			best = server
+		end
+	end
+	Library:Notify("Server hop", best and `Joining a server with {best.playing} players` or "Joining a random server", "info")
+	if best then
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LocalPlayer)
+	else
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	end
+end
+
 local Home = Window:Home({
-	Name = "Home",
-	Title = "Dashboard",
-	Game = game.Name,
-	-- Shown on the white card; without it the card offers the Discord invite instead.
-	Notice = { "Global chat is live", "Open the Chat tab to talk" },
-	-- Discord = "https://discord.gg/your-invite",
+	Game = "Vxeze Example",
+	-- Chip in the header; shown masked like a key.
+	Key = "Vxeze Hub Example",
+	-- White card on the right: copies the invite when pressed.
+	Discord = "https://discord.com/invite/c4SPpKtKJ8",
+	Community = "Vxeze Hub Discord",
+	Hop = hopLeastPlayers,
 	Unload = function()
-		Window:Destroy()
+		Window:Dialog({
+			Title = "Unload Vxeze Hub",
+			Kind = "warn",
+			Text = "Every feature stops and the menu closes. You stay in this server.",
+			Buttons = {
+				{ "Cancel" },
+				{ "Unload", function()
+					task.defer(Window.Destroy, Window)
+				end, true },
+			},
+		})
 	end,
-	-- { tag, text, author?, unix time? }; NEW / FIX / IMP / UPD get their own colours.
+	-- { tag, text, author, unix time }; NEW / FIX / IMP / UPD get their own colours.
 	News = {
-		{ "NEW", "Cloud tab: share and apply settings presets", "Vxeze", os.time() - 3600 },
-		{ "IMP", "Global chat: replies, pinned message and mailbox", "Vxeze", os.time() - 86400 },
-		{ "FIX", "Library loads again on executors with a 200-local limit", "Vxeze", os.time() - 2 * 86400 },
+		{ "NEW", "v2.1 Cloud configs: share, like and apply settings presets", "Vxeze Hub", 1795580000 },
+		{ "NEW", "Global Chat: replies, pinned message, mailbox and server join", "Vxeze Hub", 1795277590 },
+		{ "IMP", "Config cards: grid layout and swipeable full view", "Vxeze Hub", 1794673800 },
+		{ "FIX", "Library loads again on executors with a 200-local limit", "Vxeze Hub", 1795590000 },
+		{ "NEW", "v2.0 Welcome to Vxeze Hub V2", "Vxeze Hub", 1793383769 },
 	},
 })
 
--- { name, icon, onClick? }. Stats returns an object whose Set(name, text) updates a tile.
-local Stats = Home:Stats("This session", {
+-- { name, icon, onClick? } in a 3-column grid. Stats:Set(name, text) updates a tile.
+local Session = Home:Stats("Session", {
 	{ "Players", "user" },
 	{ "Ping", "wind" },
-	{ "Uptime", "clock" },
+	{ "FPS", "gauge" },
+	{ "Session time", ICONS.timer },
+	{ "Server age", "clock" },
+	{ "Memory", "server" },
+	{ "Walk speed", ICONS.check },
+	{ "Auto farm", ICONS.star },
+	{ "Job ID", "copy", function()
+		local ok = pcall(setclipboard, game.JobId)
+		Library:Notify("Job ID", ok and "Copied to clipboard" or game.JobId, ok and "ok" or "info")
+	end },
 })
 
+local function formatTime(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	local h, m, s = seconds // 3600, seconds // 60 % 60, seconds % 60
+	return h > 0 and string.format("%d:%02d:%02d", h, m, s) or string.format("%02d:%02d", m, s)
+end
+
 local startedAt = os.clock()
+local frames = 0
+local frameConn = RunService.RenderStepped:Connect(function()
+	frames += 1
+end)
+
 task.spawn(function()
-	local Stats_ = game:GetService("Stats")
 	while Window.Gui and Window.Gui.Parent do
-		Stats:Set("Players", tostring(#Players:GetPlayers()))
-		local ok, ping = pcall(function()
-			return Stats_.Network.ServerStatsItem["Data Ping"]:GetValue()
+		Session:Set("Players", `{#Players:GetPlayers()} / {Players.MaxPlayers}`)
+		local okPing, ping = pcall(function()
+			return StatsService.Network.ServerStatsItem["Data Ping"]:GetValue()
 		end)
-		Stats:Set("Ping", ok and `{math.floor(ping)} ms` or "--")
-		local s = math.floor(os.clock() - startedAt)
-		Stats:Set("Uptime", string.format("%02d:%02d", s // 60, s % 60))
+		Session:Set("Ping", okPing and `{math.floor(ping)} ms` or "--")
+		Session:Set("FPS", tostring(frames))
+		frames = 0
+		Session:Set("Session time", formatTime(os.clock() - startedAt))
+		Session:Set("Server age", formatTime(workspace.DistributedGameTime))
+		Session:Set("Memory", `{math.floor(StatsService:GetTotalMemoryUsageMb())} MB`)
+		local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+		Session:Set("Walk speed", humanoid and tostring(math.floor(humanoid.WalkSpeed)) or "--")
+		Session:Set("Auto farm", Flags.AutoFarm and Flags.AutoFarm.Value and "On" or "Off")
+		Session:Set("Job ID", game.JobId ~= "" and game.JobId:sub(1, 8) or "Studio")
 		task.wait(1)
 	end
+	frameConn:Disconnect()
 end)
+
+-- Global chat tab, right under Home like in Vxeze Hub. The library has its own Fluent
+-- relay client, so Endpoint + ApiKey is enough.
+Window:GlobalChat({
+	Name = "Global Chat",
+	Title = "Global Chat",
+	Endpoint = GLOBAL_CHAT_ENDPOINT,
+	ApiKey = GLOBAL_CHAT_API_KEY,
+	GameName = "Vxeze Example",
+	MaxMessages = 50,
+	HistoryLimit = 50,
+	PollInterval = 3,
+	Placeholder = "Message everyone using this script...",
+	-- Display-only badges; the relay's senderTag is trusted when present.
+	RoleTags = {
+		["11464210153"] = { Label = "ADMIN", Color = "#EF4444" },
+		["10611068537"] = { Label = "SUPPORT", Color = "#3B82F6" },
+		["8274772008"] = { Label = "SUPPORT", Color = "#3B82F6" },
+	},
+	-- Admin "play sound" on the relay, or a Global Chat ban: everyone gets the alert once.
+	OnSound = function(event)
+		if typeof(event) == "table" and event.Kind == "ban" then
+			Library:Notify("Global Chat", (event.PlayerName or "A player") .. " was banned from Global Chat", "warn")
+		end
+	end,
+})
 
 local Main = Window:Tab("Main", "zap")
 
@@ -283,24 +384,6 @@ local Actions = Main:Section("Actions", "sparkles")
 Actions:Button("Say hello", "Run", function()
 	Library:Notify("Hello", "VxezePortV2 is running.", "ok", 3)
 end, nil, "Shows a notification")
-
--- Global chat tab. The library has its own Fluent relay client, so Endpoint + ApiKey is enough.
-Window:GlobalChat({
-	Name = "Chat",
-	Title = "Global Chat",
-	Endpoint = GLOBAL_CHAT_ENDPOINT,
-	ApiKey = GLOBAL_CHAT_API_KEY,
-	MaxMessages = 50,
-	HistoryLimit = 50,
-	PollInterval = 2,
-	Placeholder = "Message everyone using this script...",
-	-- Display-only badges; the relay's senderTag is trusted when present.
-	RoleTags = {
-		["11464210153"] = { Label = "ADMIN", Color = "#EF4444" },
-		["10611068537"] = { Label = "SUPPORT", Color = "#3B82F6" },
-		["8274772008"] = { Label = "SUPPORT", Color = "#3B82F6" },
-	},
-})
 
 --------------------------------------------------------------------------------
 -- Cloud tab: browse / like / apply public presets, publish and delete your own
